@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+npm-debug.log*
+Thumbs.db
+
+# 本地 QA 截图等临时产物
+.audit/
+
+# IDE 配置
+.idea/
+.vscode/
