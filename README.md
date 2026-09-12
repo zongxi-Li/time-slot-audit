@@ -1,110 +1,136 @@
-# TimeSlot · 智会会议室预约与时间冲突检查系统
+# TimeSlot Team-Ready Baseline v0.2
 
-课程实训项目。目标是做一套**会议室预约 + 时间冲突检测 + 基于分类的差异化审批**的完整系统：
-当前已完成 **Vue 3 前端 Demo** 与 **MySQL 数据库设计冻结（v1.0）**，Spring Boot 后端为下一阶段。
+会议室预约与时间冲突检查系统的前后端全栈基线。当前目标是形成可由五名成员并行扩展的模块化单体，而不是一次实现所有管理、通知和统计功能。
 
-> 数据库基线：**Database Schema Freeze: READY**（2026-09-09）——
-> 详见 [`docs/database/meeting-room-database-design.md`](docs/database/meeting-room-database-design.md)。
+## 当前进度
 
-## 项目进度
+已完成基线工程收敛：
 
-| 阶段 | 状态 |
-| --- | --- |
-| 前端原型（Mock 数据，可交互演示全部业务流程） | ✅ 完成 |
-| 数据库设计冻结（7 张表 + DDL + 种子数据，本机实测验证） | ✅ 完成 |
-| Spring Boot + MyBatis 后端（Controller/Service/Mapper/Entity） | ⬜ 未开始 |
-| 登录认证（当前前端为角色模拟，数据库已预留 role 字段） | ⬜ 未开始 |
+- `frontend/`：Vue 3 + TypeScript + Vite，保留原有日历、周视图、我的预约和管理页面；
+- `backend/`：Java 21 + Spring Boot 3.3.x + MyBatis + MySQL + BCrypt + JWT；
+- `sql/`：MySQL Schema v1.1 完整快照、BCrypt 种子和独立 migration；
+- `docs/development/`：核心业务契约、域边界、API Contract、数据库演进、团队规范和审计报告；
+- 真实预约链路包含会议室行锁、半开区间冲突判断、`requestId` 幂等和真实 409 业务错误；
+- 前端默认使用真实 API，Mock 仅通过 `VITE_USE_MOCK=true` 开启。
 
-## 快速开始
+尚未完成或依赖本地环境的部分会在最终报告中明确列出。管理 CRUD、完整审批管理、参会人、通知和统计仍属于后续迭代。
 
-### 前端
+## 目录
 
-```bash
-npm install
-npm run dev        # 开发：http://localhost:5173
-npm run build      # 类型检查 + 生产构建
-npm run type-check # 仅 TypeScript 检查
-```
-
-所有业务数据为前端 Mock（`src/mock/` + Pinia 内存 Store），不接后端，刷新后数据还原。
-
-### 数据库（MySQL 8.x，本地开发）
-
-```bash
-mysql -uroot -p < sql/schema.sql   # 自动建库 meeting_room + 7 张表
-mysql -uroot -p < sql/data.sql     # 导入联调种子数据
-```
-
-- 连接参数：`127.0.0.1:3306`，库名 `meeting_room`；
-- 种子数据内置 3 个账号（`admin`/`zhangsan`/`lisi`，演示密码 `123456`）、4 个分类、6 间会议室、覆盖全部 5 种状态的预约；
-- 预约时间按导入日相对生成（`CURDATE()` 偏移），任何时候导入都处于未来区间，可直接联调审批/取消流程；
-- 建议为项目建独立账号而非直接用 root：
-
-```sql
-CREATE USER 'timeslot'@'localhost' IDENTIFIED BY '<你的密码>';
-GRANT ALL PRIVILEGES ON meeting_room.* TO 'timeslot'@'localhost';
-```
-
-- 可用 Navicat 等工具图形化管理；注意 `schema.sql` 会删表重建、`data.sql` 会清空重灌，两者都是重置基线用。
-
-## 数据库设计要点（已冻结）
-
-- **7 张表**：`sys_user` · `room_category` · `meeting_room` · `room_facility` · `reservation` · `approval_record` · `operation_log`；
-- **审批开关在分类上**：`room_category.approval_required` 决定该类会议室"提交即 `CONFIRMED`"还是"提交进 `PENDING` 等管理员审批"，普通会议室不产生审批记录；
-- **状态机**：`PENDING / CONFIRMED / REJECTED / CANCELLED / COMPLETED`，`PENDING` 与 `CONFIRMED` 占用时间段；
-- **时间冲突规则**（半开区间求交，首尾相接不算冲突）：
-
-```sql
-SELECT COUNT(*) FROM reservation
-WHERE room_id = ? AND status IN ('PENDING','CONFIRMED')
-  AND start_time < ? /*新end*/ AND end_time > ? /*新start*/;
-```
-
-- **并发预约**的行锁方案（`@Transactional` + 会议室行 `FOR UPDATE` + 条件 UPDATE）已在设计文档冻结，待后端实现。
-
-完整字段定义、索引分析、ER 图、并发方案见 **[数据库设计冻结文档](docs/database/meeting-room-database-design.md)**。
-
-## 前端功能
-
-- **预约看板**：日视图（会议室 × 时间轴）/ 周视图（课程表样式）切换；会议室筛选；当前时间红线；点击空白格直接新建预约；
-- **新建预约**：表单校验；前端同样实现了**时间冲突检测**（`newStart < existingEnd && newEnd > existingStart`，见 `src/utils/conflict.ts`），冲突时展示占用详情并推荐同时段空闲会议室；
-- **预约详情 / 我的预约**：查看完整信息，可取消本人预约；
-- **管理员视角**（角色模拟，右上角切换）：
-  - 管理控制台：预约概览、占用率、待审核快捷处理；
-  - 预约管理：全量预约筛选、通过 / 驳回、强制取消；
-  - 会议室管理：新增 / 编辑 / 停用启用；
-  - 系统监控：并发指标、**模拟 3 用户并发抢订同一时段**（真实触发冲突检测，1 成功其余 409）、审计日志。
-
-## 目录结构
-
-```
-├─ sql/            # schema.sql 建表基线 / data.sql 种子数据（数据库唯一出处）
-├─ docs/
-│  ├─ database/    # 数据库设计冻结文档 v1.0
-│  └─ figure/      # 预约流程图等
-├─ src/
-│  ├─ components/  # 日视图/周视图网格、预约卡片、新建/详情抽屉
-│  ├─ views/       # 看板 / 我的预约 / 会议室 + admin/ 四个管理页
-│  ├─ stores/      # reservation(冲突检测+审核) / meetingRoom / auth / monitor
-│  ├─ mock/        # 前端演示数据
-│  ├─ utils/       # datetime / conflict / grid
-│  ├─ router/      # /admin/* 含管理员守卫
-│  └─ layouts/     # MainLayout（角色菜单/切换）
+```text
+time-slot-audit/
+├─ frontend/       # Vue 3 前端
+├─ backend/        # Spring Boot 模块化单体
+├─ sql/            # schema.sql、data.sql、migrations/
+├─ scripts/        # 可重复并发验证脚本
+├─ docs/           # 需求、设计和开发契约
 └─ README.md
 ```
 
-## 接入 Spring Boot + MySQL 时的建议替换顺序
+后端 Domain 包边界：`identity`、`resource`、`reservation`、`meeting`、`administration`。公共层仅放统一响应、异常、安全上下文和配置。
 
-1. `src/mock/*` → 后端接口（房间列表、预约列表）；
-2. `stores/reservation.ts` 的 `findConflicts / findAvailableRooms / addReservation / cancelReservation`
-   → 改为 API 调用（冲突检测以**后端事务 + 行锁**为准，前端保留同样的提示交互）；
-3. `stores/reservation.ts` 的 `currentUser` → 登录态 / JWT；`stores/auth.ts` 角色模拟
-   → 后端权限（数据库 `sys_user.role` 已预留，`meta.requiresAdmin` 守卫逻辑可原样保留）；
-4. `stores/monitor.ts` 的模拟监控 → 真实监控接口或 WebSocket；审批 / 强制取消 / 会议室停用
-   → 对应管理端接口（并发方案见设计文档第 11 节）；
-5. 组件层无需大改，交互与展示可全部复用。
+## 1. 初始化 MySQL
 
-## 文档索引
+需要 MySQL 8.x，并准备一个具备 `meeting_room` 数据库权限的开发账号。不要把密码提交到仓库。
 
-- [数据库设计冻结文档 v1.0](docs/database/meeting-room-database-design.md) —— 表清单、ER、字段定义、状态机、冲突规则、索引、并发方案、完整 DDL
-- [预约流程图](docs/figure/会议室预约流程图.drawio.png)
+```bash
+mysql -u<user> -p < sql/schema.sql
+mysql -u<user> -p < sql/data.sql
+```
+
+如果已有 v1.0 数据库，按顺序执行：
+
+```bash
+mysql -u<user> -p meeting_room < sql/migrations/V1_1__team_ready_baseline.sql
+```
+
+种子账号仍使用测试密码 `123456`，数据库中保存的是 BCrypt 摘要：
+
+```text
+admin / 123456       ADMIN
+zhangsan / 123456    USER
+lisi / 123456        USER
+```
+
+## 2. 启动后端
+
+项目编译基线为 Java 21。通过环境变量提供数据库配置：
+
+PowerShell：
+
+```powershell
+$env:DB_URL = 'jdbc:mysql://127.0.0.1:3306/meeting_room?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
+$env:DB_USERNAME = '<your-db-user>'
+$env:DB_PASSWORD = '<your-db-password>'
+$env:JWT_SECRET = 'change-this-to-a-long-local-secret'
+cd backend
+mvn spring-boot:run
+```
+
+后端默认监听 `http://localhost:8080`。
+
+## 3. 启动前端
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Vite 开发服务器默认监听 `http://localhost:5173`，并将 `/api` 代理到 `http://localhost:8080`。首次打开真实模式会进入登录页。
+
+默认模式：
+
+```text
+VITE_USE_MOCK=false
+```
+
+需要离线演示旧版 Mock 时，在 `frontend/.env.local` 中设置：
+
+```text
+VITE_USE_MOCK=true
+```
+
+组件不直接感知 Mock/HTTP，数据由 store 和 `frontend/src/shared/api/` adapter 隔离。
+
+## 4. 验证命令
+
+```powershell
+cd frontend
+npm run type-check
+npm run build
+
+cd ..\backend
+mvn test
+```
+
+已提供 `scripts/concurrency-test.py`，需要后端运行并传入 JWT：
+
+```powershell
+python scripts/concurrency-test.py --token <JWT> --room-id 1
+```
+
+脚本默认发送 100 个不同 `requestId` 的同房间同时间请求，统计 201/409，并再次查询日历验证有效预约没有重叠。
+
+## 5. 已实现 API
+
+```text
+POST /api/auth/login
+GET  /api/users/me
+GET  /api/rooms
+GET  /api/reservations/calendar?start=...&end=...&roomId=...
+POST /api/reservations
+GET  /api/reservations/my
+POST /api/reservations/{id}/cancel
+```
+
+预约状态只持久化 `PENDING`、`CONFIRMED`、`REJECTED`、`CANCELLED`。`PENDING` 和 `CONFIRMED` 参与冲突；展示层的 `UPCOMING`、`IN_USE`、`COMPLETED` 由时间动态推导。
+
+## 6. 开发入口
+
+- 先阅读 [Phase 0 审计报告](docs/development/team-ready-baseline-v0.2-audit.md)；
+- 业务语义以 [核心业务契约](docs/development/core-business-contract.md) 为准；
+- 跨域修改遵循 [Domain Boundaries](docs/development/domain-boundaries.md)；
+- API 状态和错误码以 [API Contract](docs/development/api-contract-v0.2.md) 为准；
+- 数据库变更遵循 [Database Evolution](docs/development/database-evolution.md)；
+- PR 和分支规则见 [Team Development Guide](docs/development/team-development-guide.md)。
