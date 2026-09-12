@@ -187,7 +187,7 @@ Spring Boot 已在临时端口 `18080` 成功启动并连接 MySQL。实测结�
 | G2 Reservation Status 唯一 | PASS | 四个持久化状态 |
 | G3 MeetingRoom Status 唯一 | PASS | 三个 API 枚举状态 |
 | G4 Schema v1.1 | PASS | 快照和 migration 已提交 |
-| G5 request_id 幂等 | PASS（代码） | 唯一约束、重复键回查已实现，未完成实库验收 |
+| G5 request_id 幂等 | PASS | 唯一约束、重复键回查及真实 MySQL 重试均已验证 |
 | G6 room_open_rule | PASS | 表、查询和 Service 校验已实现 |
 | G7 前后端分离 | PASS | `frontend/` 与 `backend/` 已建立 |
 | G8 Spring Boot 启动 | PASS | 临时端口 18080 启动成功 |
@@ -203,7 +203,7 @@ Spring Boot 已在临时端口 `18080` 成功启动并连接 MySQL。实测结�
 | G18 Vue 消费真实 API | PASS | 浏览器登录后看板加载真实 rooms/calendar |
 | G19 frontend type-check | PASS | npm script 通过 |
 | G20 frontend build | PASS | npm script 通过 |
-| G21 backend test | PASS | 14 tests 通过 |
+| G21 backend test | PASS | 15 tests 通过 |
 | G22 五个 Domain Package | PASS | 五域目录已建立 |
 | G23 Domain Boundary | PASS | 文档已完成 |
 | G24 API Contract | PASS | IMPLEMENTED/PLANNED 已区分 |
