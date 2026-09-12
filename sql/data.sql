@@ -5,7 +5,7 @@
 -- 说明：
 --   1. 预约时间使用相对当前日期(CURDATE)的动态时间，保证任何时候导入都处于
 --      “未来”区间，适合前后端联调（未来可查、可审批、可取消）。
---   2. 密码为演示明文 123456，接入认证后需替换为 BCrypt 摘要。
+--   2. 测试密码仍为 123456，但数据库只保存 BCrypt 摘要。
 --   3. 预约单号为演示值；实际由服务端按 “RSV+日期+序号” 规则生成。
 -- =============================================================================
 
@@ -16,6 +16,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE operation_log;
 TRUNCATE TABLE approval_record;
 TRUNCATE TABLE reservation;
+TRUNCATE TABLE room_open_rule;
 TRUNCATE TABLE room_facility;
 TRUNCATE TABLE meeting_room;
 TRUNCATE TABLE room_category;
@@ -26,9 +27,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- 1. 用户：1 管理员 + 2 普通用户
 -- =============================================================================
 INSERT INTO sys_user (id, username, password, real_name, email, phone, role, status) VALUES
-(1, 'admin',    '123456', '系统管理员', 'admin@timeslot.demo',    '13800000001', 'ADMIN', 1),
-(2, 'zhangsan', '123456', '张三',       'zhangsan@timeslot.demo', '13800000002', 'USER',  1),
-(3, 'lisi',     '123456', '李四',       'lisi@timeslot.demo',     '13800000003', 'USER',  1);
+(1, 'admin',    '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '系统管理员', 'admin@timeslot.demo',    '13800000001', 'ADMIN', 1),
+(2, 'zhangsan', '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '张三',       'zhangsan@timeslot.demo', '13800000002', 'USER',  1),
+(3, 'lisi',     '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '李四',       'lisi@timeslot.demo',     '13800000003', 'USER',  1);
 
 -- =============================================================================
 -- 2. 会议室分类：审批开关配置在分类上
@@ -71,38 +72,50 @@ INSERT INTO room_facility (id, room_id, facility_name, quantity, description) VA
 (14, 6, '舞台灯光',     1, '路演用，需管理员协助开启');
 
 -- =============================================================================
--- 5. 预约：覆盖全部 5 个状态，同一会议室的 PENDING/CONFIRMED 预约互不重叠
+-- 5. 每间会议室每周开放时间：周一至周日 08:00-19:00。
+--    课程基线不包含节假日和特殊日期规则。
+-- =============================================================================
+INSERT INTO room_open_rule (room_id, weekday, open_time, close_time, enabled)
+SELECT r.id, d.weekday, '08:00:00', '19:00:00', 1
+FROM meeting_room r
+CROSS JOIN (
+    SELECT 1 AS weekday UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL
+    SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7
+) d;
+
+-- =============================================================================
+-- 6. 预约：覆盖四个持久化状态；已结束通过 CONFIRMED + 时间动态推导
 --    room_id=3 B201 : CONFIRMED（普通会议室，免审批直接确认）
 --    room_id=5 B502 : PENDING   （大型会议室，待管理员审批）
 --    room_id=6 S101 : CONFIRMED + REJECTED（特殊会议室，含审批历史）
 --    room_id=1 A301 : CANCELLED（管理员强制取消，带取消原因）
---    room_id=4 B202 : COMPLETED（过去的会议，自然完结）
+--    room_id=4 B202 : CONFIRMED（过去的会议，API 动态展示为 COMPLETED）
 -- =============================================================================
-INSERT INTO reservation (id, reservation_no, room_id, user_id, title, start_time, end_time, participant_count, status, remark, cancel_reason) VALUES
-(1, 'RSV20260901001', 3, 2, '项目周会',
+INSERT INTO reservation (id, request_id, reservation_no, room_id, user_id, title, start_time, end_time, participant_count, status, remark, cancel_reason) VALUES
+(1, 'seed-rsv-1', 'RSV20260901001', 3, 2, '项目周会',
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '10:00:00'),
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '11:30:00'),
    12, 'CONFIRMED', '需要投影仪', NULL),
-(2, 'RSV20260901002', 5, 3, '全院月度总结会',
+(2, 'seed-rsv-2', 'RSV20260901002', 5, 3, '全院月度总结会',
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 2 DAY), '14:00:00'),
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 2 DAY), '16:00:00'),
    45, 'PENDING', '需提前调试话筒', NULL),
-(3, 'RSV20260901003', 6, 2, '新产品内部路演',
+(3, 'seed-rsv-3', 'RSV20260901003', 6, 2, '新产品内部路演',
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 3 DAY), '09:00:00'),
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 3 DAY), '11:00:00'),
    30, 'CONFIRMED', '需要灯光和音响', NULL),
-(4, 'RSV20260901004', 6, 3, '社团招新宣讲',
+(4, 'seed-rsv-4', 'RSV20260901004', 6, 3, '社团招新宣讲',
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 3 DAY), '14:00:00'),
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 3 DAY), '16:00:00'),
    35, 'REJECTED', NULL, NULL),
-(5, 'RSV20260901005', 1, 3, '小组讨论',
+(5, 'seed-rsv-5', 'RSV20260901005', 1, 3, '小组讨论',
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '15:00:00'),
    TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '16:00:00'),
    5, 'CANCELLED', NULL, '该时段安排设备检修，管理员强制取消'),
-(6, 'RSV20260901006', 4, 2, '迭代评审会',
+(6, 'seed-rsv-6', 'RSV20260901006', 4, 2, '迭代评审会',
    TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '10:00:00'),
    TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '11:30:00'),
-   15, 'COMPLETED', NULL, NULL);
+   15, 'CONFIRMED', NULL, NULL);
 
 -- =============================================================================
 -- 6. 审批记录：仅特殊会议室（受控分类）的预约产生

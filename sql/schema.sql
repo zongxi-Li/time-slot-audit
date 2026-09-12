@@ -2,7 +2,7 @@
 -- 会议室预约与时间冲突检查系统 —— 数据库建表脚本
 -- -----------------------------------------------------------------------------
 -- 目标数据库 : MySQL 8.x
--- 基线版本   : v1.0 (Database Schema Freeze, 2026-09-09)
+-- 基线版本   : v1.1 (Team-Ready Baseline, 2026-09-11)
 -- 设计约定   : InnoDB / utf8mb4 / snake_case / BIGINT 主键 / DATETIME 时间
 --              不使用 ENUM / 存储过程 / 触发器；
 --              状态机取值(PENDING/CONFIRMED/...)由应用层维护，DB 只存字符串
@@ -21,6 +21,7 @@ USE meeting_room;
 DROP TABLE IF EXISTS operation_log;
 DROP TABLE IF EXISTS approval_record;
 DROP TABLE IF EXISTS reservation;
+DROP TABLE IF EXISTS room_open_rule;
 DROP TABLE IF EXISTS room_facility;
 DROP TABLE IF EXISTS meeting_room;
 DROP TABLE IF EXISTS room_category;
@@ -33,7 +34,7 @@ DROP TABLE IF EXISTS sys_user;
 CREATE TABLE sys_user (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     username    VARCHAR(50)  NOT NULL                COMMENT '登录用户名（唯一）',
-    password    VARCHAR(100) NOT NULL                COMMENT '登录密码（当前为演示明文，接入认证后改为BCrypt摘要）',
+    password    VARCHAR(100) NOT NULL                COMMENT 'BCrypt 密码摘要，不保存明文密码',
     real_name   VARCHAR(50)  NOT NULL                COMMENT '真实姓名',
     email       VARCHAR(100) NULL                    COMMENT '邮箱',
     phone       VARCHAR(20)  NULL                    COMMENT '手机号',
@@ -104,8 +105,30 @@ CREATE TABLE room_facility (
 ) ENGINE = InnoDB COMMENT = '会议室设施表';
 
 -- =============================================================================
--- 5. reservation 预约表（核心业务表）
---    状态机：PENDING / CONFIRMED / REJECTED / CANCELLED / COMPLETED，
+-- 5. room_open_rule 会议室开放时间表
+--    weekday 使用 ISO-8601：1=周一 ... 7=周日。
+--    节假日和特殊日期不在 v1.1 范围内，未来通过独立 migration 扩展。
+-- =============================================================================
+CREATE TABLE room_open_rule (
+    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    room_id     BIGINT       NOT NULL                COMMENT '会议室ID',
+    weekday     TINYINT      NOT NULL                COMMENT '星期：1=周一 ... 7=周日',
+    open_time   TIME         NOT NULL                COMMENT '开放时间（含）',
+    close_time  TIME         NOT NULL                COMMENT '关闭时间（不含）',
+    enabled     TINYINT      NOT NULL DEFAULT 1      COMMENT '是否启用：1-是 0-否',
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_room_open_rule (room_id, weekday),
+    KEY idx_open_rule_room_weekday (room_id, weekday),
+    CONSTRAINT chk_open_rule_weekday CHECK (weekday BETWEEN 1 AND 7),
+    CONSTRAINT chk_open_rule_period CHECK (close_time > open_time),
+    CONSTRAINT fk_open_rule_room FOREIGN KEY (room_id) REFERENCES meeting_room (id)
+) ENGINE = InnoDB COMMENT = '会议室每周开放时间规则';
+
+-- =============================================================================
+-- 6. reservation 预约表（核心业务表）
+--    状态机：PENDING / CONFIRMED / REJECTED / CANCELLED。
 --    初始状态由分类的 approval_required 决定，故不设 DB 默认值。
 --    不设 version / deleted：并发由事务+行锁控制（见设计文档第11节），
 --    预约全程用状态管理生命周期，不物理删除。
@@ -113,6 +136,7 @@ CREATE TABLE room_facility (
 -- =============================================================================
 CREATE TABLE reservation (
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    request_id        VARCHAR(100) NOT NULL                COMMENT '客户端逻辑请求ID（幂等键）',
     reservation_no    VARCHAR(32)  NOT NULL                COMMENT '预约业务单号（服务端按 RSV+日期+序号 生成，用于展示与追溯）',
     room_id           BIGINT       NOT NULL                COMMENT '会议室ID',
     user_id           BIGINT       NOT NULL                COMMENT '预约人用户ID',
@@ -120,12 +144,13 @@ CREATE TABLE reservation (
     start_time        DATETIME     NOT NULL                COMMENT '预约开始时间',
     end_time          DATETIME     NOT NULL                COMMENT '预约结束时间（必须晚于开始时间，见chk_reservation_period）',
     participant_count INT          NOT NULL DEFAULT 1      COMMENT '参与人数（校验对象是会议室实际容量 capacity）',
-    status            VARCHAR(20)  NOT NULL                COMMENT '状态：PENDING-待审批 / CONFIRMED-已确认 / REJECTED-已驳回 / CANCELLED-已取消 / COMPLETED-已完成；PENDING与CONFIRMED占用时间段参与冲突检测',
+    status            VARCHAR(20)  NOT NULL                COMMENT '状态：PENDING / CONFIRMED / REJECTED / CANCELLED；PENDING与CONFIRMED占用时间段参与冲突检测',
     remark            VARCHAR(500) NULL                    COMMENT '预约备注（申请人填写）',
     cancel_reason     VARCHAR(500) NULL                    COMMENT '取消原因（用户取消或管理员强制取消时填写）',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
+    UNIQUE KEY uk_reservation_request_id (request_id),
     UNIQUE KEY uk_reservation_no (reservation_no),
     KEY idx_reservation_room_status_start (room_id, status, start_time),
     KEY idx_reservation_user_start (user_id, start_time),
