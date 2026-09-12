@@ -5,6 +5,9 @@ dist-ssr
 .DS_Store
 npm-debug.log*
 Thumbs.db
+target
+__pycache__/
+.playwright-cli/
 
 # 本地 QA 截图等临时产物
 .audit/
