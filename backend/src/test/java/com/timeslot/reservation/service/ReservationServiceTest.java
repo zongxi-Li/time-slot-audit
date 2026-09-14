@@ -51,8 +51,8 @@ class ReservationServiceTest {
     private ReservationService service;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-11T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
     private final MeetingRoom room = new MeetingRoom(1L, 1L, "A301", "教学楼A栋3层", 8,
-            MeetingRoomStatus.AVAILABLE, "小型会议室", List.of("投影仪"));
-    private final RoomCategory normalCategory = new RoomCategory(1L, "小型会议室", false, 120, 7);
+            MeetingRoomStatus.AVAILABLE, "小型会议室", List.of("投影仪"), null);
+    private final RoomCategory normalCategory = new RoomCategory(1L, "小型会议室", 4, 10, false, 120, 7, null);
     private final RoomOpenRule openRule = new RoomOpenRule(LocalTime.of(8, 0), LocalTime.of(19, 0), true);
 
     @BeforeEach
@@ -84,7 +84,7 @@ class ReservationServiceTest {
 
     @Test
     void approvalRoomCreatesPendingReservation() {
-        when(resourceQueryService.getCategory(1L)).thenReturn(new RoomCategory(1L, "大型会议室", true, 240, 14));
+        when(resourceQueryService.getCategory(1L)).thenReturn(new RoomCategory(1L, "大型会议室", 10, 50, true, 240, 14, null));
 
         assertEquals("PENDING", service.createReservation(request()).status());
     }
@@ -102,7 +102,7 @@ class ReservationServiceTest {
     @Test
     void maintenanceRoomIsRejected() {
         when(resourceQueryService.lockRoom(1L)).thenReturn(new MeetingRoom(1L, 1L, "A301", "", 8,
-                MeetingRoomStatus.MAINTENANCE, "小型会议室", List.of()));
+                MeetingRoomStatus.MAINTENANCE, "小型会议室", List.of(), null));
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(request()));
 

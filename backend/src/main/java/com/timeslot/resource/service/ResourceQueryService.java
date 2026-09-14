@@ -23,7 +23,7 @@ public class ResourceQueryService {
     }
 
     public List<MeetingRoom> listRooms() {
-        return mapper.listRooms().stream().map(this::toRoom).toList();
+        return mapper.listRooms().stream().map(ResourceQueryService::toRoom).toList();
     }
 
     /** Must be called inside the reservation transaction; the mapper performs SELECT ... FOR UPDATE. */
@@ -40,8 +40,7 @@ public class ResourceQueryService {
         if (row == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "会议室分类不存在");
         }
-        return new RoomCategory(row.getId(), row.getCategoryName(), row.getApprovalRequired() == 1,
-                row.getMaxDurationMinutes(), row.getAdvanceDays());
+        return toCategory(row);
     }
 
     public RoomOpenRule getOpenRule(Long roomId, int weekday) {
@@ -49,11 +48,16 @@ public class ResourceQueryService {
         return row == null ? null : new RoomOpenRule(row.getOpenTime(), row.getCloseTime(), row.getEnabled() == 1);
     }
 
-    private MeetingRoom toRoom(ResourceMapper.RoomRow row) {
+    static MeetingRoom toRoom(ResourceMapper.RoomRow row) {
         List<String> facilities = row.getFacilitiesCsv() == null || row.getFacilitiesCsv().isBlank()
                 ? Collections.emptyList()
                 : Arrays.stream(row.getFacilitiesCsv().split(",")).toList();
         return new MeetingRoom(row.getId(), row.getCategoryId(), row.getRoomName(), row.getLocation(), row.getCapacity(),
-                MeetingRoomStatus.fromDb(row.getStatus()), row.getCategoryName(), facilities);
+                MeetingRoomStatus.fromDb(row.getStatus()), row.getCategoryName(), facilities, row.getDescription());
+    }
+
+    static RoomCategory toCategory(ResourceMapper.CategoryRow row) {
+        return new RoomCategory(row.getId(), row.getCategoryName(), row.getMinCapacity(), row.getMaxCapacity(),
+                row.getApprovalRequired() == 1, row.getMaxDurationMinutes(), row.getAdvanceDays(), row.getDescription());
     }
 }
