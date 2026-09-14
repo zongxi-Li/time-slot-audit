@@ -1,6 +1,7 @@
 package com.timeslot.resource.mapper;
 
 import com.timeslot.resource.mapper.ResourceMapper.RoomRow;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -81,6 +82,46 @@ public interface ResourceMapper {
             WHERE room_id = #{roomId} AND weekday = #{weekday}
             """)
     OpenRuleRow findOpenRule(@Param("roomId") Long roomId, @Param("weekday") Integer weekday);
+
+    @Select("""
+            SELECT id, room_id, weekday, open_time, close_time, enabled
+            FROM room_open_rule
+            WHERE room_id = #{roomId}
+            ORDER BY weekday
+            """)
+    List<OpenRuleRow> listOpenRulesByRoom(@Param("roomId") Long roomId);
+
+    @Delete("""
+            DELETE FROM room_open_rule
+            WHERE room_id = #{roomId}
+            """)
+    int deleteOpenRulesByRoom(@Param("roomId") Long roomId);
+
+    @Insert("""
+            <script>
+            INSERT INTO room_open_rule (room_id, weekday, open_time, close_time, enabled) VALUES
+            <foreach collection="rules" item="rule" separator=",">
+                (#{roomId}, #{rule.weekday}, #{rule.openTime}, #{rule.closeTime}, #{rule.enabled})
+            </foreach>
+            </script>
+            """)
+    int insertOpenRules(@Param("roomId") Long roomId, @Param("rules") List<OpenRuleWrite> rules);
+
+    @Delete("""
+            DELETE FROM room_facility
+            WHERE room_id = #{roomId}
+            """)
+    int deleteFacilitiesByRoom(@Param("roomId") Long roomId);
+
+    @Insert("""
+            <script>
+            INSERT INTO room_facility (room_id, facility_name, quantity, description) VALUES
+            <foreach collection="facilities" item="facility" separator=",">
+                (#{roomId}, #{facility.facilityName}, #{facility.quantity}, #{facility.description})
+            </foreach>
+            </script>
+            """)
+    int insertFacilities(@Param("roomId") Long roomId, @Param("facilities") List<FacilityWrite> facilities);
 
     @Select("""
             SELECT id, category_name, min_capacity, max_capacity, approval_required,
@@ -193,16 +234,56 @@ public interface ResourceMapper {
     }
 
     class OpenRuleRow {
+        private Long id;
+        private Long roomId;
+        private Integer weekday;
         private java.time.LocalTime openTime;
         private java.time.LocalTime closeTime;
         private Integer enabled;
 
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public Long getRoomId() { return roomId; }
+        public void setRoomId(Long roomId) { this.roomId = roomId; }
+        public Integer getWeekday() { return weekday; }
+        public void setWeekday(Integer weekday) { this.weekday = weekday; }
         public java.time.LocalTime getOpenTime() { return openTime; }
         public void setOpenTime(java.time.LocalTime openTime) { this.openTime = openTime; }
         public java.time.LocalTime getCloseTime() { return closeTime; }
         public void setCloseTime(java.time.LocalTime closeTime) { this.closeTime = closeTime; }
         public Integer getEnabled() { return enabled; }
         public void setEnabled(Integer enabled) { this.enabled = enabled; }
+    }
+
+    /** Mutable write model for batch insert of room_open_rule; enabled is the DB integer. */
+    class OpenRuleWrite {
+        private Integer weekday;
+        private java.time.LocalTime openTime;
+        private java.time.LocalTime closeTime;
+        private Integer enabled;
+
+        public Integer getWeekday() { return weekday; }
+        public void setWeekday(Integer weekday) { this.weekday = weekday; }
+        public java.time.LocalTime getOpenTime() { return openTime; }
+        public void setOpenTime(java.time.LocalTime openTime) { this.openTime = openTime; }
+        public java.time.LocalTime getCloseTime() { return closeTime; }
+        public void setCloseTime(java.time.LocalTime closeTime) { this.closeTime = closeTime; }
+        public Integer getEnabled() { return enabled; }
+        public void setEnabled(Integer enabled) { this.enabled = enabled; }
+    }
+
+    /** Mutable write model for batch insert of room_facility. */
+    class FacilityWrite {
+        private String facilityName;
+        private Integer quantity;
+        private String description;
+
+        public String getFacilityName() { return facilityName; }
+        public void setFacilityName(String facilityName) { this.facilityName = facilityName; }
+        public Integer getQuantity() { return quantity; }
+        public void setQuantity(Integer quantity) { this.quantity = quantity; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
     }
 
     class CategoryRow {
