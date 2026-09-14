@@ -222,3 +222,61 @@ function onColumnClick(e: MouseEvent, roomId: string) {
   background: #f04438;
 }
 </style>
+
+<style scoped>
+.grid-wrap {
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.grid-corner,
+.grid-room-head {
+  height: 58px;
+  background: rgba(255, 255, 255, 0.86);
+  border-bottom-color: var(--border-light);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.grid-corner {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.grid-room-head {
+  gap: 2px;
+}
+
+.room-name {
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.room-cap {
+  font-size: 11px;
+}
+
+.grid-time-col {
+  border-right-color: var(--border-light);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.grid-room-col {
+  border-left-color: var(--border-light);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--hour) - 1px),
+    rgba(29, 29, 31, 0.08) calc(var(--hour) - 1px),
+    rgba(29, 29, 31, 0.08) var(--hour)
+  );
+}
+
+.time-label {
+  padding-right: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+</style>

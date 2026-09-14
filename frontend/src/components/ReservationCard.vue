@@ -145,3 +145,63 @@ const showOwner = computed(() => props.item.height >= 58)
   text-overflow: ellipsis;
 }
 </style>
+
+<style scoped>
+.res-card {
+  padding: 6px 9px;
+  border-left-width: 0;
+  border-radius: 10px;
+  box-shadow: 0 3px 8px rgba(29, 29, 31, 0.055);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.res-card:hover {
+  filter: none;
+  box-shadow: 0 9px 18px rgba(29, 29, 31, 0.12);
+  transform: translateY(-1px);
+}
+
+.res-card.status-confirmed {
+  background: #e9f4ff;
+  border-left-color: transparent;
+}
+
+.res-card.status-confirmed .res-title-text {
+  color: #0062c4;
+}
+
+.res-card.status-confirmed .res-meta {
+  color: #5c8db9;
+}
+
+.res-card.status-pending {
+  background: #fff4df;
+  border-left-color: transparent;
+}
+
+.res-card.status-pending .res-title-text {
+  color: #a65f00;
+}
+
+.res-card.status-pending .res-meta {
+  color: #b58a4b;
+}
+
+.res-card.mine {
+  box-shadow: inset 0 0 0 2px rgba(0, 113, 227, 0.42), 0 3px 8px rgba(29, 29, 31, 0.055);
+}
+
+.res-card.mine.status-pending {
+  box-shadow: inset 0 0 0 2px rgba(238, 154, 46, 0.48), 0 3px 8px rgba(29, 29, 31, 0.055);
+}
+
+.res-title-text {
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+.mine-tag,
+.room-badge {
+  border-radius: 999px;
+}
+</style>

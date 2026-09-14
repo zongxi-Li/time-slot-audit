@@ -88,7 +88,7 @@ function openDetail(id: string) {
 <template>
   <div class="board-page page">
     <!-- 顶部工具栏 -->
-    <div class="panel toolbar">
+    <header class="toolbar">
       <div class="toolbar-row">
         <h2 class="toolbar-title">会议室预约</h2>
         <div class="toolbar-actions">
@@ -144,10 +144,10 @@ function openDetail(id: string) {
           </button>
         </div>
       </div>
-    </div>
+    </header>
 
     <!-- 预约网格：日视图（会议室×时间）/ 周视图（星期×时间） -->
-    <div class="panel grid-panel">
+    <section class="grid-panel">
       <el-empty
         v-if="viewMode === 'day' && filteredRooms.length === 0"
         description="没有符合条件的会议室"
@@ -167,7 +167,7 @@ function openDetail(id: string) {
         @open="openDetail"
         @create="onCreateFromWeek"
       />
-    </div>
+    </section>
 
     <ReservationDialog v-model="dialogVisible" :initial="dialogInitial" />
     <ReservationDetail v-model="detailVisible" :reservation-id="detailId" />
@@ -298,5 +298,187 @@ function openDetail(id: string) {
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+</style>
+
+<style scoped>
+@media (max-width: 760px) {
+  .week-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .week-nav .mode-switch {
+    justify-self: start;
+  }
+
+  .week-nav :deep(.el-button-group) {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+  }
+
+  .week-nav :deep(.el-button-group .el-button) {
+    min-width: 0;
+    flex: 1;
+    padding: 0 7px;
+  }
+
+  .week-range {
+    grid-column: 1;
+  }
+}
+</style>
+
+<style scoped>
+.toolbar {
+  flex: 0 0 auto;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.toolbar-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.toolbar-actions {
+  gap: 12px;
+}
+
+.toolbar-actions :deep(.el-select) {
+  min-width: 150px;
+}
+
+.week-row {
+  align-items: flex-end;
+  margin-top: 20px !important;
+}
+
+.week-nav {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mode-switch :deep(.el-radio-button__inner) {
+  min-width: 68px;
+  padding: 9px 14px;
+}
+
+.week-nav :deep(.el-button) {
+  min-height: 34px;
+}
+
+.week-range {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.day-tabs {
+  gap: 7px;
+}
+
+.day-tab {
+  min-width: 57px;
+  padding: 8px 9px 9px;
+  border-color: transparent;
+  border-radius: 13px;
+  background: rgba(29, 29, 31, 0.045);
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.day-tab:hover {
+  border-color: transparent;
+  background: rgba(0, 113, 227, 0.08);
+  transform: translateY(-2px);
+}
+
+.day-tab.selected {
+  border-color: transparent;
+  background: var(--el-color-primary);
+  box-shadow: 0 8px 17px rgba(0, 113, 227, 0.2);
+}
+
+.day-tab.selected .day-tab-week,
+.day-tab.selected .day-tab-date {
+  color: #fff;
+}
+
+.day-tab.selected .today-dot {
+  background: #fff;
+}
+
+.grid-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.92);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.board-page {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 980px) {
+  .week-row {
+    align-items: flex-start;
+  }
+
+  .day-tabs {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+}
+
+@media (max-width: 760px) {
+  .toolbar {
+    padding: 14px 14px 12px;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-actions :deep(.el-select) {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .toolbar-actions :deep(.el-button) {
+    flex: 1;
+  }
+
+  .week-nav {
+    width: 100%;
+  }
+
+  .week-nav :deep(.el-button-group) {
+    flex: 1;
+  }
+
+  .week-nav :deep(.el-button-group .el-button) {
+    padding: 0 9px;
+  }
+
+  .week-range {
+    width: 100%;
+  }
 }
 </style>

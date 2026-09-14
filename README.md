@@ -134,3 +134,9 @@ POST /api/reservations/{id}/cancel
 - API 状态和错误码以 [API Contract](docs/development/api-contract-v0.2.md) 为准；
 - 数据库变更遵循 [Database Evolution](docs/development/database-evolution.md)；
 - PR 和分支规则见 [Team Development Guide](docs/development/team-development-guide.md)。
+
+## 7. 本地启动配置
+
+`start-dev.cmd` / `scripts/start-dev.ps1` 会自动读取仓库根目录的 `.env.local`。该文件已由 `.gitignore` 忽略，适合保存本机数据库账号、密码和本地端口，不会被提交到 Git。
+
+可按需配置以下字段：`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET`、`SERVER_PORT`、`VITE_USE_MOCK`、`VITE_API_PROXY_TARGET`。没有配置数据库密码时，启动脚本才会回退到交互式输入。

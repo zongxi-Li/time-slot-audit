@@ -254,3 +254,62 @@ function onColumnClick(e: MouseEvent, date: string) {
   background: #f04438;
 }
 </style>
+
+<style scoped>
+.week-corner,
+.week-day-head {
+  height: 58px;
+  background: rgba(255, 255, 255, 0.86);
+  border-bottom-color: var(--border-light);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.week-corner {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.week-day-head {
+  gap: 8px;
+}
+
+.wh-name {
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+
+.wh-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.wh-today {
+  padding: 2px 7px;
+  color: #fff;
+  background: var(--el-color-primary);
+  box-shadow: 0 4px 10px rgba(0, 113, 227, 0.18);
+  font-weight: 600;
+}
+
+.week-time-col {
+  border-right-color: var(--border-light);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.week-day-col {
+  border-left-color: var(--border-light);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--hour) - 1px),
+    rgba(29, 29, 31, 0.08) calc(var(--hour) - 1px),
+    rgba(29, 29, 31, 0.08) var(--hour)
+  );
+}
+
+.week-day-col.is-today-col {
+  background-color: rgba(0, 113, 227, 0.028);
+}
+</style>

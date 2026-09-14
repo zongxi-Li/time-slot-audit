@@ -44,6 +44,7 @@ const cards = computed<RoomCard[]>(() => {
 
 <template>
   <div class="page rooms-page">
+    <span class="page-eyebrow">Rooms / Live status</span>
     <h2 class="page-title">会议室</h2>
     <p class="page-subtitle">查看会议室容量、设备与当前使用状态（状态根据当前时间实时计算）</p>
 
@@ -172,5 +173,91 @@ const cards = computed<RoomCard[]>(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+</style>
+
+<style scoped>
+.rooms-page :deep(.el-row) {
+  row-gap: 16px;
+}
+
+.room-col {
+  margin-bottom: 0;
+}
+
+.room-card {
+  position: relative;
+  min-height: 212px;
+  padding: 22px;
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 30px rgba(29, 29, 31, 0.045);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.room-card::after {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(0, 113, 227, 0.08);
+  border-radius: 50%;
+  content: '';
+  pointer-events: none;
+}
+
+.room-card:hover {
+  border-color: rgba(0, 113, 227, 0.22);
+  box-shadow: 0 18px 42px rgba(29, 29, 31, 0.09);
+  transform: translateY(-4px);
+}
+
+.room-name {
+  font-size: 18px;
+  letter-spacing: -0.035em;
+}
+
+.room-status {
+  position: relative;
+  z-index: 1;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(29, 29, 31, 0.045);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.room-loc {
+  margin-top: 7px;
+  font-size: 13px;
+}
+
+.room-meta {
+  gap: 20px;
+  margin-top: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.room-equipment {
+  gap: 7px;
+  margin-top: 15px;
+}
+
+.eq-tag {
+  position: relative;
+  z-index: 1;
+  padding: 0 9px;
+  border-color: rgba(29, 29, 31, 0.08);
+  color: var(--text-secondary);
+  background: rgba(29, 29, 31, 0.045);
+}
+
+.room-next {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+  font-size: 12px;
 }
 </style>

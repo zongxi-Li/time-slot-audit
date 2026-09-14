@@ -48,7 +48,10 @@ const statusTagType: Record<DisplayStatus, 'primary' | 'info' | 'danger' | 'warn
   已驳回: 'danger',
 }
 
-onMounted(() => void store.refreshMine())
+onMounted(async () => {
+  await roomStore.refreshRooms()
+  await store.refreshMine()
+})
 
 const detailVisible = ref(false)
 const detailId = ref<string | null>(null)
@@ -82,6 +85,7 @@ async function handleCancel(row: { id: string; title: string }) {
 
 <template>
   <div class="page my-page">
+    <span class="page-eyebrow">My space / Reservations</span>
     <h2 class="page-title">我的预约</h2>
     <p class="page-subtitle">查看和管理你创建的所有会议预约</p>
 
@@ -140,5 +144,41 @@ async function handleCancel(row: { id: string; title: string }) {
 
 .filter-bar {
   margin-bottom: 14px;
+}
+</style>
+
+<style scoped>
+.table-panel {
+  padding: 18px 20px 12px;
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.filter-bar {
+  margin-bottom: 16px;
+}
+
+.filter-bar :deep(.el-radio-button__inner) {
+  min-width: 72px;
+  padding: 9px 13px;
+}
+
+.my-page :deep(.el-table td:first-child .cell) {
+  font-weight: 600;
+}
+
+.my-page :deep(.el-table .el-button) {
+  min-height: 28px;
+}
+
+@media (max-width: 760px) {
+  .table-panel {
+    padding: 14px 12px 8px;
+  }
+
+  .filter-bar {
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
 }
 </style>
