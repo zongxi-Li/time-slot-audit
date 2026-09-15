@@ -6,6 +6,10 @@ import { useReservationStore } from '@/stores/reservation'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { parseDateStr, toMinutes } from '@/utils/datetime'
+import { violationLabel, violationTagType, formatDateTime } from '@/utils/violation'
+import { myViolationsApi } from '@/shared/api'
+import { useMock } from '@/shared/api/config'
+import type { ViolationResponse } from '@/shared/api'
 import type { DisplayStatus } from '@/types'
 import ReservationDetail from '@/components/ReservationDetail.vue'
 
@@ -61,6 +65,24 @@ function openDetail(id: string) {
   detailVisible.value = true
 }
 
+/* —— 我的违规/信用记录 —— */
+const creditDrawerVisible = ref(false)
+const myViolations = ref<ViolationResponse[]>([])
+const violationsLoading = ref(false)
+
+async function openCreditRecords() {
+  creditDrawerVisible.value = true
+  if (useMock) return
+  violationsLoading.value = true
+  try {
+    myViolations.value = await myViolationsApi.list()
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '信用记录加载失败')
+  } finally {
+    violationsLoading.value = false
+  }
+}
+
 async function handleCancel(row: { id: string; title: string }) {
   try {
     await ElMessageBox.confirm(
@@ -96,6 +118,9 @@ async function handleCancel(row: { id: string; title: string }) {
             {{ opt }}
           </el-radio-button>
         </el-radio-group>
+        <el-button class="credit-entry" link type="primary" @click="openCreditRecords">
+          信用记录
+        </el-button>
       </div>
 
       <el-table :data="filteredList" style="width: 100%" empty-text="暂无预约记录">
@@ -134,6 +159,33 @@ async function handleCancel(row: { id: string; title: string }) {
     </div>
 
     <ReservationDetail v-model="detailVisible" :reservation-id="detailId" />
+
+    <el-drawer v-model="creditDrawerVisible" size="560px" title="我的违规与信用记录">
+      <el-table v-loading="violationsLoading" :data="myViolations" style="width: 100%">
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="violationTagType(row.violationType)" size="small" effect="light">
+              {{ violationLabel(row.violationType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="信用变化" width="90">
+          <template #default="{ row }">
+            <span v-if="row.creditChange" :class="row.creditChange > 0 ? 'delta-up' : 'delta-down'">
+              {{ row.creditChange > 0 ? `+${row.creditChange}` : row.creditChange }}
+            </span>
+            <span v-else class="credit-muted">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="reason" label="原因" min-width="180" />
+        <el-table-column label="时间" width="140">
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无违规/信用记录" :image-size="80" />
+        </template>
+      </el-table>
+    </el-drawer>
   </div>
 </template>
 
@@ -155,7 +207,30 @@ async function handleCancel(row: { id: string; title: string }) {
 }
 
 .filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.credit-entry {
+  flex: none;
+}
+
+.delta-up {
+  color: var(--el-color-success);
+  font-weight: 600;
+}
+
+.delta-down {
+  color: var(--el-color-danger);
+  font-weight: 600;
+}
+
+.credit-muted {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .filter-bar :deep(.el-radio-button__inner) {

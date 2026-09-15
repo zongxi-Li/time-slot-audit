@@ -16,6 +16,8 @@ mybatis:
 
 timeslot:
   jwt:
-    secret: ${JWT_SECRET:time-slot-team-ready-baseline-v0-2-secret-key-please-change}
+    # 必须通过环境变量 JWT_SECRET 显式提供（至少 32 字符）；
+    # 未提供时 JwtService 在启动阶段 fail-fast，不再存在公开默认密钥。
+    secret: ${JWT_SECRET:}
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
 

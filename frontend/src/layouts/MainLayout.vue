@@ -12,6 +12,7 @@ import {
   Management,
   Monitor,
   SwitchButton,
+  User,
   UserFilled,
   AlarmClock,
 } from '@element-plus/icons-vue'
@@ -37,6 +38,7 @@ const adminMenus = [
   { path: '/admin/dashboard', label: '运营分析', icon: Odometer },
   { path: '/admin/bookings', label: '预约审批', icon: List },
   { path: '/admin/rooms', label: '会议室管理', icon: Management },
+  { path: '/admin/users', label: '用户与信用管理', icon: User },
   { path: '/admin/monitor', label: '操作审计', icon: Monitor },
 ]
 

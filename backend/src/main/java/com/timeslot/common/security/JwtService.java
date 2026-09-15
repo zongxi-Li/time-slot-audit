@@ -18,6 +18,13 @@ public class JwtService {
 
     public JwtService(@Value("${timeslot.jwt.secret}") String secret,
                       @Value("${timeslot.jwt.expiration-seconds}") long expirationSeconds) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "缺少 JWT 密钥：请通过环境变量 JWT_SECRET 显式提供，真实环境禁止使用默认密钥");
+        }
+        if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT 密钥强度不足：JWT_SECRET 至少需要 32 个字符");
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationSeconds = expirationSeconds;
     }

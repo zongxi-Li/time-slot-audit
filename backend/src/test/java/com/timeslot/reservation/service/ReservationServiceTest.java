@@ -4,6 +4,8 @@ import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
 import com.timeslot.common.security.CurrentUserProvider;
+import com.timeslot.identity.domain.BookingQualification;
+import com.timeslot.identity.service.BookingQualificationService;
 import com.timeslot.reservation.domain.Reservation;
 import com.timeslot.reservation.domain.ReservationStatus;
 import com.timeslot.reservation.dto.CreateReservationRequest;
@@ -50,6 +52,7 @@ import org.springframework.dao.DuplicateKeyException;
 class ReservationServiceTest {
     @Mock ReservationMapper reservationMapper;
     @Mock ResourceQueryService resourceQueryService;
+    @Mock BookingQualificationService bookingQualificationService;
     @Mock CurrentUserProvider currentUserProvider;
 
     private ReservationService service;
@@ -61,8 +64,10 @@ class ReservationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReservationService(reservationMapper, resourceQueryService, currentUserProvider, clock);
+        service = new ReservationService(reservationMapper, resourceQueryService, bookingQualificationService,
+                currentUserProvider, clock);
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(2L, "zhangsan", "USER"));
+        when(bookingQualificationService.check(2L)).thenReturn(BookingQualification.allow(2L, 100));
         when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
         when(resourceQueryService.lockRoom(1L)).thenReturn(room);
         when(resourceQueryService.getCategory(1L)).thenReturn(normalCategory);
@@ -101,6 +106,18 @@ class ReservationServiceTest {
 
         assertEquals(ErrorCode.RESERVATION_TIME_CONFLICT, exception.getCode());
         verify(reservationMapper, never()).insert(any());
+    }
+
+    @Test
+    void unqualifiedUserCannotCreateReservation() {
+        when(bookingQualificationService.check(2L)).thenReturn(
+                BookingQualification.deny(2L, "账号已被禁用，请联系管理员", 100, null));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(request()));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
+        verify(reservationMapper, never()).insert(any());
+        verify(resourceQueryService, never()).lockRoom(anyLong());
     }
 
     @Test

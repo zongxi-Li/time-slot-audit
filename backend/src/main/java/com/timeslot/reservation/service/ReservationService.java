@@ -4,6 +4,8 @@ import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
 import com.timeslot.common.security.CurrentUserProvider;
+import com.timeslot.identity.domain.BookingQualification;
+import com.timeslot.identity.service.BookingQualificationService;
 import com.timeslot.reservation.domain.Reservation;
 import com.timeslot.reservation.domain.ReservationStatus;
 import com.timeslot.reservation.domain.TimeInterval;
@@ -36,13 +38,16 @@ public class ReservationService {
 
     private final ReservationMapper reservationMapper;
     private final ResourceQueryService resourceQueryService;
+    private final BookingQualificationService bookingQualificationService;
     private final CurrentUserProvider currentUserProvider;
     private final Clock clock;
 
     public ReservationService(ReservationMapper reservationMapper, ResourceQueryService resourceQueryService,
+                              BookingQualificationService bookingQualificationService,
                               CurrentUserProvider currentUserProvider, Clock clock) {
         this.reservationMapper = reservationMapper;
         this.resourceQueryService = resourceQueryService;
+        this.bookingQualificationService = bookingQualificationService;
         this.currentUserProvider = currentUserProvider;
         this.clock = clock;
     }
@@ -52,6 +57,12 @@ public class ReservationService {
         AuthenticatedUser user = currentUserProvider.getRequired();
         Reservation existing = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
         if (existing != null) return ReservationResponse.from(existing, clock);
+
+        // 跨域只读调用 identity 公开能力：禁用/限制期/信用不足的账号不允许创建预约。
+        BookingQualification qualification = bookingQualificationService.check(user.userId());
+        if (!qualification.eligible()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号不允许预约：" + qualification.reason());
+        }
 
         TimeInterval interval = parseInterval(request.startTime(), request.endTime());
         LocalDateTime now = LocalDateTime.now(clock);

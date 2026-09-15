@@ -38,6 +38,8 @@ INTERNAL_ERROR
 | --- | --- | --- | --- | --- | --- |
 | IMPLEMENTED | POST | `/api/auth/login` | 公开 | `{username,password}` | `AuthLoginResponse` |
 | IMPLEMENTED | GET | `/api/users/me` | USER/ADMIN | 无 | `UserMeResponse` |
+| IMPLEMENTED | GET | `/api/users/me/qualification` | USER/ADMIN | 无 | `QualificationResponse` |
+| IMPLEMENTED | GET | `/api/users/me/violations` | USER/ADMIN | 无 | `ViolationResponse[]`（本人记录） |
 | IMPLEMENTED | GET | `/api/rooms` | USER/ADMIN | 可选 `status` | 会议室列表 |
 | IMPLEMENTED | GET | `/api/reservations/calendar` | USER/ADMIN | `start,end,roomId?` | 日历预约列表 |
 | IMPLEMENTED | POST | `/api/reservations` | USER/ADMIN | 创建预约请求 | 预约详情，201 |
@@ -83,7 +85,43 @@ INTERNAL_ERROR
 4. 不刷新整个页面；
 5. 允许用户重新选择时段或会议室。
 
-## 5. 后续接口
+## 5. 身份治理接口（identity 域，v1.3）
+
+管理端统一前缀 `/api/admin`，仅 `hasRole('ADMIN')` 可访问（403 拦截）。
+
+### 5.1 部门
+
+| 状态 | Method | Path | 说明 |
+| --- | --- | --- | --- |
+| IMPLEMENTED | GET | `/api/admin/departments` | 部门列表 |
+| IMPLEMENTED | POST | `/api/admin/departments` | 新增部门 `{deptName,description?}`；重名 400 |
+| IMPLEMENTED | PUT | `/api/admin/departments/{id}` | 修改部门 `{deptName,description?}`；被挂靠时不可删除（不提供删除接口） |
+
+### 5.2 用户管理
+
+| 状态 | Method | Path | 说明 |
+| --- | --- | --- | --- |
+| IMPLEMENTED | GET | `/api/admin/users` | 列表，可选 `keyword`（用户名/姓名模糊）、`status`（0/1） |
+| IMPLEMENTED | GET | `/api/admin/users/{id}` | 用户详情，404 校验 |
+| IMPLEMENTED | POST | `/api/admin/users` | 新建用户 `{username,password,realName,email?,phone?,role,departmentId?}`；新用户信用分 100，用户名重复 400 |
+| IMPLEMENTED | PUT | `/api/admin/users/{id}` | 修改资料 `{realName?,email?,phone?,departmentId?,role?}`；至少一个字段，不能降级自己的角色（403） |
+| IMPLEMENTED | PUT | `/api/admin/users/{id}/status` | 启停 `{status:0\|1,reason?}`；不能停用自己（403）；写入 ACCOUNT_DISABLE/ENABLE 违规记录 |
+| IMPLEMENTED | PUT | `/api/admin/users/{id}/password` | 重置密码 `{password}`，≥6 位 |
+| IMPLEMENTED | GET | `/api/admin/users/{id}/qualification` | 预约资格判定（状态+信用分+限制期） |
+
+### 5.3 信用与违规治理
+
+信用规则（后端 `CreditRules` 常量，身份域唯一权威）：默认 100 分；低于 60 分无预约资格；低于 40 分自动限制 30 天；系统自动限制在信用恢复至 ≥60 后自动解除，人工限制只能人工解除。
+
+| 状态 | Method | Path | 说明 |
+| --- | --- | --- | --- |
+| IMPLEMENTED | PUT | `/api/admin/users/{id}/credit` | 调整信用分 `{creditChange,reason}`；变化量非 0，原因必填；记录 CREDIT_REWARD/CREDIT_DEDUCT，联动自动黑名单 |
+| IMPLEMENTED | PUT | `/api/admin/users/{id}/restriction` | 设置/解除限制 `{reason,restrictedUntil?}`；`restrictedUntil` 为空=解除，非空须为未来时间（400）；不能操作自己（403）；记录 BLACKLIST_SET/RELEASE |
+| IMPLEMENTED | GET | `/api/admin/users/{id}/violations` | 违规/信用记录时间倒序，含操作人姓名（系统自动记录 operator 为空） |
+
+`ViolationResponse`：`id,userId,violationType,creditChange,reason,operatorName,createdAt`；`violationType ∈ {CREDIT_DEDUCT,CREDIT_REWARD,BLACKLIST_SET,BLACKLIST_RELEASE,ACCOUNT_DISABLE,ACCOUNT_ENABLE}`。
+
+## 6. 后续接口
 
 以下接口属于 PLANNED，本轮不伪装为已实现：
 

@@ -1,2 +1,3 @@
 export { useAuthStore } from '@/stores/auth'
-export { authApi } from '@/shared/api'
+export { useUserAdminStore } from '@/stores/userAdmin'
+export { authApi, adminUsersApi, departmentsApi, myViolationsApi } from '@/shared/api'

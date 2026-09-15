@@ -1,0 +1,5 @@
+# 测试环境独立配置：JWT 密钥仅用于测试，绝不作为真实环境的兜底默认值。
+timeslot:
+  jwt:
+    secret: test-only-secret-key-for-timeslot-integration-tests-0123456789
+    expiration-seconds: 3600
