@@ -124,6 +124,76 @@ public interface ResourceMapper {
     int insertFacilities(@Param("roomId") Long roomId, @Param("facilities") List<FacilityWrite> facilities);
 
     @Select("""
+            SELECT id, room_id, facility_name, quantity, description
+            FROM room_facility
+            WHERE id = #{facilityId}
+            """)
+    FacilityRow findFacilityById(@Param("facilityId") Long facilityId);
+
+    @Insert("""
+            INSERT INTO room_maintenance (room_id, reason, start_time, end_time, status, created_by)
+            VALUES (#{roomId}, #{reason}, #{startTime}, #{endTime}, #{status}, #{createdBy})
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertMaintenance(MaintenanceWrite maintenance);
+
+    @Select("""
+            SELECT id, room_id, reason, start_time, end_time, status, created_by, created_at
+            FROM room_maintenance
+            WHERE room_id = #{roomId}
+            ORDER BY start_time DESC
+            """)
+    List<MaintenanceRow> listMaintenanceByRoom(@Param("roomId") Long roomId);
+
+    @Select("""
+            SELECT id, room_id, reason, start_time, end_time, status, created_by, created_at
+            FROM room_maintenance
+            WHERE id = #{planId}
+            """)
+    MaintenanceRow findMaintenanceById(@Param("planId") Long planId);
+
+    @Update("""
+            UPDATE room_maintenance
+            SET status = 'FINISHED'
+            WHERE id = #{planId}
+            """)
+    int finishMaintenance(@Param("planId") Long planId);
+
+    @Insert("""
+            INSERT INTO facility_repair_ticket (room_id, facility_id, facility_name, issue, status,
+                                                reporter_id, reporter_name)
+            VALUES (#{roomId}, #{facilityId}, #{facilityName}, #{issue}, #{status}, #{reporterId}, #{reporterName})
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertRepairTicket(RepairWrite ticket);
+
+    @Select("""
+            SELECT t.id, t.room_id, r.room_name, t.facility_id, t.facility_name, t.issue, t.status,
+                   t.reporter_id, t.reporter_name, t.created_at, t.resolved_at, t.resolve_remark
+            FROM facility_repair_ticket t
+            JOIN meeting_room r ON r.id = t.room_id
+            WHERE (#{roomId} IS NULL OR t.room_id = #{roomId})
+            ORDER BY (t.status = 'OPEN') DESC, t.created_at DESC
+            """)
+    List<RepairTicketRow> listRepairTickets(@Param("roomId") Long roomId);
+
+    @Select("""
+            SELECT t.id, t.room_id, r.room_name, t.facility_id, t.facility_name, t.issue, t.status,
+                   t.reporter_id, t.reporter_name, t.created_at, t.resolved_at, t.resolve_remark
+            FROM facility_repair_ticket t
+            JOIN meeting_room r ON r.id = t.room_id
+            WHERE t.id = #{ticketId}
+            """)
+    RepairTicketRow findRepairTicketById(@Param("ticketId") Long ticketId);
+
+    @Update("""
+            UPDATE facility_repair_ticket
+            SET status = 'RESOLVED', resolved_at = NOW(), resolve_remark = #{remark}
+            WHERE id = #{ticketId} AND status = 'OPEN'
+            """)
+    int resolveRepairTicket(@Param("ticketId") Long ticketId, @Param("remark") String remark);
+
+    @Select("""
             SELECT id, category_name, min_capacity, max_capacity, approval_required,
                    max_duration_minutes, advance_days, description
             FROM room_category
@@ -213,6 +283,129 @@ public interface ResourceMapper {
             ORDER BY id
             """)
     List<FacilityRow> listFacilitiesByRoom(@Param("roomId") Long roomId);
+
+    class MaintenanceRow {
+        private Long id;
+        private Long roomId;
+        private String reason;
+        private java.time.LocalDateTime startTime;
+        private java.time.LocalDateTime endTime;
+        private String status;
+        private Long createdBy;
+        private java.time.LocalDateTime createdAt;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public Long getRoomId() { return roomId; }
+        public void setRoomId(Long roomId) { this.roomId = roomId; }
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
+        public java.time.LocalDateTime getStartTime() { return startTime; }
+        public void setStartTime(java.time.LocalDateTime startTime) { this.startTime = startTime; }
+        public java.time.LocalDateTime getEndTime() { return endTime; }
+        public void setEndTime(java.time.LocalDateTime endTime) { this.endTime = endTime; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public Long getCreatedBy() { return createdBy; }
+        public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+        public java.time.LocalDateTime getCreatedAt() { return createdAt; }
+        public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
+    }
+
+    /** Mutable write model for insert of room_maintenance; status is the DB string. */
+    class MaintenanceWrite {
+        private Long id;
+        private Long roomId;
+        private String reason;
+        private java.time.LocalDateTime startTime;
+        private java.time.LocalDateTime endTime;
+        private String status;
+        private Long createdBy;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public Long getRoomId() { return roomId; }
+        public void setRoomId(Long roomId) { this.roomId = roomId; }
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
+        public java.time.LocalDateTime getStartTime() { return startTime; }
+        public void setStartTime(java.time.LocalDateTime startTime) { this.startTime = startTime; }
+        public java.time.LocalDateTime getEndTime() { return endTime; }
+        public void setEndTime(java.time.LocalDateTime endTime) { this.endTime = endTime; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public Long getCreatedBy() { return createdBy; }
+        public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+    }
+
+    class RepairTicketRow {
+        private Long id;
+        private Long roomId;
+        private String roomName;
+        private Long facilityId;
+        private String facilityName;
+        private String issue;
+        private String status;
+        private Long reporterId;
+        private String reporterName;
+        private java.time.LocalDateTime createdAt;
+        private java.time.LocalDateTime resolvedAt;
+        private String resolveRemark;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public Long getRoomId() { return roomId; }
+        public void setRoomId(Long roomId) { this.roomId = roomId; }
+        public String getRoomName() { return roomName; }
+        public void setRoomName(String roomName) { this.roomName = roomName; }
+        public Long getFacilityId() { return facilityId; }
+        public void setFacilityId(Long facilityId) { this.facilityId = facilityId; }
+        public String getFacilityName() { return facilityName; }
+        public void setFacilityName(String facilityName) { this.facilityName = facilityName; }
+        public String getIssue() { return issue; }
+        public void setIssue(String issue) { this.issue = issue; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public Long getReporterId() { return reporterId; }
+        public void setReporterId(Long reporterId) { this.reporterId = reporterId; }
+        public String getReporterName() { return reporterName; }
+        public void setReporterName(String reporterName) { this.reporterName = reporterName; }
+        public java.time.LocalDateTime getCreatedAt() { return createdAt; }
+        public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
+        public java.time.LocalDateTime getResolvedAt() { return resolvedAt; }
+        public void setResolvedAt(java.time.LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
+        public String getResolveRemark() { return resolveRemark; }
+        public void setResolveRemark(String resolveRemark) { this.resolveRemark = resolveRemark; }
+    }
+
+    /** Mutable write model for insert of facility_repair_ticket; status is the DB string. */
+    class RepairWrite {
+        private Long id;
+        private Long roomId;
+        private Long facilityId;
+        private String facilityName;
+        private String issue;
+        private String status;
+        private Long reporterId;
+        private String reporterName;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public Long getRoomId() { return roomId; }
+        public void setRoomId(Long roomId) { this.roomId = roomId; }
+        public Long getFacilityId() { return facilityId; }
+        public void setFacilityId(Long facilityId) { this.facilityId = facilityId; }
+        public String getFacilityName() { return facilityName; }
+        public void setFacilityName(String facilityName) { this.facilityName = facilityName; }
+        public String getIssue() { return issue; }
+        public void setIssue(String issue) { this.issue = issue; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public Long getReporterId() { return reporterId; }
+        public void setReporterId(Long reporterId) { this.reporterId = reporterId; }
+        public String getReporterName() { return reporterName; }
+        public void setReporterName(String reporterName) { this.reporterName = reporterName; }
+    }
 
     class FacilityRow {
         private Long id;
