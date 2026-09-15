@@ -2,13 +2,17 @@ package com.timeslot.identity.controller;
 
 import com.timeslot.common.api.ApiResponse;
 import com.timeslot.identity.dto.CreateUserRequest;
+import com.timeslot.identity.dto.CreditAdjustRequest;
 import com.timeslot.identity.dto.QualificationResponse;
 import com.timeslot.identity.dto.ResetPasswordRequest;
+import com.timeslot.identity.dto.RestrictRequest;
 import com.timeslot.identity.dto.UpdateUserRequest;
 import com.timeslot.identity.dto.UpdateUserStatusRequest;
 import com.timeslot.identity.dto.UserResponse;
+import com.timeslot.identity.dto.ViolationResponse;
 import com.timeslot.identity.service.BookingQualificationService;
 import com.timeslot.identity.service.UserAdminService;
+import com.timeslot.identity.service.UserCreditService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,11 +31,13 @@ import java.util.List;
 @PreAuthorize("hasRole('ADMIN')")
 public class UserAdminController {
     private final UserAdminService userAdminService;
+    private final UserCreditService userCreditService;
     private final BookingQualificationService bookingQualificationService;
 
-    public UserAdminController(UserAdminService userAdminService,
+    public UserAdminController(UserAdminService userAdminService, UserCreditService userCreditService,
                                BookingQualificationService bookingQualificationService) {
         this.userAdminService = userAdminService;
+        this.userCreditService = userCreditService;
         this.bookingQualificationService = bookingQualificationService;
     }
 
@@ -49,6 +55,23 @@ public class UserAdminController {
     @GetMapping("/{id}/qualification")
     public ApiResponse<QualificationResponse> qualification(@PathVariable Long id) {
         return ApiResponse.success(QualificationResponse.from(bookingQualificationService.check(id)));
+    }
+
+    @GetMapping("/{id}/violations")
+    public ApiResponse<List<ViolationResponse>> violations(@PathVariable Long id) {
+        return ApiResponse.success(userCreditService.listViolations(id));
+    }
+
+    @PutMapping("/{id}/credit")
+    public ApiResponse<UserResponse> adjustCredit(@PathVariable Long id,
+                                                  @Valid @RequestBody CreditAdjustRequest request) {
+        return ApiResponse.success(userCreditService.adjustCredit(id, request));
+    }
+
+    @PutMapping("/{id}/restriction")
+    public ApiResponse<UserResponse> setRestriction(@PathVariable Long id,
+                                                    @Valid @RequestBody RestrictRequest request) {
+        return ApiResponse.success(userCreditService.setRestriction(id, request));
     }
 
     @PostMapping

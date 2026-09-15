@@ -2,7 +2,9 @@
 -- 会议室预约与时间冲突检查系统 —— 数据库建表脚本
 -- -----------------------------------------------------------------------------
 -- 目标数据库 : MySQL 8.x
--- 基线版本   : v1.1 (Team-Ready Baseline, 2026-09-11)
+-- 版本       : v1.3（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 2026-09-15）
+--              本文件始终表示从零初始化后的最新完整结构；存量库升级请按序执行
+--              sql/migrations/ 下的增量脚本（见 docs/development/database-evolution.md）
 -- 设计约定   : InnoDB / utf8mb4 / snake_case / BIGINT 主键 / DATETIME 时间
 --              不使用 ENUM / 存储过程 / 触发器；
 --              状态机取值(PENDING/CONFIRMED/...)由应用层维护，DB 只存字符串
@@ -18,6 +20,7 @@ CREATE DATABASE IF NOT EXISTS meeting_room
 USE meeting_room;
 
 -- 重建时按外键依赖逆序删表（首次执行可忽略）
+DROP TABLE IF EXISTS user_violation;
 DROP TABLE IF EXISTS operation_log;
 DROP TABLE IF EXISTS approval_record;
 DROP TABLE IF EXISTS reservation;
@@ -26,28 +29,69 @@ DROP TABLE IF EXISTS room_facility;
 DROP TABLE IF EXISTS meeting_room;
 DROP TABLE IF EXISTS room_category;
 DROP TABLE IF EXISTS sys_user;
+DROP TABLE IF EXISTS department;
 
 -- =============================================================================
--- 1. sys_user 系统用户表
---    职责：登录账号 + 角色（USER/ADMIN）。不做部门、不做复杂 RBAC。
+-- 1. department 部门表（v1.3 身份治理）
+--    职责：最小组织模型，仅列表/新增/修改；有用户挂靠时不提供删除。
 -- =============================================================================
-CREATE TABLE sys_user (
+CREATE TABLE department (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    username    VARCHAR(50)  NOT NULL                COMMENT '登录用户名（唯一）',
-    password    VARCHAR(100) NOT NULL                COMMENT 'BCrypt 密码摘要，不保存明文密码',
-    real_name   VARCHAR(50)  NOT NULL                COMMENT '真实姓名',
-    email       VARCHAR(100) NULL                    COMMENT '邮箱',
-    phone       VARCHAR(20)  NULL                    COMMENT '手机号',
-    role        VARCHAR(20)  NOT NULL DEFAULT 'USER' COMMENT '角色：USER-普通用户 / ADMIN-管理员',
-    status      TINYINT      NOT NULL DEFAULT 1      COMMENT '账号状态：1-正常 0-禁用',
+    dept_name   VARCHAR(50)  NOT NULL                COMMENT '部门名称（唯一）',
+    description VARCHAR(200) NULL                    COMMENT '部门说明',
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_user_username (username)
+    UNIQUE KEY uk_department_name (dept_name)
+) ENGINE = InnoDB COMMENT = '部门表（最小组织模型）';
+
+-- =============================================================================
+-- 2. sys_user 系统用户表
+--    职责：登录账号 + 角色（USER/ADMIN）+ 部门归属与预约资格推导。不做复杂 RBAC。
+--    预约资格三要素：status（账号状态）、credit_score（信用分）、
+--    restricted_until（限制截止时间，非空且在未来=黑名单/限制期）。
+--    credit_score 默认 100（新用户视为正常）；资格门槛由应用层维护。
+-- =============================================================================
+CREATE TABLE sys_user (
+    id               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    username         VARCHAR(50)  NOT NULL                COMMENT '登录用户名（唯一）',
+    password         VARCHAR(100) NOT NULL                COMMENT 'BCrypt 密码摘要，不保存明文密码',
+    real_name        VARCHAR(50)  NOT NULL                COMMENT '真实姓名',
+    email            VARCHAR(100) NULL                    COMMENT '邮箱',
+    phone            VARCHAR(20)  NULL                    COMMENT '手机号',
+    role             VARCHAR(20)  NOT NULL DEFAULT 'USER' COMMENT '角色：USER-普通用户 / ADMIN-管理员',
+    department_id    BIGINT       NULL                    COMMENT '所属部门ID（可空）',
+    credit_score     INT          NOT NULL DEFAULT 100    COMMENT '信用分（预约资格门槛由应用层维护）',
+    restricted_until DATETIME     NULL                    COMMENT '限制截止时间（非空且在未来=黑名单/限制期）',
+    status           TINYINT      NOT NULL DEFAULT 1      COMMENT '账号状态：1-正常 0-禁用',
+    created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_username (username),
+    CONSTRAINT fk_user_department FOREIGN KEY (department_id) REFERENCES department (id)
 ) ENGINE = InnoDB COMMENT = '系统用户表';
 
 -- =============================================================================
--- 2. room_category 会议室分类表
+-- 3. user_violation 用户违规与信用记录表（v1.3 身份治理）
+--    职责：只增不改，仅记录事实（扣分、加分、加黑、解除、禁用、启用）。
+--    operator_id 为空表示系统自动触发（如信用分过低自动进入黑名单），
+--    人工操作必须记录操作人；自动限制在信用恢复后自动解除，人工黑名单只能人工解除。
+-- =============================================================================
+CREATE TABLE user_violation (
+    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    user_id        BIGINT       NOT NULL                COMMENT '被记录的用户ID',
+    violation_type VARCHAR(20)  NOT NULL                COMMENT '类型：CREDIT_DEDUCT-信用扣分 / CREDIT_REWARD-信用奖励 / BLACKLIST_SET-进入限制 / BLACKLIST_RELEASE-解除限制 / ACCOUNT_DISABLE-账号禁用 / ACCOUNT_ENABLE-账号启用',
+    credit_change  INT          NOT NULL DEFAULT 0      COMMENT '信用分变化量（正数加分，负数扣分，与信用无关的记录为0）',
+    reason         VARCHAR(500) NOT NULL                COMMENT '原因（人工操作必填，应用层校验）',
+    operator_id    BIGINT       NULL                    COMMENT '操作人用户ID（NULL=系统自动）',
+    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+    PRIMARY KEY (id),
+    KEY idx_violation_user (user_id, created_at),
+    CONSTRAINT fk_violation_user FOREIGN KEY (user_id) REFERENCES sys_user (id)
+) ENGINE = InnoDB COMMENT = '用户违规与信用记录表';
+
+-- =============================================================================
+-- 4. room_category 会议室分类表
 --    职责：定义会议室“类型 + 预约规则”。
 --    是否需要审批由本表 approval_required 决定（分类级配置），与具体会议室无关。
 -- =============================================================================
@@ -67,7 +111,7 @@ CREATE TABLE room_category (
 ) ENGINE = InnoDB COMMENT = '会议室分类表（类型与预约规则）';
 
 -- =============================================================================
--- 3. meeting_room 会议室表
+-- 5. meeting_room 会议室表
 --    职责：具体会议室资源（A301、B502...）。容量 capacity 是“真实资源属性”，
 --    预约人数校验以它为准；capacity 应落在所属分类 [min_capacity, max_capacity] 内，
 --    由 Service 在创建/修改时校验（DB 不加跨表 CHECK）。
@@ -89,7 +133,7 @@ CREATE TABLE meeting_room (
 ) ENGINE = InnoDB COMMENT = '会议室表（具体资源）';
 
 -- =============================================================================
--- 4. room_facility 会议室设施表
+-- 6. room_facility 会议室设施表
 --    职责：一个会议室的多条设施描述。设施为封闭小集合（投影仪/白板/视频会议设备/
 --    麦克风等），无独立设施管理需求，故不拆 facility 字典表。
 -- =============================================================================
@@ -105,7 +149,7 @@ CREATE TABLE room_facility (
 ) ENGINE = InnoDB COMMENT = '会议室设施表';
 
 -- =============================================================================
--- 5. room_open_rule 会议室开放时间表
+-- 7. room_open_rule 会议室开放时间表
 --    weekday 使用 ISO-8601：1=周一 ... 7=周日。
 --    节假日和特殊日期不在 v1.1 范围内，未来通过独立 migration 扩展。
 -- =============================================================================
@@ -127,7 +171,7 @@ CREATE TABLE room_open_rule (
 ) ENGINE = InnoDB COMMENT = '会议室每周开放时间规则';
 
 -- =============================================================================
--- 6. reservation 预约表（核心业务表）
+-- 8. reservation 预约表（核心业务表）
 --    状态机：PENDING / CONFIRMED / REJECTED / CANCELLED。
 --    初始状态由分类的 approval_required 决定，故不设 DB 默认值。
 --    不设 version / deleted：并发由事务+行锁控制（见设计文档第11节），
@@ -160,7 +204,7 @@ CREATE TABLE reservation (
 ) ENGINE = InnoDB COMMENT = '预约表（核心业务表）';
 
 -- =============================================================================
--- 6. approval_record 审批记录表
+-- 9. approval_record 审批记录表
 --    职责：只保存审批“行为历史”（谁、对哪条预约、做了什么、何时）。
 --    仅当受控分类（approval_required=1）的预约被管理员通过/驳回时产生；
 --    普通会议室预约不产生审批记录。允许一个预约多条历史（不加唯一约束）。
@@ -180,7 +224,7 @@ CREATE TABLE approval_record (
 ) ENGINE = InnoDB COMMENT = '审批记录表（审批行为历史）';
 
 -- =============================================================================
--- 7. operation_log 操作日志表
+-- 10. operation_log 操作日志表
 --    职责：只记录关键管理行为（审批/驳回、会议室增改、分类修改、强制取消等），
 --    不记录所有 HTTP 请求。只增不改，不设 updated_at。
 -- =============================================================================

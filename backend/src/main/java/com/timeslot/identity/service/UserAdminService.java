@@ -5,6 +5,7 @@ import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.CurrentUserProvider;
 import com.timeslot.identity.domain.CreditRules;
 import com.timeslot.identity.domain.User;
+import com.timeslot.identity.domain.ViolationType;
 import com.timeslot.identity.dto.CreateUserRequest;
 import com.timeslot.identity.dto.ResetPasswordRequest;
 import com.timeslot.identity.dto.UpdateUserRequest;
@@ -12,6 +13,7 @@ import com.timeslot.identity.dto.UpdateUserStatusRequest;
 import com.timeslot.identity.dto.UserResponse;
 import com.timeslot.identity.mapper.DepartmentMapper;
 import com.timeslot.identity.mapper.UserMapper;
+import com.timeslot.identity.mapper.UserViolationMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,13 +25,16 @@ import java.util.List;
 public class UserAdminService {
     private final UserMapper userMapper;
     private final DepartmentMapper departmentMapper;
+    private final UserViolationMapper userViolationMapper;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUserProvider currentUserProvider;
 
     public UserAdminService(UserMapper userMapper, DepartmentMapper departmentMapper,
-                            PasswordEncoder passwordEncoder, CurrentUserProvider currentUserProvider) {
+                            UserViolationMapper userViolationMapper, PasswordEncoder passwordEncoder,
+                            CurrentUserProvider currentUserProvider) {
         this.userMapper = userMapper;
         this.departmentMapper = departmentMapper;
+        this.userViolationMapper = userViolationMapper;
         this.passwordEncoder = passwordEncoder;
         this.currentUserProvider = currentUserProvider;
     }
@@ -79,13 +84,17 @@ public class UserAdminService {
     @Transactional
     public UserResponse updateStatus(Long id, UpdateUserStatusRequest request) {
         User user = requireUser(id);
-        if (request.status() == 0 && user.id().equals(currentUserProvider.getRequired().userId())) {
+        Long operator = currentUserProvider.getRequired().userId();
+        if (request.status() == 0 && user.id().equals(operator)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "不能停用自己的账号");
         }
         if (request.status() == user.status()) {
             return UserResponse.from(user);
         }
         userMapper.updateStatus(id, request.status());
+        userViolationMapper.insert(id,
+                request.status() == 0 ? ViolationType.ACCOUNT_DISABLE : ViolationType.ACCOUNT_ENABLE,
+                0, statusChangeReason(request.reason(), request.status() == 0), operator);
         return detail(id);
     }
 
@@ -111,6 +120,13 @@ public class UserAdminService {
 
     private String trimOrNull(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private String statusChangeReason(String reason, boolean disabling) {
+        if (reason != null && !reason.isBlank()) {
+            return reason.trim();
+        }
+        return disabling ? "管理员禁用账号（未填写原因）" : "管理员启用账号";
     }
 
     private String blankToNull(String value) {

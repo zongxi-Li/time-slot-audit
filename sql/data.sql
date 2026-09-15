@@ -13,6 +13,7 @@ USE meeting_room;
 
 -- 清空旧数据（逆序清空，避免外键干扰）
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE user_violation;
 TRUNCATE TABLE operation_log;
 TRUNCATE TABLE approval_record;
 TRUNCATE TABLE reservation;
@@ -21,15 +22,24 @@ TRUNCATE TABLE room_facility;
 TRUNCATE TABLE meeting_room;
 TRUNCATE TABLE room_category;
 TRUNCATE TABLE sys_user;
+TRUNCATE TABLE department;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================================
--- 1. 用户：1 管理员 + 2 普通用户
+-- 0. 部门：最小组织模型演示数据（v1.3 身份治理）
 -- =============================================================================
-INSERT INTO sys_user (id, username, password, real_name, email, phone, role, status) VALUES
-(1, 'admin',    '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '系统管理员', 'admin@timeslot.demo',    '13800000001', 'ADMIN', 1),
-(2, 'zhangsan', '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '张三',       'zhangsan@timeslot.demo', '13800000002', 'USER',  1),
-(3, 'lisi',     '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '李四',       'lisi@timeslot.demo',     '13800000003', 'USER',  1);
+INSERT INTO department (id, dept_name, description) VALUES
+(1, '信息中心',   '校园信息化建设与运维部门'),
+(2, '软件学院',   '软件工程专业教学单位'),
+(3, '后勤保障处', '场地与后勤保障部门');
+
+-- =============================================================================
+-- 1. 用户：1 管理员 + 2 普通用户（信用分与违规记录保持一致，见第 8 节）
+-- =============================================================================
+INSERT INTO sys_user (id, username, password, real_name, email, phone, role, department_id, credit_score, status) VALUES
+(1, 'admin',    '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '系统管理员', 'admin@timeslot.demo',    '13800000001', 'ADMIN', 1,    100, 1),
+(2, 'zhangsan', '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '张三',       'zhangsan@timeslot.demo', '13800000002', 'USER',  2,    110, 1),
+(3, 'lisi',     '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', '李四',       'lisi@timeslot.demo',     '13800000003', 'USER',  1,    80,  1);
 
 -- =============================================================================
 -- 2. 会议室分类：审批开关配置在分类上
@@ -134,3 +144,11 @@ INSERT INTO operation_log (id, user_id, operation_type, business_type, business_
 (3, 1, 'APPROVE_RESERVATION',      'RESERVATION',   3, '审批通过预约 RSV20260901003（新产品内部路演）',        '127.0.0.1'),
 (4, 1, 'REJECT_RESERVATION',       'RESERVATION',   4, '驳回预约 RSV20260901004（社团招新宣讲）',              '127.0.0.1'),
 (5, 1, 'FORCE_CANCEL_RESERVATION', 'RESERVATION',   5, '强制取消预约 RSV20260901005（小组讨论），原因：设备检修', '127.0.0.1');
+
+-- =============================================================================
+-- 8. 违规与信用记录（v1.3 身份治理）：与第 1 节信用分保持一致
+--    zhangsan 100+10=110；lisi 100-20=80（仍高于预约资格门槛 60，可正常预约）
+-- =============================================================================
+INSERT INTO user_violation (id, user_id, violation_type, credit_change, reason, operator_id) VALUES
+(1, 2, 'CREDIT_REWARD', 10,  '协助保障多场大型会议顺利举行，信用奖励', 1),
+(2, 3, 'CREDIT_DEDUCT', -20, '预约后未到场且未提前取消，信用扣分',     1);
