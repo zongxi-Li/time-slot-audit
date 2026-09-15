@@ -12,6 +12,7 @@ import {
   Management,
   Monitor,
   SwitchButton,
+  Tools,
   UserFilled,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -34,6 +35,7 @@ const adminMenus = [
   { path: '/admin/dashboard', label: '管理控制台', icon: Odometer },
   { path: '/admin/bookings', label: '预约管理', icon: List },
   { path: '/admin/rooms', label: '会议室管理', icon: Management },
+  { path: '/admin/repairs', label: '报修工单', icon: Tools },
   { path: '/admin/monitor', label: '系统监控', icon: Monitor },
 ]
 

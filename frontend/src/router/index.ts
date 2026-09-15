@@ -53,6 +53,12 @@ const router = createRouter({
           meta: { title: '会议室管理', requiresAdmin: true },
         },
         {
+          path: 'admin/repairs',
+          name: 'admin-repairs',
+          component: () => import('@/views/admin/RepairAdmin.vue'),
+          meta: { title: '报修工单', requiresAdmin: true },
+        },
+        {
           path: 'admin/monitor',
           name: 'admin-monitor',
           component: () => import('@/views/admin/SystemMonitor.vue'),

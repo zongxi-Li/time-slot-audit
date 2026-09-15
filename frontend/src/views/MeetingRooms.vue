@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
+import { repairTicketsApi, roomsApi } from '@/shared/api'
+import { useMock } from '@/shared/api/config'
+import { ApiError } from '@/shared/api/types'
+import type { FacilityResponse } from '@/shared/api/types'
 import { nowMinutes, toMinutes, todayStr } from '@/utils/datetime'
 import type { RoomStatus } from '@/types'
 
@@ -40,6 +45,67 @@ const cards = computed<RoomCard[]>(() => {
     }
   })
 })
+
+/* —— 设施报修 —— */
+const repairVisible = ref(false)
+const repairSaving = ref(false)
+const repairRoom = ref<RoomCard | null>(null)
+const facilityOptions = ref<FacilityResponse[]>([])
+const repairForm = reactive({
+  facilityId: null as number | string | null,
+  facilityName: '',
+  issue: '',
+})
+
+async function openRepair(room: RoomCard) {
+  repairRoom.value = room
+  repairForm.facilityId = null
+  repairForm.facilityName = ''
+  repairForm.issue = ''
+  repairVisible.value = true
+  if (!useMock) {
+    try {
+      const detail = await roomsApi.detail(room.id)
+      facilityOptions.value = detail.facilities
+    } catch (error) {
+      ElMessage.error(error instanceof ApiError ? error.message : '获取设施列表失败')
+    }
+  } else {
+    facilityOptions.value = room.equipment.map((name, index) => ({
+      id: index,
+      roomId: room.id,
+      name,
+      quantity: 1,
+      description: null,
+    }))
+  }
+}
+
+async function submitRepair() {
+  if (!repairRoom.value) return
+  const issue = repairForm.issue.trim()
+  if (!issue) {
+    ElMessage.error('请填写故障描述')
+    return
+  }
+  repairSaving.value = true
+  try {
+    if (!useMock) {
+      const selected = facilityOptions.value.find((f) => f.id === repairForm.facilityId)
+      await repairTicketsApi.create(repairRoom.value.id, {
+        facilityId: selected ? selected.id : null,
+        facilityName: selected ? null : repairForm.facilityName.trim() || null,
+        issue,
+      })
+    }
+    ElMessage.success('报修已提交，管理员会尽快处理')
+    repairVisible.value = false
+  } catch (error) {
+    ElMessage.error(error instanceof ApiError ? error.message : '报修提交失败，请稍后重试')
+  } finally {
+    repairSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -83,9 +149,50 @@ const cards = computed<RoomCard[]>(() => {
             <template v-if="card.nextSlot">下一场：{{ card.nextSlot }}</template>
             <template v-else>今日无后续预约</template>
           </div>
+
+          <div class="room-actions">
+            <el-button size="small" text type="primary" @click="openRepair(card)">设施报修</el-button>
+          </div>
         </div>
       </el-col>
     </el-row>
+
+    <el-dialog
+      v-model="repairVisible"
+      :title="`设施报修：${repairRoom?.name ?? ''}`"
+      width="440px"
+      :close-on-click-modal="false"
+    >
+      <el-form label-width="72px" label-position="left">
+        <el-form-item label="报修对象">
+          <el-select
+            v-model="repairForm.facilityId"
+            placeholder="整室报修（不选具体设施）"
+            clearable
+            style="width: 100%"
+          >
+            <el-option v-for="f in facilityOptions" :key="f.id" :value="f.id" :label="f.name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="repairForm.facilityId === null" label="对象名称">
+          <el-input v-model="repairForm.facilityName" placeholder="选填，默认按整室处理" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="故障描述">
+          <el-input
+            v-model="repairForm.issue"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="例如：投影仪无法开机 / 空调制冷异常"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="repairVisible = false">取消</el-button>
+        <el-button type="primary" :loading="repairSaving" @click="submitRepair">提交报修</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -259,5 +366,17 @@ const cards = computed<RoomCard[]>(() => {
   padding-top: 14px;
   border-top: 1px solid var(--border-light);
   font-size: 12px;
+}
+
+.room-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.room-card:hover .room-actions {
+  opacity: 1;
 }
 </style>
