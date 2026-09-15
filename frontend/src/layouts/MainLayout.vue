@@ -31,10 +31,10 @@ const userMenus = [
 ]
 
 const adminMenus = [
-  { path: '/admin/dashboard', label: '管理控制台', icon: Odometer },
-  { path: '/admin/bookings', label: '预约管理', icon: List },
+  { path: '/admin/dashboard', label: '运营分析', icon: Odometer },
+  { path: '/admin/bookings', label: '预约审批', icon: List },
   { path: '/admin/rooms', label: '会议室管理', icon: Management },
-  { path: '/admin/monitor', label: '系统监控', icon: Monitor },
+  { path: '/admin/monitor', label: '操作审计', icon: Monitor },
 ]
 
 const showAdminMenus = computed(() => auth.isAdmin)
