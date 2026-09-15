@@ -3,7 +3,11 @@ package com.timeslot.administration.controller;
 import com.timeslot.administration.service.AdministrationService;
 import com.timeslot.administration.mapper.AdministrationMapper;
 import com.timeslot.common.security.JwtService;
+import com.timeslot.identity.mapper.DepartmentMapper;
 import com.timeslot.identity.mapper.UserMapper;
+import com.timeslot.identity.mapper.UserViolationMapper;
+import com.timeslot.meeting.mapper.MeetingExecutionMapper;
+import com.timeslot.meeting.mapper.NotificationMapper;
 import com.timeslot.reservation.mapper.ReservationMapper;
 import com.timeslot.resource.mapper.ResourceMapper;
 import org.junit.jupiter.api.Test;
@@ -31,6 +35,10 @@ class AdministrationControllerSecurityTest {
     @MockBean JwtService jwtService;
     @MockBean AdministrationMapper administrationMapper;
     @MockBean UserMapper userMapper;
+    @MockBean DepartmentMapper departmentMapper;
+    @MockBean UserViolationMapper userViolationMapper;
+    @MockBean MeetingExecutionMapper meetingExecutionMapper;
+    @MockBean NotificationMapper notificationMapper;
     @MockBean ReservationMapper reservationMapper;
     @MockBean ResourceMapper resourceMapper;
 

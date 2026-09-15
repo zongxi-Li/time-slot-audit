@@ -195,6 +195,7 @@ class ReservationServiceTest {
         service.createReservation(request());
 
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(3L, "lisi", "USER"));
+        when(bookingQualificationService.check(3L)).thenReturn(BookingQualification.allow(3L, 100));
         service.createReservation(request());
 
         // each create consults the idempotency key twice: before the room lock and again after it
