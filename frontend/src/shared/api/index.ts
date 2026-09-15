@@ -2,12 +2,21 @@ import type { Reservation, MeetingRoom, CurrentUser, ReservationDraft } from '@/
 import { request } from './http'
 import { TOKEN_STORAGE_KEY } from './config'
 import type {
+  AdminUserResponse,
+  CreateUserPayload,
+  CreditAdjustPayload,
+  DepartmentPayload,
+  DepartmentResponse,
+  QualificationResponse,
+  RestrictPayload,
+  UpdateUserPayload,
   CreateReservationRequest,
   LoginRequest,
   LoginResponse,
   ReservationResponse,
   RoomResponse,
   UserResponse,
+  ViolationResponse,
 } from './types'
 
 const toRoom = (room: RoomResponse): MeetingRoom => ({
@@ -58,6 +67,61 @@ export const authApi = {
   },
 }
 
+/* —— 身份治理（identity 域）—— */
+
+export const departmentsApi = {
+  async list() {
+    return request<DepartmentResponse[]>('/admin/departments')
+  },
+  async create(body: DepartmentPayload) {
+    return request<DepartmentResponse>('/admin/departments', { method: 'POST', body })
+  },
+  async update(id: number | string, body: DepartmentPayload) {
+    return request<DepartmentResponse>(`/admin/departments/${id}`, { method: 'PUT', body })
+  },
+}
+
+export const adminUsersApi = {
+  async list(params?: { keyword?: string; status?: number }) {
+    const query = new URLSearchParams()
+    if (params?.keyword) query.set('keyword', params.keyword)
+    if (params?.status !== undefined) query.set('status', String(params.status))
+    const qs = query.toString()
+    return request<AdminUserResponse[]>(`/admin/users${qs ? `?${qs}` : ''}`)
+  },
+  async qualification(id: number | string) {
+    return request<QualificationResponse>(`/admin/users/${id}/qualification`)
+  },
+  async violations(id: number | string) {
+    return request<ViolationResponse[]>(`/admin/users/${id}/violations`)
+  },
+  async adjustCredit(id: number | string, body: CreditAdjustPayload) {
+    return request<AdminUserResponse>(`/admin/users/${id}/credit`, { method: 'PUT', body })
+  },
+  async setRestriction(id: number | string, body: RestrictPayload) {
+    return request<AdminUserResponse>(`/admin/users/${id}/restriction`, { method: 'PUT', body })
+  },
+  async create(body: CreateUserPayload) {
+    return request<AdminUserResponse>('/admin/users', { method: 'POST', body })
+  },
+  async update(id: number | string, body: UpdateUserPayload) {
+    return request<AdminUserResponse>(`/admin/users/${id}`, { method: 'PUT', body })
+  },
+  async updateStatus(id: number | string, body: { status: number; reason?: string }) {
+    return request<AdminUserResponse>(`/admin/users/${id}/status`, { method: 'PUT', body })
+  },
+  async resetPassword(id: number | string, password: string) {
+    await request<void>(`/admin/users/${id}/password`, { method: 'PUT', body: { password } })
+  },
+}
+
+/** 当前登录用户查看自己的违规/信用记录 */
+export const myViolationsApi = {
+  async list() {
+    return request<ViolationResponse[]>('/users/me/violations')
+  },
+}
+
 export const roomsApi = {
   async list() {
     return (await request<RoomResponse[]>('/rooms')).map(toRoom)
@@ -94,3 +158,11 @@ export const reservationsApi = {
 }
 
 export { ApiError } from './types'
+export type {
+  AdminUserResponse,
+  DepartmentResponse,
+  DepartmentPayload,
+  QualificationResponse,
+  ViolationResponse,
+  ViolationType,
+} from './types'
