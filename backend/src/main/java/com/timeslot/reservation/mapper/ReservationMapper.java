@@ -58,6 +58,26 @@ public interface ReservationMapper {
     int countConflicts(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
                        @Param("endTime") LocalDateTime endTime);
 
+    @Select("""
+            SELECT COUNT(*)
+            FROM reservation
+            WHERE room_id = #{roomId}
+              AND status IN ('PENDING', 'CONFIRMED')
+              AND id != #{excludeId}
+              AND start_time < #{endTime}
+              AND end_time > #{startTime}
+            """)
+    int countConflictsExcluding(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
+                                @Param("endTime") LocalDateTime endTime, @Param("excludeId") Long excludeId);
+
+    @Update("""
+            UPDATE reservation
+            SET room_id = #{roomId}, title = #{title}, start_time = #{startTime}, end_time = #{endTime},
+                participant_count = #{participantCount}, remark = #{remark}
+            WHERE id = #{id}
+            """)
+    int updateSchedule(Reservation reservation);
+
     @Insert("""
             INSERT INTO reservation
               (request_id, reservation_no, room_id, user_id, title, start_time, end_time,

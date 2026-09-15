@@ -8,6 +8,7 @@ import com.timeslot.reservation.domain.Reservation;
 import com.timeslot.reservation.domain.ReservationStatus;
 import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
+import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
 import com.timeslot.resource.domain.MeetingRoom;
 import com.timeslot.resource.domain.MeetingRoomStatus;
@@ -259,5 +260,112 @@ class ReservationServiceTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
         verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+    }
+
+    private UpdateReservationRequest updateRequest() {
+        return new UpdateReservationRequest(1L, "改期后的讨论", LocalDateTime.of(2026, 9, 12, 16, 0),
+                LocalDateTime.of(2026, 9, 12, 17, 0), 4, "改期备注");
+    }
+
+    @Test
+    void ownerReschedulesAndConflictCheckExcludesSelf() {
+        Reservation reservation = ownedReservation(2L);
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(reservation);
+
+        ReservationResponse response = service.update(7L, updateRequest());
+
+        assertEquals(LocalDateTime.of(2026, 9, 12, 16, 0), response.startTime());
+        assertEquals("CONFIRMED", response.status());
+        verify(resourceQueryService).lockRoom(1L);
+        verify(reservationMapper).countConflictsExcluding(1L,
+                LocalDateTime.of(2026, 9, 12, 16, 0), LocalDateTime.of(2026, 9, 12, 17, 0), 7L);
+        verify(reservationMapper).updateSchedule(reservation);
+    }
+
+    @Test
+    void rescheduleToApprovalRoomMovesConfirmedBackToPending() {
+        Reservation reservation = ownedReservation(2L);
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(reservation);
+        when(resourceQueryService.lockRoom(5L)).thenReturn(new MeetingRoom(5L, 3L, "B502", "", 60,
+                MeetingRoomStatus.AVAILABLE, "大型会议室", List.of()));
+        when(resourceQueryService.getCategory(3L)).thenReturn(new RoomCategory(3L, "大型会议室", true, 240, 14));
+
+        ReservationResponse response = service.update(7L,
+                new UpdateReservationRequest(5L, "大会议室改期", LocalDateTime.of(2026, 9, 12, 16, 0),
+                        LocalDateTime.of(2026, 9, 12, 17, 0), 30, null));
+
+        assertEquals("PENDING", response.status());
+        verify(reservationMapper).updateSchedule(reservation);
+    }
+
+    @Test
+    void rescheduleConflictIsRejectedWithoutUpdate() {
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
+        when(reservationMapper.countConflictsExcluding(anyLong(), any(), any(), anyLong())).thenReturn(1);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
+
+        assertEquals(ErrorCode.RESERVATION_TIME_CONFLICT, exception.getCode());
+        verify(reservationMapper, never()).updateSchedule(any());
+    }
+
+    @Test
+    void otherUserCannotReschedule() {
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(3L));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
+        verify(reservationMapper, never()).updateSchedule(any());
+    }
+
+    @Test
+    void startedReservationCannotBeRescheduled() {
+        Reservation started = ownedReservation(2L);
+        started.setStartTime(LocalDateTime.of(2026, 9, 11, 9, 0));
+        started.setEndTime(LocalDateTime.of(2026, 9, 11, 10, 0));
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(started);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(resourceQueryService, never()).lockRoom(anyLong());
+    }
+
+    @Test
+    void rescheduleAcrossDaysIsRejected() {
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L,
+                new UpdateReservationRequest(1L, "跨日改期", LocalDateTime.of(2026, 9, 12, 18, 0),
+                        LocalDateTime.of(2026, 9, 13, 1, 0), 4, null)));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
+        verify(reservationMapper, never()).updateSchedule(any());
+    }
+
+    @Test
+    void ownerCanViewDetail() {
+        when(reservationMapper.findById(7L)).thenReturn(ownedReservation(2L));
+
+        assertEquals(7L, service.detail(7L).id());
+    }
+
+    @Test
+    void adminCanViewButOtherUserCannotViewDetail() {
+        when(reservationMapper.findById(7L)).thenReturn(ownedReservation(2L));
+        when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(1L, "admin", "ADMIN"));
+        assertEquals(7L, service.detail(7L).id());
+
+        when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(3L, "lisi", "USER"));
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> service.detail(7L)).getCode());
+    }
+
+    @Test
+    void missingDetailIsNotFound() {
+        when(reservationMapper.findById(404L)).thenReturn(null);
+
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND,
+                assertThrows(BusinessException.class, () -> service.detail(404L)).getCode());
     }
 }
