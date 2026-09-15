@@ -132,6 +132,18 @@ class ReservationServiceTest {
     }
 
     @Test
+    void crossDayReservationIsRejected() {
+        CreateReservationRequest overnight = new CreateReservationRequest("request-1", 1L, "通宵研讨",
+                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 1, 0), 4, null);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(overnight));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
+        verify(resourceQueryService, never()).lockRoom(anyLong());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
+
+    @Test
     void sameRequestIdReturnsExistingReservation() {
         Reservation existing = new Reservation();
         existing.setId(42L);

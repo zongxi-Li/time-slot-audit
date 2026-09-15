@@ -55,6 +55,10 @@ public class ReservationService {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "结束时间必须晚于开始时间");
         }
+        // The open-rule model is per weekday, so a reservation must stay inside one day.
+        if (!interval.start().toLocalDate().equals(interval.end().toLocalDate())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约不允许跨日期，请在同一天内选择时段");
+        }
         LocalDateTime now = LocalDateTime.now(clock);
         if (interval.start().isBefore(now)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约开始时间不能早于当前时间");
