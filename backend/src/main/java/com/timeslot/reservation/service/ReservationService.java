@@ -46,7 +46,7 @@ public class ReservationService {
     @Transactional(isolation = Isolation.READ_COMMITTED, noRollbackFor = DuplicateKeyException.class)
     public ReservationResponse createReservation(CreateReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
-        Reservation existing = reservationMapper.findByRequestId(request.requestId());
+        Reservation existing = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
         if (existing != null) return ReservationResponse.from(existing, clock);
 
         TimeInterval interval;
@@ -64,7 +64,7 @@ public class ReservationService {
         MeetingRoom room = resourceQueryService.lockRoom(request.roomId());
         // A concurrent retry with the same requestId may have waited on this room lock.
         // Re-check after the lock so it returns the committed result instead of a false conflict.
-        Reservation existingAfterLock = reservationMapper.findByRequestId(request.requestId());
+        Reservation existingAfterLock = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
         if (existingAfterLock != null) return ReservationResponse.from(existingAfterLock, clock);
         if (room.status() != MeetingRoomStatus.AVAILABLE) {
             throw new BusinessException(ErrorCode.ROOM_UNAVAILABLE, "会议室当前不可预约");
@@ -106,7 +106,7 @@ public class ReservationService {
         try {
             reservationMapper.insert(reservation);
         } catch (DuplicateKeyException duplicateKeyException) {
-            Reservation duplicate = reservationMapper.findByRequestId(request.requestId());
+            Reservation duplicate = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
             if (duplicate != null) return ReservationResponse.from(duplicate, clock);
             throw duplicateKeyException;
         }

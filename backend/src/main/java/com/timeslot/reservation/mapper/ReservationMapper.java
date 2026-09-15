@@ -20,9 +20,9 @@ public interface ReservationMapper {
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
-            WHERE r.request_id = #{requestId}
+            WHERE r.user_id = #{userId} AND r.request_id = #{requestId}
             """)
-    Reservation findByRequestId(String requestId);
+    Reservation findByUserIdAndRequestId(@Param("userId") Long userId, @Param("requestId") String requestId);
 
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,

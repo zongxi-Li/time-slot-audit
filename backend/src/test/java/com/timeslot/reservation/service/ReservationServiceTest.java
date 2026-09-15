@@ -38,8 +38,11 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import org.springframework.dao.DuplicateKeyException;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -59,7 +62,7 @@ class ReservationServiceTest {
     void setUp() {
         service = new ReservationService(reservationMapper, resourceQueryService, currentUserProvider, clock);
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(2L, "zhangsan", "USER"));
-        when(reservationMapper.findByRequestId(anyString())).thenReturn(null);
+        when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
         when(resourceQueryService.lockRoom(1L)).thenReturn(room);
         when(resourceQueryService.getCategory(1L)).thenReturn(normalCategory);
         when(resourceQueryService.getOpenRule(anyLong(), anyInt())).thenReturn(openRule);
@@ -143,11 +146,43 @@ class ReservationServiceTest {
         existing.setEndTime(request().endTime());
         existing.setParticipantCount(3);
         existing.setStatus(ReservationStatus.CONFIRMED);
-        when(reservationMapper.findByRequestId("request-1")).thenReturn(existing);
+        when(reservationMapper.findByUserIdAndRequestId(2L, "request-1")).thenReturn(existing);
 
         assertEquals(42L, service.createReservation(request()).id());
+        verify(reservationMapper).findByUserIdAndRequestId(2L, "request-1");
         verify(resourceQueryService, never()).lockRoom(anyLong());
         verify(reservationMapper, never()).insert(any());
+    }
+
+    @Test
+    void sameRequestIdFromDifferentUsersCreatesIndependently() {
+        service.createReservation(request());
+
+        when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(3L, "lisi", "USER"));
+        service.createReservation(request());
+
+        // each create consults the idempotency key twice: before the room lock and again after it
+        verify(reservationMapper, times(2)).findByUserIdAndRequestId(2L, "request-1");
+        verify(reservationMapper, times(2)).findByUserIdAndRequestId(3L, "request-1");
+        verify(reservationMapper, times(2)).insert(any(Reservation.class));
+    }
+
+    @Test
+    void duplicateKeyFallbackLooksUpOnlyWithinCurrentUserScope() {
+        Reservation duplicate = new Reservation();
+        duplicate.setId(44L);
+        duplicate.setRequestId("request-1");
+        duplicate.setRoomId(1L);
+        duplicate.setUserId(2L);
+        duplicate.setTitle("已存在");
+        duplicate.setStartTime(request().startTime());
+        duplicate.setEndTime(request().endTime());
+        duplicate.setStatus(ReservationStatus.CONFIRMED);
+        when(reservationMapper.insert(any(Reservation.class))).thenThrow(new DuplicateKeyException("uk_reservation_user_request"));
+        when(reservationMapper.findByUserIdAndRequestId(2L, "request-1")).thenReturn(duplicate);
+
+        assertEquals(44L, service.createReservation(request()).id());
+        verify(reservationMapper, never()).findByUserIdAndRequestId(3L, "request-1");
     }
 
     @Test
@@ -160,7 +195,7 @@ class ReservationServiceTest {
         existing.setStartTime(request().startTime());
         existing.setEndTime(request().endTime());
         existing.setStatus(ReservationStatus.CONFIRMED);
-        when(reservationMapper.findByRequestId("request-1")).thenReturn(null, existing);
+        when(reservationMapper.findByUserIdAndRequestId(2L, "request-1")).thenReturn(null, existing);
 
         assertEquals(43L, service.createReservation(request()).id());
         verify(resourceQueryService).lockRoom(1L);
