@@ -1,6 +1,7 @@
 package com.timeslot.reservation.mapper;
 
 import com.timeslot.reservation.domain.Reservation;
+import com.timeslot.reservation.dto.OccupancyInterval;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -20,9 +21,9 @@ public interface ReservationMapper {
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
-            WHERE r.request_id = #{requestId}
+            WHERE r.user_id = #{userId} AND r.request_id = #{requestId}
             """)
-    Reservation findByRequestId(String requestId);
+    Reservation findByUserIdAndRequestId(@Param("userId") Long userId, @Param("requestId") String requestId);
 
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
@@ -36,6 +37,18 @@ public interface ReservationMapper {
     Reservation findById(Long id);
 
     @Select("""
+            SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
+                   mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
+                   r.participant_count, r.status, r.remark
+            FROM reservation r
+            JOIN meeting_room mr ON mr.id = r.room_id
+            JOIN sys_user u ON u.id = r.user_id
+            WHERE r.id = #{id}
+            FOR UPDATE
+            """)
+    Reservation findByIdForUpdate(Long id);
+
+    @Select("""
             SELECT COUNT(*)
             FROM reservation
             WHERE room_id = #{roomId}
@@ -45,6 +58,39 @@ public interface ReservationMapper {
             """)
     int countConflicts(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
                        @Param("endTime") LocalDateTime endTime);
+
+    @Select("""
+            SELECT COUNT(*)
+            FROM reservation
+            WHERE room_id = #{roomId}
+              AND status IN ('PENDING', 'CONFIRMED')
+              AND id != #{excludeId}
+              AND start_time < #{endTime}
+              AND end_time > #{startTime}
+            """)
+    int countConflictsExcluding(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
+                                @Param("endTime") LocalDateTime endTime, @Param("excludeId") Long excludeId);
+
+    @Update("""
+            UPDATE reservation
+            SET room_id = #{roomId}, title = #{title}, start_time = #{startTime}, end_time = #{endTime},
+                participant_count = #{participantCount}, remark = #{remark}
+            WHERE id = #{id}
+            """)
+    int updateSchedule(Reservation reservation);
+
+    @Select("""
+            SELECT room_id, start_time, end_time
+            FROM reservation
+            WHERE status IN ('PENDING', 'CONFIRMED')
+              AND start_time < #{endTime}
+              AND end_time > #{startTime}
+              AND (#{roomId} IS NULL OR room_id = #{roomId})
+            ORDER BY room_id, start_time
+            """)
+    List<OccupancyInterval> findActiveIntervals(@Param("startTime") LocalDateTime startTime,
+                                                @Param("endTime") LocalDateTime endTime,
+                                                @Param("roomId") Long roomId);
 
     @Insert("""
             INSERT INTO reservation
