@@ -37,14 +37,14 @@ const router = createRouter({
         {
           path: 'admin/dashboard',
           name: 'admin-dashboard',
-          component: () => import('@/views/admin/AdminDashboard.vue'),
-          meta: { title: '管理控制台', requiresAdmin: true },
+          component: () => import('@/modules/administration/OperationsDashboard.vue'),
+          meta: { title: '运营分析', requiresAdmin: true },
         },
         {
           path: 'admin/bookings',
           name: 'admin-bookings',
-          component: () => import('@/views/admin/ReservationAdmin.vue'),
-          meta: { title: '预约管理', requiresAdmin: true },
+          component: () => import('@/modules/administration/AdministrationReservations.vue'),
+          meta: { title: '预约审批', requiresAdmin: true },
         },
         {
           path: 'admin/rooms',
@@ -55,8 +55,8 @@ const router = createRouter({
         {
           path: 'admin/monitor',
           name: 'admin-monitor',
-          component: () => import('@/views/admin/SystemMonitor.vue'),
-          meta: { title: '系统监控', requiresAdmin: true },
+          component: () => import('@/modules/administration/AuditLogs.vue'),
+          meta: { title: '操作审计', requiresAdmin: true },
         },
       ],
     },
