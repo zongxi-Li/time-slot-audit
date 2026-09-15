@@ -13,11 +13,13 @@ import {
   Monitor,
   SwitchButton,
   UserFilled,
+  AlarmClock,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { useMock } from '@/shared/api/config'
+import NotificationBell from '@/modules/meeting/components/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,6 +29,7 @@ const monitor = useMonitorStore()
 const userMenus = [
   { path: '/board', label: '预约看板', icon: Calendar },
   { path: '/my', label: '我的预约', icon: Tickets },
+  { path: '/meetings', label: '我的会议', icon: AlarmClock },
   { path: '/rooms', label: '会议室', icon: OfficeBuilding },
 ]
 
@@ -76,7 +79,9 @@ function onUserCommand(command: string) {
         </div>
       </div>
 
-      <el-dropdown trigger="click" @command="onUserCommand">
+      <div class="header-right">
+        <NotificationBell />
+        <el-dropdown trigger="click" @command="onUserCommand">
         <div class="user-chip">
           <div class="user-avatar" :class="{ admin: auth.isAdmin }">
             {{ auth.currentUser.name.charAt(0) }}
@@ -107,6 +112,7 @@ function onUserCommand(command: string) {
           </el-dropdown-menu>
         </template>
       </el-dropdown>
+      </div>
     </el-header>
 
     <el-container class="layout-body">
@@ -257,6 +263,11 @@ function onUserCommand(command: string) {
   font-weight: 700;
   letter-spacing: 0.16em;
   line-height: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .user-chip {

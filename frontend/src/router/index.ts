@@ -27,6 +27,12 @@ const router = createRouter({
           meta: { title: '我的预约' },
         },
         {
+          path: 'meetings',
+          name: 'my-meetings',
+          component: () => import('@/modules/meeting/views/MyMeetings.vue'),
+          meta: { title: '我的会议' },
+        },
+        {
           path: 'rooms',
           name: 'rooms',
           component: () => import('@/views/MeetingRooms.vue'),
