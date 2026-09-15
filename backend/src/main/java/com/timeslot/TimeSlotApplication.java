@@ -10,7 +10,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @MapperScan({
         "com.timeslot.identity.mapper",
         "com.timeslot.resource.mapper",
-        "com.timeslot.reservation.mapper"
+        "com.timeslot.reservation.mapper",
+        "com.timeslot.meeting.mapper"
 })
 public class TimeSlotApplication {
     public static void main(String[] args) {
