@@ -1,0 +1,218 @@
+<mxfile host="Electron" compressed="false" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram id="meeting-room-arch" name="系统总体架构图">
+    <mxGraphModel dx="2205" dy="1505" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="access" parent="1" style="swimlane;html=1;startSize=30;rounded=1;arcSize=13;horizontal=1;strokeWidth=2;strokeColor=#9673a6;fillColor=#e1d5e7;swimlaneFillColor=#DDECF8;fontFamily=Microsoft YaHei;fontSize=15;fontStyle=1;shadow=1;textShadow=1;glass=0;" value="访问与交互" vertex="1">
+          <mxGeometry height="760" width="245" x="20" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="a1" parent="access" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;普通用户 / 管理员&lt;/b&gt;&lt;br&gt;登录 · 查询会议室&lt;br&gt;发起预约 · 审批 · 统计" vertex="1">
+          <mxGeometry height="105" width="200" x="22" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" parent="access" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;系统前端&lt;/b&gt;&lt;br&gt;会议室列表 / 日历视图&lt;br&gt;我的预约 / 管理页面" vertex="1">
+          <mxGeometry height="105" width="200" x="22" y="205" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" parent="access" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;Web 浏览器&lt;/b&gt;&lt;br&gt;HTTP REST / JSON&lt;br&gt;PC 端课程展示环境" vertex="1">
+          <mxGeometry height="105" width="200" x="22" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" parent="access" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;外部接入（规划）&lt;/b&gt;&lt;br&gt;邮件 / 短信 / 企业通知&lt;br&gt;审批与预约结果推送" vertex="1">
+          <mxGeometry height="110" width="200" x="22" y="495" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" parent="access" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;统一访问入口&lt;/b&gt;&lt;br&gt;/api · REST · JSON&lt;br&gt;Bearer JWT" vertex="1">
+          <mxGeometry height="80" width="200" x="22" y="645" as="geometry" />
+        </mxCell>
+        <mxCell id="e_a1_a2" edge="1" parent="access" source="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#70A298;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#52776F;labelBackgroundColor=#FFFFFF;" target="a2" value="使用">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_a2_a3" edge="1" parent="access" source="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#70A298;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#52776F;labelBackgroundColor=#FFFFFF;" target="a3" value="浏览器访问">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="boundary" parent="1" style="swimlane;html=1;startSize=30;rounded=1;arcSize=5;horizontal=1;strokeWidth=3;dashed=1;dashPattern=8 5;strokeColor=#9673a6;fillColor=#e1d5e7;swimlaneFillColor=#EDF2F6;fontFamily=Microsoft YaHei;fontSize=15;fontStyle=1;shadow=1;textShadow=1;glass=0;" value="模块化单体应用边界 · meeting-room-system" vertex="1">
+          <mxGeometry height="760" width="1325" x="300" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="vue" parent="boundary" style="swimlane;html=1;startSize=30;rounded=1;arcSize=12;horizontal=1;strokeWidth=2;strokeColor=#4E9D9D;fillColor=#F4FBFA;swimlaneFillColor=#D9F0ED;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;fontColor=#24666A;shadow=1;" value="Vue 3 工作台" vertex="1">
+          <mxGeometry height="655" width="235" x="30" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v1" parent="vue" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F4FBF8;strokeColor=#4FB7A5;strokeWidth=1.5;fontSize=17;fontColor=#206E63;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;Vue 3 前端应用&lt;/b&gt;&lt;br&gt;TypeScript + Vite&lt;br&gt;Element Plus" vertex="1">
+          <mxGeometry height="120" width="190" x="22" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" parent="vue" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F4FBF8;strokeColor=#4FB7A5;strokeWidth=1.5;fontSize=17;fontColor=#206E63;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;业务工作区&lt;/b&gt;&lt;br&gt;会议室查询&lt;br&gt;预约日历 / 发起预约&lt;br&gt;我的预约 / 审批管理" vertex="1">
+          <mxGeometry height="165" width="190" x="22" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="v3" parent="vue" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F4FBF8;strokeColor=#4FB7A5;strokeWidth=1.5;fontSize=17;fontColor=#206E63;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;前端基础能力&lt;/b&gt;&lt;br&gt;Pinia 状态管理&lt;br&gt;Vue Router 路由守卫&lt;br&gt;shared/api DTO 适配&lt;br&gt;JWT 持久化" vertex="1">
+          <mxGeometry height="170" width="190" x="22" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="spring" parent="boundary" style="swimlane;html=1;startSize=30;rounded=1;arcSize=12;horizontal=1;strokeWidth=2;strokeColor=#4F7FAE;fillColor=#F5F8FC;swimlaneFillColor=#DDE9F5;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;fontColor=#284F74;shadow=1;" value="Spring Boot 应用层" vertex="1">
+          <mxGeometry height="655" width="225" x="310" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" parent="spring" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;接口与鉴权层&lt;/b&gt;&lt;br&gt;REST Controller&lt;br&gt;Spring Security + JWT&lt;br&gt;参数校验 Validation" vertex="1">
+          <mxGeometry height="135" width="185" x="20" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" parent="spring" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;统一异常处理&lt;/b&gt;&lt;br&gt;GlobalExceptionHandler&lt;br&gt;标准错误码&lt;br&gt;409 冲突语义" vertex="1">
+          <mxGeometry height="120" width="185" x="20" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="spring" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;API 契约&lt;/b&gt;&lt;br&gt;/api 统一前缀&lt;br&gt;统一响应结构&lt;br&gt;OpenAPI / Swagger" vertex="1">
+          <mxGeometry height="115" width="185" x="20" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" parent="spring" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;应用服务协调&lt;/b&gt;&lt;br&gt;Controller → Service&lt;br&gt;跨域通过公开 Service&lt;br&gt;事务边界控制" vertex="1">
+          <mxGeometry height="80" width="185" x="20" y="545" as="geometry" />
+        </mxCell>
+        <mxCell id="core" parent="boundary" style="swimlane;html=1;startSize=30;rounded=1;arcSize=10;horizontal=1;strokeWidth=2;strokeColor=#A9C7E2;fillColor=#F1F7FC;swimlaneFillColor=#DDECF8;fontFamily=Microsoft YaHei;fontSize=15;fontStyle=1;fontColor=#244B6B;shadow=1;" value="核心业务服务（五大业务域）" vertex="1">
+          <mxGeometry height="655" width="455" x="580" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;identity 身份与认证&lt;/b&gt;&lt;br&gt;登录认证&lt;br&gt;当前用户&lt;br&gt;USER / ADMIN 权限" vertex="1">
+          <mxGeometry height="125" width="195" x="20" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F4FBF8;strokeColor=#4FB7A5;strokeWidth=1.5;fontSize=17;fontColor=#206E63;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;resource 会议室资源&lt;/b&gt;&lt;br&gt;会议室 / 分类 / 设施&lt;br&gt;开放规则&lt;br&gt;资源状态治理" vertex="1">
+          <mxGeometry height="125" width="195" x="240" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFF8F7;strokeColor=#E4756B;strokeWidth=2;fontSize=17;fontColor=#8A3B34;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;reservation 预约核心&lt;/b&gt;&lt;br&gt;创建 / 查询 / 取消&lt;br&gt;时间冲突检测&lt;br&gt;幂等与状态管理" vertex="1">
+          <mxGeometry height="145" width="195" x="20" y="215" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;meeting 会议执行&lt;/b&gt;&lt;br&gt;签到 / 参会记录&lt;br&gt;会议执行状态&lt;br&gt;通知能力（规划）" vertex="1">
+          <mxGeometry height="145" width="195" x="240" y="215" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;administration 管理与审计&lt;/b&gt;&lt;br&gt;预约审批&lt;br&gt;资源治理 / 强制取消&lt;br&gt;操作日志 / 统计" vertex="1">
+          <mxGeometry height="145" width="195" x="20" y="395" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F6FBFF;strokeColor=#4C90F0;strokeWidth=1.5;fontSize=17;fontColor=#25509E;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;common 公共基础&lt;/b&gt;&lt;br&gt;统一响应&lt;br&gt;异常与安全上下文&lt;br&gt;无业务含义工具" vertex="1">
+          <mxGeometry height="145" width="195" x="240" y="395" as="geometry" />
+        </mxCell>
+        <mxCell id="consistency" parent="core" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#F7FBFF;strokeColor=#83A9CF;strokeWidth=1.5;fontSize=17;fontColor=#315D85;align=center;verticalAlign=middle;spacing=4;dashed=1;shadow=0;fontFamily=Microsoft YaHei;" value="&lt;b&gt;预约一致性与冲突检查&lt;/b&gt;&lt;br&gt;会议室行锁（FOR UPDATE） · 半开区间 [start,end)&lt;br&gt;PENDING / CONFIRMED 参与冲突 · requestId UNIQUE 幂等" vertex="1">
+          <mxGeometry height="60" width="415" x="20" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="data" parent="boundary" style="swimlane;html=1;startSize=30;rounded=1;arcSize=12;horizontal=1;strokeWidth=2;strokeColor=#D0A25B;fillColor=#FFFCF5;swimlaneFillColor=#F8EBCF;fontFamily=Microsoft YaHei;fontSize=14;fontStyle=1;fontColor=#74521E;shadow=1;" value="数据与持久化" vertex="1">
+          <mxGeometry height="655" width="210" x="1080" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="data" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="MySQL 8 / InnoDB&lt;br&gt;&lt;b&gt;业务数据库&lt;/b&gt;&lt;br&gt;事务 · 行锁 · 外键" vertex="1">
+          <mxGeometry height="110" width="140" x="35" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" parent="data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;reservation&lt;/b&gt;&lt;br&gt;预约事实 / 状态" vertex="1">
+          <mxGeometry height="55" width="160" x="25" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" parent="data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;sys_user&lt;/b&gt;&lt;br&gt;用户与角色" vertex="1">
+          <mxGeometry height="55" width="160" x="25" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="d4" parent="data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;meeting_room / room_category&lt;/b&gt;&lt;br&gt;资源与分类规则" vertex="1">
+          <mxGeometry height="70" width="160" x="25" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="d5" parent="data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;room_facility / room_open_rule&lt;/b&gt;&lt;br&gt;设施与开放规则" vertex="1">
+          <mxGeometry height="70" width="160" x="25" y="425" as="geometry" />
+        </mxCell>
+        <mxCell id="d6" parent="data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;approval_record / operation_log&lt;/b&gt;&lt;br&gt;审批与审计" vertex="1">
+          <mxGeometry height="70" width="160" x="25" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="d7" parent="data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFFDF8;strokeColor=#E0A544;strokeWidth=1.5;fontSize=17;fontColor=#A66400;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;MyBatis Mapper&lt;/b&gt;&lt;br&gt;显式 SQL · 行锁查询" vertex="1">
+          <mxGeometry height="45" width="160" x="25" y="595" as="geometry" />
+        </mxCell>
+        <mxCell id="ext" parent="1" style="swimlane;html=1;startSize=30;rounded=1;arcSize=11;horizontal=1;strokeWidth=2;strokeColor=#9673a6;fillColor=#e1d5e7;swimlaneFillColor=#EEE6F5;fontFamily=Microsoft YaHei;fontSize=15;fontStyle=1;shadow=1;textShadow=1;glass=0;" value="外部能力与运维" vertex="1">
+          <mxGeometry height="760" width="225" x="1660" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="x1" parent="ext" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;Nginx / 静态资源&lt;/b&gt;&lt;br&gt;反向代理&lt;br&gt;前端构建产物部署" vertex="1">
+          <mxGeometry height="105" width="175" x="25" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="x2" parent="ext" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;接口文档与测试&lt;/b&gt;&lt;br&gt;Swagger UI&lt;br&gt;Postman / 联调验证" vertex="1">
+          <mxGeometry height="105" width="175" x="25" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="x3" parent="ext" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;日志与监控（规划）&lt;/b&gt;&lt;br&gt;应用日志&lt;br&gt;性能指标 / 告警&lt;br&gt;审计追踪" vertex="1">
+          <mxGeometry height="115" width="175" x="25" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="x4" parent="ext" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FBF9FD;strokeColor=#B08CD8;strokeWidth=1.5;fontSize=17;fontColor=#5D4587;align=center;verticalAlign=middle;spacing=4;shadow=1;fontFamily=Microsoft YaHei;" value="&lt;b&gt;消息通知（后续扩展）&lt;/b&gt;&lt;br&gt;邮件 / 短信&lt;br&gt;企业微信 / 钉钉" vertex="1">
+          <mxGeometry height="110" width="175" x="25" y="545" as="geometry" />
+        </mxCell>
+        <mxCell id="e_access_vue" edge="1" parent="1" source="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#477EB1;fontFamily=Microsoft YaHei;fontSize=10;fontStyle=1;fontColor=#315D85;labelBackgroundColor=#FFFFFF;" target="v1" value="HTTPS / REST / JSON">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="282" y="512" />
+              <mxPoint x="282" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_vue_spring" edge="1" parent="1" source="v1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#477EB1;fontFamily=Microsoft YaHei;fontSize=10;fontStyle=1;fontColor=#315D85;labelBackgroundColor=#FFFFFF;" target="s1" value="/api · REST · JSON · JWT">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_spring_core" edge="1" parent="1" source="s4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#477EB1;fontFamily=Microsoft YaHei;fontSize=10;fontStyle=1;fontColor=#315D85;labelBackgroundColor=#FFFFFF;" target="c3" value="命令 / 查询">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="850" y="750" />
+              <mxPoint x="850" y="491" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_spring_identity" edge="1" parent="1" source="s1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#477EB1;fontFamily=Microsoft YaHei;fontSize=10;fontStyle=1;fontColor=#315D85;labelBackgroundColor=#FFFFFF;" target="c1" value="认证 / 授权">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="283" />
+              <mxPoint x="830" y="283" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_core_data" edge="1" parent="1" source="c3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#C39448;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#7A5A27;labelBackgroundColor=#FFFFFF;" target="d1" value="MyBatis / SQL">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="998" y="360" />
+              <mxPoint x="1485" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_resource_data" edge="1" parent="1" source="c2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#C39448;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#7A5A27;labelBackgroundColor=#FFFFFF;" target="d1" value="资源查询">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1340" y="275" />
+              <mxPoint x="1340" y="275" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_data" edge="1" parent="1" source="c5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2.5;strokeColor=#C39448;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#7A5A27;labelBackgroundColor=#FFFFFF;" target="d6" value="审批 / 审计">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="890" y="633" />
+              <mxPoint x="890" y="850" />
+              <mxPoint x="1360" y="850" />
+              <mxPoint x="1360" y="710" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_nginx_vue" edge="1" parent="1" source="x1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;dashed=1;dashPattern=6 4;strokeColor=#8E6DAA;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#6C5084;labelBackgroundColor=#FFFFFF;" target="v1" value="静态资源 / 反向代理">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="447" y="207" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_swagger_spring" edge="1" parent="1" source="x2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;dashed=1;dashPattern=6 4;strokeColor=#8E6DAA;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#6C5084;labelBackgroundColor=#FFFFFF;" target="s3" value="OpenAPI">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1899" y="387" />
+              <mxPoint x="1899" y="906" />
+              <mxPoint x="593" y="906" />
+              <mxPoint x="593" y="613" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_logs_spring" edge="1" parent="1" source="s2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;dashed=1;dashPattern=6 4;strokeColor=#8E6DAA;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#6C5084;labelBackgroundColor=#FFFFFF;" target="x3" value="日志 / 指标">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="455" />
+              <mxPoint x="600" y="890" />
+              <mxPoint x="1640" y="890" />
+              <mxPoint x="1640" y="548" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_notify_admin" edge="1" parent="1" source="c5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;dashed=1;dashPattern=6 4;strokeColor=#8E6DAA;fontFamily=Microsoft YaHei;fontSize=10;fontColor=#6C5084;labelBackgroundColor=#FFFFFF;" target="x4" value="通知（规划）">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="998" y="540" />
+              <mxPoint x="1360" y="540" />
+              <mxPoint x="1360" y="580" />
+              <mxPoint x="1650" y="580" />
+              <mxPoint x="1650" y="710" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
