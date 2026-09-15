@@ -12,6 +12,7 @@ import {
   Management,
   Monitor,
   SwitchButton,
+  Tools,
   User,
   UserFilled,
   AlarmClock,
@@ -39,6 +40,7 @@ const adminMenus = [
   { path: '/admin/bookings', label: '预约审批', icon: List },
   { path: '/admin/rooms', label: '会议室管理', icon: Management },
   { path: '/admin/users', label: '用户与信用管理', icon: User },
+  { path: '/admin/repairs', label: '报修工单', icon: Tools },
   { path: '/admin/monitor', label: '操作审计', icon: Monitor },
 ]
 

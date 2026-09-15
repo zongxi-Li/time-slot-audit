@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { mockMeetingRooms } from '@/mock/meetingRooms'
-import { roomsApi } from '@/shared/api'
+import { adminRoomsApi, roomsApi } from '@/shared/api'
 import { useMock } from '@/shared/api/config'
 import type { MeetingRoom, RoomFlag } from '@/types'
+import type { SaveRoomRequest } from '@/shared/api/types'
 
 export const useMeetingRoomStore = defineStore('meetingRoom', () => {
   const rooms = ref<MeetingRoom[]>(useMock ? mockMeetingRooms.map((r) => ({ ...r })) : [])
@@ -44,5 +45,60 @@ export const useMeetingRoomStore = defineStore('meetingRoom', () => {
     return room.status
   }
 
-  return { rooms, loaded, refreshRooms, getRoom, roomName, addRoom, updateRoom, toggleRoomStatus }
+  /* —— 管理端动作：Demo 模式写本地数据，真实模式调用后台接口 —— */
+
+  /** 新增会议室；真实模式下同名冲突等校验由后端返回，错误向上抛出 */
+  async function createRoom(payload: SaveRoomRequest): Promise<boolean> {
+    if (useMock) {
+      return addRoom({
+        name: payload.name,
+        location: payload.location ?? '',
+        capacity: payload.capacity,
+        category: '',
+        equipment: [],
+      }) !== null
+    }
+    await adminRoomsApi.create(payload)
+    await refreshRooms()
+    return true
+  }
+
+  /** 编辑会议室基本信息 */
+  async function saveRoom(id: string, payload: SaveRoomRequest): Promise<void> {
+    if (useMock) {
+      updateRoom(id, {
+        location: payload.location ?? '',
+        capacity: payload.capacity,
+      })
+      return
+    }
+    await adminRoomsApi.update(id, payload)
+    await refreshRooms()
+  }
+
+  /** 变更资源状态（真实模式支持 AVAILABLE / MAINTENANCE / DISABLED） */
+  async function changeRoomStatus(id: string, status: RoomFlag): Promise<void> {
+    if (useMock) {
+      const room = getRoom(id)
+      if (room) room.status = status
+      return
+    }
+    await adminRoomsApi.changeStatus(id, status)
+    const room = getRoom(id)
+    if (room) room.status = status
+  }
+
+  return {
+    rooms,
+    loaded,
+    refreshRooms,
+    getRoom,
+    roomName,
+    addRoom,
+    updateRoom,
+    toggleRoomStatus,
+    createRoom,
+    saveRoom,
+    changeRoomStatus,
+  }
 })

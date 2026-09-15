@@ -16,4 +16,12 @@ public enum MeetingRoomStatus {
             default -> throw new BusinessException(ErrorCode.INTERNAL_ERROR, "会议室状态数据无效");
         };
     }
+
+    public int toDb() {
+        return switch (this) {
+            case AVAILABLE -> 1;
+            case MAINTENANCE -> 0;
+            case DISABLED -> 2;
+        };
+    }
 }

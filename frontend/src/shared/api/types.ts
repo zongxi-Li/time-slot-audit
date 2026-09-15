@@ -49,6 +49,117 @@ export interface RoomResponse {
   status: RoomFlag
   category: string
   facilities: string[]
+  description?: string | null
+}
+
+export interface CategoryResponse {
+  id: number | string
+  name: string
+  minCapacity: number
+  maxCapacity: number
+  approvalRequired: boolean
+  maxDurationMinutes: number
+  advanceDays: number
+  description?: string | null
+}
+
+export interface SaveCategoryRequest {
+  name: string
+  minCapacity: number
+  maxCapacity: number
+  approvalRequired: boolean
+  maxDurationMinutes: number
+  advanceDays: number
+  description?: string | null
+}
+
+export interface SaveRoomRequest {
+  name: string
+  categoryId: number | string
+  location?: string | null
+  capacity: number
+  description?: string | null
+}
+
+export interface FacilityResponse {
+  id: number | string
+  roomId: number | string
+  name: string
+  quantity: number
+  description?: string | null
+}
+
+export interface SaveFacilityRequest {
+  name: string
+  quantity: number
+  description?: string | null
+}
+
+export interface OpenRuleResponse {
+  id: number | string
+  roomId: number | string
+  weekday: number
+  openTime: string
+  closeTime: string
+  enabled: boolean
+}
+
+export interface SaveOpenRuleRequest {
+  weekday: number
+  openTime: string
+  closeTime: string
+  enabled?: boolean
+}
+
+export interface RoomDetailResponse {
+  id: number | string
+  name: string
+  location: string
+  capacity: number
+  status: RoomFlag
+  categoryId: number | string
+  category: string
+  description?: string | null
+  facilities: FacilityResponse[]
+  openRules: OpenRuleResponse[]
+}
+
+export interface SaveMaintenanceRequest {
+  reason: string
+  startTime: string
+  endTime: string
+}
+
+export interface MaintenanceResponse {
+  id: number | string
+  roomId: number | string
+  reason: string
+  startTime: string
+  endTime: string
+  status: 'PLANNED' | 'FINISHED'
+  createdBy: number | string
+  createdAt: string
+}
+
+export interface RepairTicketResponse {
+  id: number | string
+  roomId: number | string
+  roomName: string
+  facilityId?: number | string | null
+  facilityName: string
+  issue: string
+  status: 'OPEN' | 'RESOLVED'
+  reporterId: number | string
+  reporterName: string
+  createdAt: string
+  resolvedAt?: string | null
+  resolveRemark?: string | null
+}
+
+export interface CreateRepairTicketRequest {
+  facilityId?: number | string | null
+  facilityName?: string | null
+  issue: string
 }
 
 export interface ReservationResponse {

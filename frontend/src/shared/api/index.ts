@@ -3,6 +3,8 @@ import { request } from './http'
 import { TOKEN_STORAGE_KEY } from './config'
 import type {
   AdminUserResponse,
+  CategoryResponse,
+  CreateRepairTicketRequest,
   CreateUserPayload,
   CreditAdjustPayload,
   DepartmentPayload,
@@ -11,10 +13,20 @@ import type {
   RestrictPayload,
   UpdateUserPayload,
   CreateReservationRequest,
+  FacilityResponse,
   LoginRequest,
   LoginResponse,
+  MaintenanceResponse,
+  OpenRuleResponse,
   ReservationResponse,
+  RepairTicketResponse,
+  RoomDetailResponse,
   RoomResponse,
+  SaveFacilityRequest,
+  SaveMaintenanceRequest,
+  SaveOpenRuleRequest,
+  SaveRoomRequest,
+  SaveCategoryRequest,
   UserResponse,
   ViolationResponse,
 } from './types'
@@ -125,6 +137,74 @@ export const myViolationsApi = {
 export const roomsApi = {
   async list() {
     return (await request<RoomResponse[]>('/rooms')).map(toRoom)
+  },
+  async detail(roomId: string | number) {
+    return request<RoomDetailResponse>(`/rooms/${roomId}`)
+  },
+}
+
+/** 管理端资源治理接口；Demo（useMock）模式下视图层不应调用。 */
+export const adminRoomsApi = {
+  async create(payload: SaveRoomRequest) {
+    return request<RoomResponse>('/admin/rooms', { method: 'POST', body: payload })
+  },
+  async update(roomId: string | number, payload: SaveRoomRequest) {
+    return request<RoomResponse>(`/admin/rooms/${roomId}`, { method: 'PUT', body: payload })
+  },
+  async changeStatus(roomId: string | number, status: string) {
+    return request<RoomResponse>(`/admin/rooms/${roomId}/status`, { method: 'POST', body: { status } })
+  },
+  async replaceFacilities(roomId: string | number, facilities: SaveFacilityRequest[]) {
+    return request<FacilityResponse[]>(`/admin/rooms/${roomId}/facilities`, {
+      method: 'PUT',
+      body: { facilities },
+    })
+  },
+  async replaceOpenRules(roomId: string | number, rules: SaveOpenRuleRequest[]) {
+    return request<OpenRuleResponse[]>(`/admin/rooms/${roomId}/open-rules`, {
+      method: 'PUT',
+      body: { rules },
+    })
+  },
+  async listMaintenance(roomId: string | number) {
+    return request<MaintenanceResponse[]>(`/admin/rooms/${roomId}/maintenance`)
+  },
+  async createMaintenance(roomId: string | number, payload: SaveMaintenanceRequest) {
+    return request<MaintenanceResponse>(`/admin/rooms/${roomId}/maintenance`, { method: 'POST', body: payload })
+  },
+  async finishMaintenance(roomId: string | number, planId: string | number) {
+    return request<MaintenanceResponse>(`/admin/rooms/${roomId}/maintenance/${planId}/finish`, { method: 'POST' })
+  },
+}
+
+export const adminCategoriesApi = {
+  async list() {
+    return request<CategoryResponse[]>('/admin/room-categories')
+  },
+  async create(payload: SaveCategoryRequest) {
+    return request<CategoryResponse>('/admin/room-categories', { method: 'POST', body: payload })
+  },
+  async update(categoryId: string | number, payload: SaveCategoryRequest) {
+    return request<CategoryResponse>(`/admin/room-categories/${categoryId}`, { method: 'PUT', body: payload })
+  },
+}
+
+export const repairTicketsApi = {
+  /** 用户报修 */
+  async create(roomId: string | number, payload: CreateRepairTicketRequest) {
+    return request<RepairTicketResponse>(`/rooms/${roomId}/repair-tickets`, { method: 'POST', body: payload })
+  },
+  /** 管理员查看工单 */
+  async adminList(roomId?: string | number) {
+    const query = roomId ? `?roomId=${encodeURIComponent(roomId)}` : ''
+    return request<RepairTicketResponse[]>(`/admin/repair-tickets${query}`)
+  },
+  /** 管理员解决工单 */
+  async resolve(ticketId: string | number, remark?: string) {
+    return request<RepairTicketResponse>(`/admin/repair-tickets/${ticketId}/resolve`, {
+      method: 'POST',
+      body: { remark },
+    })
   },
 }
 

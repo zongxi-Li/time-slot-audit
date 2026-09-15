@@ -12,11 +12,9 @@ import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
-import com.timeslot.resource.domain.MeetingRoom;
-import com.timeslot.resource.domain.MeetingRoomStatus;
-import com.timeslot.resource.domain.RoomCategory;
-import com.timeslot.resource.domain.RoomOpenRule;
-import com.timeslot.resource.service.ResourceQueryService;
+import com.timeslot.resource.dto.BookableRoomProfile;
+import com.timeslot.resource.dto.BookingOpenWindow;
+import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +29,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,27 +48,26 @@ import org.springframework.dao.DuplicateKeyException;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class ReservationServiceTest {
     @Mock ReservationMapper reservationMapper;
-    @Mock ResourceQueryService resourceQueryService;
+    @Mock ResourceBookingQueryService resourceBookingQueryService;
     @Mock BookingQualificationService bookingQualificationService;
     @Mock CurrentUserProvider currentUserProvider;
 
     private ReservationService service;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-11T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
-    private final MeetingRoom room = new MeetingRoom(1L, 1L, "A301", "教学楼A栋3层", 8,
-            MeetingRoomStatus.AVAILABLE, "小型会议室", List.of("投影仪"));
-    private final RoomCategory normalCategory = new RoomCategory(1L, "小型会议室", false, 120, 7);
-    private final RoomOpenRule openRule = new RoomOpenRule(LocalTime.of(8, 0), LocalTime.of(19, 0), true);
+    /** Small normal room: no approval required, max 120 minutes, 7 days in advance, open 08:00-19:00. */
+    private final BookableRoomProfile room = new BookableRoomProfile(1L, "A301", 8, "AVAILABLE",
+            false, 120, 7);
+    private final BookingOpenWindow openWindow = new BookingOpenWindow(LocalTime.of(8, 0), LocalTime.of(19, 0), true);
 
     @BeforeEach
     void setUp() {
-        service = new ReservationService(reservationMapper, resourceQueryService, bookingQualificationService,
+        service = new ReservationService(reservationMapper, resourceBookingQueryService, bookingQualificationService,
                 currentUserProvider, clock);
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(2L, "zhangsan", "USER"));
         when(bookingQualificationService.check(2L)).thenReturn(BookingQualification.allow(2L, 100));
         when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
-        when(resourceQueryService.lockRoom(1L)).thenReturn(room);
-        when(resourceQueryService.getCategory(1L)).thenReturn(normalCategory);
-        when(resourceQueryService.getOpenRule(anyLong(), anyInt())).thenReturn(openRule);
+        when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(room);
+        when(resourceBookingQueryService.getOpenWindow(anyLong(), anyInt())).thenReturn(openWindow);
         when(reservationMapper.countConflicts(anyLong(), any(), any())).thenReturn(0);
     }
 
@@ -86,14 +82,15 @@ class ReservationServiceTest {
 
         assertEquals("CONFIRMED", response.status());
         verify(reservationMapper).insert(any(Reservation.class));
-        InOrder order = inOrder(resourceQueryService, reservationMapper);
-        order.verify(resourceQueryService).lockRoom(1L);
+        InOrder order = inOrder(resourceBookingQueryService, reservationMapper);
+        order.verify(resourceBookingQueryService).lockBookableRoom(1L);
         order.verify(reservationMapper).countConflicts(anyLong(), any(), any());
     }
 
     @Test
     void approvalRoomCreatesPendingReservation() {
-        when(resourceQueryService.getCategory(1L)).thenReturn(new RoomCategory(1L, "大型会议室", true, 240, 14));
+        when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(new BookableRoomProfile(1L, "A101", 30,
+                "AVAILABLE", true, 240, 14));
 
         assertEquals("PENDING", service.createReservation(request()).status());
     }
@@ -117,13 +114,13 @@ class ReservationServiceTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
         verify(reservationMapper, never()).insert(any());
-        verify(resourceQueryService, never()).lockRoom(anyLong());
+        verify(resourceBookingQueryService, never()).lockBookableRoom(anyLong());
     }
 
     @Test
     void maintenanceRoomIsRejected() {
-        when(resourceQueryService.lockRoom(1L)).thenReturn(new MeetingRoom(1L, 1L, "A301", "", 8,
-                MeetingRoomStatus.MAINTENANCE, "小型会议室", List.of()));
+        when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(new BookableRoomProfile(1L, "A301", 8,
+                "MAINTENANCE", false, 120, 7));
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(request()));
 
@@ -157,8 +154,17 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(overnight));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
-        verify(resourceQueryService, never()).lockRoom(anyLong());
+        verify(resourceBookingQueryService, never()).lockBookableRoom(anyLong());
         verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
+
+    @Test
+    void closedOpenWindowIsRejected() {
+        when(resourceBookingQueryService.getOpenWindow(anyLong(), anyInt()))
+                .thenReturn(new BookingOpenWindow(LocalTime.of(8, 0), LocalTime.of(19, 0), false));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(BusinessException.class,
+                () -> service.createReservation(request())).getCode());
     }
 
     @Test
@@ -180,7 +186,7 @@ class ReservationServiceTest {
 
         assertEquals(42L, service.createReservation(request()).id());
         verify(reservationMapper).findByUserIdAndRequestId(2L, "request-1");
-        verify(resourceQueryService, never()).lockRoom(anyLong());
+        verify(resourceBookingQueryService, never()).lockBookableRoom(anyLong());
         verify(reservationMapper, never()).insert(any());
     }
 
@@ -228,7 +234,7 @@ class ReservationServiceTest {
         when(reservationMapper.findByUserIdAndRequestId(2L, "request-1")).thenReturn(null, existing);
 
         assertEquals(43L, service.createReservation(request()).id());
-        verify(resourceQueryService).lockRoom(1L);
+        verify(resourceBookingQueryService).lockBookableRoom(1L);
         verify(reservationMapper, never()).countConflicts(anyLong(), any(), any());
         verify(reservationMapper, never()).insert(any());
     }
@@ -293,7 +299,7 @@ class ReservationServiceTest {
 
         assertEquals(LocalDateTime.of(2026, 9, 12, 16, 0), response.startTime());
         assertEquals("CONFIRMED", response.status());
-        verify(resourceQueryService).lockRoom(1L);
+        verify(resourceBookingQueryService).lockBookableRoom(1L);
         verify(reservationMapper).countConflictsExcluding(1L,
                 LocalDateTime.of(2026, 9, 12, 16, 0), LocalDateTime.of(2026, 9, 12, 17, 0), 7L);
         verify(reservationMapper).updateSchedule(reservation);
@@ -303,9 +309,8 @@ class ReservationServiceTest {
     void rescheduleToApprovalRoomMovesConfirmedBackToPending() {
         Reservation reservation = ownedReservation(2L);
         when(reservationMapper.findByIdForUpdate(7L)).thenReturn(reservation);
-        when(resourceQueryService.lockRoom(5L)).thenReturn(new MeetingRoom(5L, 3L, "B502", "", 60,
-                MeetingRoomStatus.AVAILABLE, "大型会议室", List.of()));
-        when(resourceQueryService.getCategory(3L)).thenReturn(new RoomCategory(3L, "大型会议室", true, 240, 14));
+        when(resourceBookingQueryService.lockBookableRoom(5L)).thenReturn(new BookableRoomProfile(5L, "B502", 60,
+                "AVAILABLE", true, 240, 14));
 
         ReservationResponse response = service.update(7L,
                 new UpdateReservationRequest(5L, "大会议室改期", LocalDateTime.of(2026, 9, 12, 16, 0),
@@ -346,7 +351,7 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
 
         assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
-        verify(resourceQueryService, never()).lockRoom(anyLong());
+        verify(resourceBookingQueryService, never()).lockBookableRoom(anyLong());
     }
 
     @Test

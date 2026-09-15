@@ -121,13 +121,37 @@ INTERNAL_ERROR
 
 `ViolationResponse`：`id,userId,violationType,creditChange,reason,operatorName,createdAt`；`violationType ∈ {CREDIT_DEDUCT,CREDIT_REWARD,BLACKLIST_SET,BLACKLIST_RELEASE,ACCOUNT_DISABLE,ACCOUNT_ENABLE}`。
 
-## 6. 后续接口
+## 6. 资源管理接口（resource 域，v1.4）
+
+会议室、分类、设施、开放规则、维护计划与报修工单由 resource 域提供。管理端接口均要求 ADMIN，业务查询与报修为 USER/ADMIN。
+
+| 状态 | Method | Path | 权限 | 请求/查询 | 响应 |
+| --- | --- | --- | --- | --- | --- |
+| IMPLEMENTED | GET | `/api/rooms/{roomId}` | USER/ADMIN | 无 | 会议室详情（含设施、开放规则） |
+| IMPLEMENTED | POST | `/api/rooms/{roomId}/repair-tickets` | USER/ADMIN | `{facilityId?,facilityName?,issue}` | 报修工单 |
+| IMPLEMENTED | POST | `/api/admin/rooms` | ADMIN | `SaveRoomRequest` | 会议室 |
+| IMPLEMENTED | PUT | `/api/admin/rooms/{roomId}` | ADMIN | `SaveRoomRequest` | 更新后的会议室 |
+| IMPLEMENTED | POST | `/api/admin/rooms/{roomId}/status` | ADMIN | `{status}` | 更新后的会议室 |
+| IMPLEMENTED | PUT | `/api/admin/rooms/{roomId}/facilities` | ADMIN | 设施全量列表（整体替换） | 替换后的设施列表 |
+| IMPLEMENTED | PUT | `/api/admin/rooms/{roomId}/open-rules` | ADMIN | 开放规则全量列表（整体替换） | 替换后的开放规则列表 |
+| IMPLEMENTED | POST | `/api/admin/rooms/{roomId}/maintenance` | ADMIN | `{reason,startTime,endTime}` | 维护计划 |
+| IMPLEMENTED | GET | `/api/admin/rooms/{roomId}/maintenance` | ADMIN | 无 | 维护计划列表（倒序） |
+| IMPLEMENTED | POST | `/api/admin/rooms/{roomId}/maintenance/{planId}/finish` | ADMIN | 无 | 完成登记后的计划 |
+| IMPLEMENTED | GET | `/api/admin/room-categories` | ADMIN | 无 | 分类列表 |
+| IMPLEMENTED | POST | `/api/admin/room-categories` | ADMIN | `SaveCategoryRequest` | 分类 |
+| IMPLEMENTED | PUT | `/api/admin/room-categories/{categoryId}` | ADMIN | `SaveCategoryRequest` | 更新后的分类 |
+| IMPLEMENTED | GET | `/api/admin/repair-tickets` | ADMIN | 可选 `roomId` | 工单列表（OPEN 优先） |
+| IMPLEMENTED | POST | `/api/admin/repair-tickets/{ticketId}/resolve` | ADMIN | `{remark}` | 解决后的工单 |
+
+资源域不新增错误码：设施/工单/会议室不存在复用 `RESOURCE_NOT_FOUND`，参数与状态类校验（设施不属于该会议室、工单已处理、维护计划已结束等）复用 `VALIDATION_ERROR`。
+
+工单状态机：`OPEN → RESOLVED`（条件更新兜底并发重复解决，返回 400「该报修工单已处理」）；维护计划状态机：`PLANNED → FINISHED`。设施与开放规则采用「全量替换」语义，避免增量 diff 契约。
+
+## 7. 后续接口
 
 以下接口属于 PLANNED，本轮不伪装为已实现：
 
 ```text
-GET/POST/PUT /api/rooms/{id}
-PATCH /api/rooms/{id}/status
 GET /api/rooms/{id}/free-slots
 GET /api/rooms/available
 PUT /api/reservations/{id}

@@ -14,11 +14,9 @@ import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
-import com.timeslot.resource.domain.MeetingRoom;
-import com.timeslot.resource.domain.MeetingRoomStatus;
-import com.timeslot.resource.domain.RoomCategory;
-import com.timeslot.resource.domain.RoomOpenRule;
-import com.timeslot.resource.service.ResourceQueryService;
+import com.timeslot.resource.dto.BookableRoomProfile;
+import com.timeslot.resource.dto.BookingOpenWindow;
+import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,16 +35,16 @@ public class ReservationService {
     private static final Set<ReservationStatus> EDITABLE = Set.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
 
     private final ReservationMapper reservationMapper;
-    private final ResourceQueryService resourceQueryService;
+    private final ResourceBookingQueryService resourceBookingQueryService;
     private final BookingQualificationService bookingQualificationService;
     private final CurrentUserProvider currentUserProvider;
     private final Clock clock;
 
-    public ReservationService(ReservationMapper reservationMapper, ResourceQueryService resourceQueryService,
+    public ReservationService(ReservationMapper reservationMapper, ResourceBookingQueryService resourceBookingQueryService,
                               BookingQualificationService bookingQualificationService,
                               CurrentUserProvider currentUserProvider, Clock clock) {
         this.reservationMapper = reservationMapper;
-        this.resourceQueryService = resourceQueryService;
+        this.resourceBookingQueryService = resourceBookingQueryService;
         this.bookingQualificationService = bookingQualificationService;
         this.currentUserProvider = currentUserProvider;
         this.clock = clock;
@@ -71,25 +69,25 @@ public class ReservationService {
         }
 
         // Critical ordering: lock one meeting_room row before the conflict query.
-        MeetingRoom room = resourceQueryService.lockRoom(request.roomId());
+        BookableRoomProfile room = resourceBookingQueryService.lockBookableRoom(request.roomId());
         // A concurrent retry with the same requestId may have waited on this room lock.
         // Re-check after the lock so it returns the committed result instead of a false conflict.
         Reservation existingAfterLock = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
         if (existingAfterLock != null) return ReservationResponse.from(existingAfterLock, clock);
-        RoomCategory category = validateSlot(room, interval, request.participantCount(), now, null);
+        validateSlot(room, interval, request.participantCount(), now, null);
 
         Reservation reservation = new Reservation();
         reservation.setRequestId(request.requestId());
         reservation.setReservationNo("RSV" + UUID.randomUUID().toString().replace("-", "").substring(0, 20));
-        reservation.setRoomId(room.id());
+        reservation.setRoomId(room.roomId());
         reservation.setUserId(user.userId());
-        reservation.setRoomName(room.name());
+        reservation.setRoomName(room.roomName());
         reservation.setUserName(user.username());
         reservation.setTitle(request.title());
         reservation.setStartTime(interval.start());
         reservation.setEndTime(interval.end());
         reservation.setParticipantCount(request.participantCount());
-        reservation.setStatus(category.approvalRequired() ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED);
+        reservation.setStatus(room.approvalRequired() ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED);
         reservation.setRemark(request.remark());
         try {
             reservationMapper.insert(reservation);
@@ -103,7 +101,7 @@ public class ReservationService {
 
     /**
      * Owner-only reschedule. The new slot goes through the full rule chain again
-     * (room row lock, room status, category rules, open rule, half-open conflict
+     * (room row lock, room status, category rules, open window, half-open conflict
      * query excluding this reservation's own id).
      */
     @Transactional
@@ -129,18 +127,18 @@ public class ReservationService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约开始时间不能早于当前时间");
         }
 
-        MeetingRoom room = resourceQueryService.lockRoom(request.roomId());
-        RoomCategory category = validateSlot(room, interval, request.participantCount(), now, reservation.getId());
+        BookableRoomProfile room = resourceBookingQueryService.lockBookableRoom(request.roomId());
+        validateSlot(room, interval, request.participantCount(), now, reservation.getId());
 
-        reservation.setRoomId(room.id());
-        reservation.setRoomName(room.name());
+        reservation.setRoomId(room.roomId());
+        reservation.setRoomName(room.roomName());
         reservation.setTitle(request.title());
         reservation.setStartTime(interval.start());
         reservation.setEndTime(interval.end());
         reservation.setParticipantCount(request.participantCount());
         reservation.setRemark(request.remark());
         // Approval semantics follow the (possibly new) room category.
-        reservation.setStatus(category.approvalRequired() ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED);
+        reservation.setStatus(room.approvalRequired() ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED);
         reservationMapper.updateSchedule(reservation);
         return ReservationResponse.from(reservation, clock);
     }
@@ -211,34 +209,33 @@ public class ReservationService {
      * locked. {@code excludeReservationId} is null for create, otherwise the reservation
      * being rescheduled (its old row must not conflict with itself).
      */
-    private RoomCategory validateSlot(MeetingRoom room, TimeInterval interval, int participantCount,
-                                      LocalDateTime now, Long excludeReservationId) {
-        if (room.status() != MeetingRoomStatus.AVAILABLE) {
+    private void validateSlot(BookableRoomProfile room, TimeInterval interval, int participantCount,
+                              LocalDateTime now, Long excludeReservationId) {
+        if (!"AVAILABLE".equals(room.status())) {
             throw new BusinessException(ErrorCode.ROOM_UNAVAILABLE, "会议室当前不可预约");
         }
-        RoomCategory category = resourceQueryService.getCategory(room.categoryId());
         long advanceDays = ChronoUnit.DAYS.between(now.toLocalDate(), interval.start().toLocalDate());
-        if (advanceDays > category.advanceDays()) {
+        if (advanceDays > room.advanceDays()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "超过会议室允许的提前预约天数");
         }
-        if (interval.start().until(interval.end(), ChronoUnit.MINUTES) > category.maxDurationMinutes()) {
+        if (interval.start().until(interval.end(), ChronoUnit.MINUTES) > room.maxDurationMinutes()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "超过会议室允许的最长预约时长");
         }
         if (participantCount > room.capacity()) {
             throw new BusinessException(ErrorCode.ROOM_CAPACITY_EXCEEDED, "参与人数超过会议室容量");
         }
-        RoomOpenRule openRule = resourceQueryService.getOpenRule(room.id(), interval.start().getDayOfWeek().getValue());
-        if (openRule == null || !openRule.enabled()
-                || interval.start().toLocalTime().isBefore(openRule.openTime())
-                || interval.end().toLocalTime().isAfter(openRule.closeTime())) {
+        BookingOpenWindow openWindow = resourceBookingQueryService.getOpenWindow(room.roomId(),
+                interval.start().getDayOfWeek().getValue());
+        if (openWindow == null || !openWindow.enabled()
+                || interval.start().toLocalTime().isBefore(openWindow.openTime())
+                || interval.end().toLocalTime().isAfter(openWindow.closeTime())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约时间不在会议室开放时间内");
         }
         int conflicts = excludeReservationId == null
-                ? reservationMapper.countConflicts(room.id(), interval.start(), interval.end())
-                : reservationMapper.countConflictsExcluding(room.id(), interval.start(), interval.end(), excludeReservationId);
+                ? reservationMapper.countConflicts(room.roomId(), interval.start(), interval.end())
+                : reservationMapper.countConflictsExcluding(room.roomId(), interval.start(), interval.end(), excludeReservationId);
         if (conflicts > 0) {
             throw new BusinessException(ErrorCode.RESERVATION_TIME_CONFLICT, "该时段已被其他用户占用");
         }
-        return category;
     }
 }

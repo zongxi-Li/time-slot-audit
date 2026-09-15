@@ -65,6 +65,12 @@ const router = createRouter({
           meta: { title: '用户与信用管理', requiresAdmin: true },
         },
         {
+          path: 'admin/repairs',
+          name: 'admin-repairs',
+          component: () => import('@/views/admin/RepairAdmin.vue'),
+          meta: { title: '报修工单', requiresAdmin: true },
+        },
+        {
           path: 'admin/monitor',
           name: 'admin-monitor',
           component: () => import('@/modules/administration/AuditLogs.vue'),

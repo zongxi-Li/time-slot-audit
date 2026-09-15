@@ -2,7 +2,7 @@
 -- 会议室预约与时间冲突检查系统 —— 数据库建表脚本
 -- -----------------------------------------------------------------------------
 -- 目标数据库 : MySQL 8.x
--- 版本       : v1.3（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 2026-09-15）
+-- 版本       : v1.4（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 + V1_4 资源管理 2026-09-15）
 --              本文件始终表示从零初始化后的最新完整结构；存量库升级请按序执行
 --              sql/migrations/ 下的增量脚本（见 docs/development/database-evolution.md）
 -- 设计约定   : InnoDB / utf8mb4 / snake_case / BIGINT 主键 / DATETIME 时间
@@ -24,6 +24,8 @@ DROP TABLE IF EXISTS user_violation;
 DROP TABLE IF EXISTS operation_log;
 DROP TABLE IF EXISTS approval_record;
 DROP TABLE IF EXISTS reservation;
+DROP TABLE IF EXISTS facility_repair_ticket;
+DROP TABLE IF EXISTS room_maintenance;
 DROP TABLE IF EXISTS room_open_rule;
 DROP TABLE IF EXISTS room_facility;
 DROP TABLE IF EXISTS meeting_room;
@@ -171,7 +173,51 @@ CREATE TABLE room_open_rule (
 ) ENGINE = InnoDB COMMENT = '会议室每周开放时间规则';
 
 -- =============================================================================
--- 8. reservation 预约表（核心业务表）
+-- 8. room_maintenance 会议室维护计划表（v1.4 新增）
+--    轻量登记：计划 PLANNED → 完成登记 FINISHED，不做成资产系统。
+--    计划本身不阻断预约，需要阻断时将会议室状态置为 MAINTENANCE。
+-- =============================================================================
+CREATE TABLE room_maintenance (
+    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    room_id     BIGINT       NOT NULL                COMMENT '会议室ID',
+    reason      VARCHAR(200) NOT NULL                COMMENT '维护原因',
+    start_time  DATETIME     NOT NULL                COMMENT '维护开始时间',
+    end_time    DATETIME     NOT NULL                COMMENT '维护结束时间',
+    status      VARCHAR(20)  NOT NULL DEFAULT 'PLANNED' COMMENT '维护计划状态：PLANNED/FINISHED',
+    created_by  BIGINT       NOT NULL                COMMENT '创建管理员用户ID',
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    KEY idx_maintenance_room (room_id),
+    CONSTRAINT chk_maintenance_period CHECK (end_time > start_time),
+    CONSTRAINT fk_maintenance_room FOREIGN KEY (room_id) REFERENCES meeting_room (id)
+) ENGINE = InnoDB COMMENT = '会议室维护计划表';
+
+-- =============================================================================
+-- 9. facility_repair_ticket 设施报修工单表（v1.4 新增）
+--    轻量闭环：用户报修 OPEN → 管理员处理 RESOLVED。
+--    facility_name 为报修时快照，设施后续改名/删除不影响历史工单。
+-- =============================================================================
+CREATE TABLE facility_repair_ticket (
+    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    room_id        BIGINT       NOT NULL               COMMENT '会议室ID',
+    facility_id    BIGINT       NULL                   COMMENT '设施ID（空=整室报修）',
+    facility_name  VARCHAR(50)  NOT NULL               COMMENT '设施名称（报修时快照）',
+    issue          VARCHAR(500) NOT NULL               COMMENT '故障描述',
+    status         VARCHAR(20)  NOT NULL DEFAULT 'OPEN' COMMENT '工单状态：OPEN/RESOLVED',
+    reporter_id    BIGINT       NOT NULL               COMMENT '报修人用户ID',
+    reporter_name  VARCHAR(50)  NOT NULL               COMMENT '报修人姓名',
+    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '报修时间',
+    resolved_at    DATETIME     NULL                   COMMENT '解决时间',
+    resolve_remark VARCHAR(500) NULL                   COMMENT '处理说明',
+    PRIMARY KEY (id),
+    KEY idx_repair_room (room_id),
+    KEY idx_repair_status (status),
+    CONSTRAINT fk_repair_room FOREIGN KEY (room_id) REFERENCES meeting_room (id)
+) ENGINE = InnoDB COMMENT = '设施报修工单表（轻量）';
+
+-- =============================================================================
+-- 10. reservation 预约表（核心业务表）
 --    状态机：PENDING / CONFIRMED / REJECTED / CANCELLED。
 --    初始状态由分类的 approval_required 决定，故不设 DB 默认值。
 --    不设 version / deleted：并发由事务+行锁控制（见设计文档第11节），
@@ -204,7 +250,7 @@ CREATE TABLE reservation (
 ) ENGINE = InnoDB COMMENT = '预约表（核心业务表）';
 
 -- =============================================================================
--- 9. approval_record 审批记录表
+-- 11. approval_record 审批记录表
 --    职责：只保存审批“行为历史”（谁、对哪条预约、做了什么、何时）。
 --    仅当受控分类（approval_required=1）的预约被管理员通过/驳回时产生；
 --    普通会议室预约不产生审批记录。允许一个预约多条历史（不加唯一约束）。
@@ -224,7 +270,7 @@ CREATE TABLE approval_record (
 ) ENGINE = InnoDB COMMENT = '审批记录表（审批行为历史）';
 
 -- =============================================================================
--- 10. operation_log 操作日志表
+-- 12. operation_log 操作日志表
 --    职责：只记录关键管理行为（审批/驳回、会议室增改、分类修改、强制取消等），
 --    不记录所有 HTTP 请求。只增不改，不设 updated_at。
 -- =============================================================================
