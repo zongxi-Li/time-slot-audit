@@ -1,6 +1,7 @@
 package com.timeslot.reservation.mapper;
 
 import com.timeslot.reservation.domain.Reservation;
+import com.timeslot.reservation.dto.OccupancyInterval;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -77,6 +78,19 @@ public interface ReservationMapper {
             WHERE id = #{id}
             """)
     int updateSchedule(Reservation reservation);
+
+    @Select("""
+            SELECT room_id, start_time, end_time
+            FROM reservation
+            WHERE status IN ('PENDING', 'CONFIRMED')
+              AND start_time < #{endTime}
+              AND end_time > #{startTime}
+              AND (#{roomId} IS NULL OR room_id = #{roomId})
+            ORDER BY room_id, start_time
+            """)
+    List<OccupancyInterval> findActiveIntervals(@Param("startTime") LocalDateTime startTime,
+                                                @Param("endTime") LocalDateTime endTime,
+                                                @Param("roomId") Long roomId);
 
     @Insert("""
             INSERT INTO reservation
