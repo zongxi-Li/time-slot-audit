@@ -36,6 +36,18 @@ public interface ReservationMapper {
     Reservation findById(Long id);
 
     @Select("""
+            SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
+                   mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
+                   r.participant_count, r.status, r.remark
+            FROM reservation r
+            JOIN meeting_room mr ON mr.id = r.room_id
+            JOIN sys_user u ON u.id = r.user_id
+            WHERE r.id = #{id}
+            FOR UPDATE
+            """)
+    Reservation findByIdForUpdate(Long id);
+
+    @Select("""
             SELECT COUNT(*)
             FROM reservation
             WHERE room_id = #{roomId}

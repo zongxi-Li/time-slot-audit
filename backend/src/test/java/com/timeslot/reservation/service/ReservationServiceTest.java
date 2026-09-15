@@ -202,4 +202,50 @@ class ReservationServiceTest {
         verify(reservationMapper, never()).countConflicts(anyLong(), any(), any());
         verify(reservationMapper, never()).insert(any());
     }
+
+    private Reservation ownedReservation(Long ownerId) {
+        Reservation reservation = new Reservation();
+        reservation.setId(7L);
+        reservation.setRequestId("request-7");
+        reservation.setReservationNo("RSV7");
+        reservation.setRoomId(1L);
+        reservation.setUserId(ownerId);
+        reservation.setRoomName("A301");
+        reservation.setTitle("课程讨论");
+        reservation.setStartTime(LocalDateTime.of(2026, 9, 12, 15, 0));
+        reservation.setEndTime(LocalDateTime.of(2026, 9, 12, 16, 0));
+        reservation.setParticipantCount(4);
+        reservation.setStatus(ReservationStatus.CONFIRMED);
+        return reservation;
+    }
+
+    @Test
+    void ownerCancelsOwnReservation() {
+        Reservation reservation = ownedReservation(2L);
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(reservation);
+
+        assertEquals("CANCELLED", service.cancel(7L, null).status());
+        verify(reservationMapper).updateStatus(7L, "CANCELLED", null);
+    }
+
+    @Test
+    void otherUserCannotCancelReservation() {
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(3L));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
+        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+    }
+
+    @Test
+    void adminCannotCancelOthersReservationViaNormalEndpoint() {
+        when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(1L, "admin", "ADMIN"));
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
+        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+    }
 }

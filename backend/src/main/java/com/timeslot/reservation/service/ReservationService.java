@@ -128,12 +128,13 @@ public class ReservationService {
     @Transactional
     public ReservationResponse cancel(Long id, CancelReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
-        Reservation reservation = reservationMapper.findById(id);
+        Reservation reservation = reservationMapper.findByIdForUpdate(id);
         if (reservation == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "预约不存在");
         }
-        if (!reservation.getUserId().equals(user.userId()) && !"ADMIN".equals(user.role())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "无权取消该预约");
+        // ADMIN must use the governed force-cancel path from administration (reason + audit).
+        if (!reservation.getUserId().equals(user.userId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "只能取消本人预约");
         }
         if (reservation.getStatus() != ReservationStatus.PENDING && reservation.getStatus() != ReservationStatus.CONFIRMED) {
             throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "当前预约状态不可取消");
