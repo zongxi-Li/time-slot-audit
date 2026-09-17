@@ -1,3 +1,5 @@
+# 文件职责：预约并发验证脚本，模拟多个客户端访问预约接口并统计结果。
+# 接口：调用后端 /api/auth 和 /api/reservations。
 """Repeatable 100-request baseline check for one room/time interval.
 
 Usage:

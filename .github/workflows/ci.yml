@@ -1,3 +1,5 @@
+# 文件职责：GitHub Actions 持续集成配置。
+# 接口：在 main 分支 push 或 Pull Request 时执行前端构建和后端测试。
 name: ci
 
 on:
