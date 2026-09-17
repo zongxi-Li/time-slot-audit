@@ -45,6 +45,9 @@ INSERT INTO sys_user (id, username, password, real_name, email, phone, role, dep
 -- 2. 会议室分类：审批开关配置在分类上
 --    小型/普通免审批（提交即 CONFIRMED），大型/特殊需审批（提交进 PENDING）
 -- =============================================================================
+INSERT INTO sys_user (id, username, password, real_name, email, phone, role, department_id, credit_score, status) VALUES
+(4, 'lzx', '$2b$10$qAKyBKwAtTKf3sNAjJYyouDuVVJc9cx.8rL2dx0dwmIft.3dU4hPm', 'LZX', 'lzx@timeslot.demo', '13800000004', 'ADMIN', 1, 100, 1);
+
 INSERT INTO room_category (id, category_name, min_capacity, max_capacity, approval_required, max_duration_minutes, advance_days, description) VALUES
 (1, '小型会议室', 3,   8,   0, 120, 7,  '3-8人日常讨论，免审批，单次最长2小时，可提前7天预约'),
 (2, '普通会议室', 9,   20,  0, 240, 7,  '9-20人常规会议，免审批，单次最长4小时，可提前7天预约'),
@@ -65,6 +68,13 @@ INSERT INTO meeting_room (id, category_id, room_name, location, capacity, status
 -- =============================================================================
 -- 4. 会议室设施
 -- =============================================================================
+INSERT INTO meeting_room (id, category_id, room_name, location, capacity, status, description) VALUES
+(7,  1, 'C101', 'Teaching Building C, 1F',  8,  1, 'Small team room with projector and whiteboard'),
+(8,  2, 'C201', 'Teaching Building C, 2F', 18,  1, 'Standard meeting room with video equipment'),
+(9,  3, 'D301', 'Teaching Building D, 3F', 50,  1, 'Large lecture room for department events'),
+(10, 4, 'D401', 'Teaching Building D, 4F', 35,  1, 'Multi-purpose presentation room'),
+(11, 2, 'E201', 'Library Building E, 2F', 16,  1, 'Quiet discussion room');
+
 INSERT INTO room_facility (id, room_id, facility_name, quantity, description) VALUES
 (1,  1, '投影仪',       1, NULL),
 (2,  1, '白板',         1, NULL),
@@ -85,6 +95,17 @@ INSERT INTO room_facility (id, room_id, facility_name, quantity, description) VA
 -- 5. 每间会议室每周开放时间：周一至周日 08:00-19:00。
 --    课程基线不包含节假日和特殊日期规则。
 -- =============================================================================
+INSERT INTO room_facility (id, room_id, facility_name, quantity, description) VALUES
+(15, 7,  'PROJECTOR',        1, 'Ceiling mounted'),
+(16, 7,  'WHITEBOARD',        1, NULL),
+(17, 8,  'PROJECTOR',        1, NULL),
+(18, 8,  'VIDEO_CONFERENCE', 1, NULL),
+(19, 9,  'PROJECTOR',        2, NULL),
+(20, 9,  'WIRELESS_MIC',     4, NULL),
+(21, 10, 'SOUND_SYSTEM',     1, NULL),
+(22, 10, 'STAGE_LIGHTING',   1, NULL),
+(23, 11, 'DISPLAY',          1, '65 inch display');
+
 INSERT INTO room_open_rule (room_id, weekday, open_time, close_time, enabled)
 SELECT r.id, d.weekday, '08:00:00', '19:00:00', 1
 FROM meeting_room r
@@ -131,6 +152,36 @@ INSERT INTO reservation (id, request_id, reservation_no, room_id, user_id, title
 -- 6. 审批记录：仅特殊会议室（受控分类）的预约产生
 --    id=3 已审批通过；id=4 已驳回；id=2 仍为 PENDING，尚无审批记录
 -- =============================================================================
+INSERT INTO reservation (id, request_id, reservation_no, room_id, user_id, title, start_time, end_time, participant_count, status, remark, cancel_reason) VALUES
+(29, 'seed-extra-rsv-29', 'RSV20260917029', 9,  3, 'Department annual review',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 3 DAY), '13:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 3 DAY), '15:00:00'),
+   40, 'CONFIRMED', 'Approved large-room event', NULL),
+(30, 'seed-extra-rsv-30', 'RSV20260917030', 10, 2, 'Product launch rehearsal',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 4 DAY), '14:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 4 DAY), '16:00:00'),
+   25, 'REJECTED', 'Waiting for a different venue', NULL),
+(31, 'seed-extra-rsv-31', 'RSV20260917031', 11, 3, 'Study group discussion',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 5 DAY), '10:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 5 DAY), '12:00:00'),
+   10, 'CONFIRMED', 'Regular discussion', NULL),
+(32, 'seed-extra-rsv-32', 'RSV20260917032', 8,  4, 'Administrator coordination meeting',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 6 DAY), '15:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 6 DAY), '16:00:00'),
+   12, 'CONFIRMED', 'Internal administration meeting', NULL),
+(33, 'seed-extra-rsv-33', 'RSV20260917033', 7,  2, 'Team planning session',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 2 DAY), '09:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 2 DAY), '10:00:00'),
+   6, 'CANCELLED', NULL, 'Schedule changed by the organizer'),
+(34, 'seed-extra-rsv-34', 'RSV20260917034', 8,  3, 'Cross-team sync',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '16:00:00'),
+   12, 'CONFIRMED', 'Weekly cross-team sync', NULL),
+(35, 'seed-extra-rsv-35', 'RSV20260917035', 9,  4, 'Public lecture preparation',
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 7 DAY), '10:00:00'),
+   TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 7 DAY), '12:00:00'),
+   30, 'PENDING', 'Awaiting administrator approval', NULL);
+
 INSERT INTO approval_record (id, reservation_id, approver_id, action, remark) VALUES
 (1, 3, 1, 'APPROVE', '场地与设备已确认，同意使用'),
 (2, 4, 1, 'REJECT',  '该时段需预留场地维护，建议改期至其他日期');
@@ -138,6 +189,10 @@ INSERT INTO approval_record (id, reservation_id, approver_id, action, remark) VA
 -- =============================================================================
 -- 7. 操作日志：覆盖审批、驳回、建会议室、改分类、强制取消五类关键管理行为
 -- =============================================================================
+INSERT INTO approval_record (id, reservation_id, approver_id, action, remark) VALUES
+(7, 29, 4, 'APPROVE', 'Approved by lzx for the large-room event'),
+(8, 30, 4, 'REJECT',  'The special room is reserved for another event');
+
 INSERT INTO operation_log (id, user_id, operation_type, business_type, business_id, content, ip_address) VALUES
 (1, 1, 'CREATE_ROOM',              'MEETING_ROOM',  5, '新增会议室 B502（阶梯报告厅，大型会议室分类）',        '127.0.0.1'),
 (2, 1, 'UPDATE_CATEGORY',          'ROOM_CATEGORY', 4, '调整特殊会议室规则：需审批，单次最长8小时',            '127.0.0.1'),
@@ -149,6 +204,14 @@ INSERT INTO operation_log (id, user_id, operation_type, business_type, business_
 -- 8. 违规与信用记录（v1.3 身份治理）：与第 1 节信用分保持一致
 --    zhangsan 100+10=110；lisi 100-20=80（仍高于预约资格门槛 60，可正常预约）
 -- =============================================================================
+INSERT INTO operation_log (id, user_id, operation_type, business_type, business_id, content, ip_address) VALUES
+(11, 4, 'CREATE_ROOM',         'MEETING_ROOM', 7,  'Created meeting room C101', '127.0.0.1'),
+(12, 4, 'CREATE_ROOM',         'MEETING_ROOM', 8,  'Created meeting room C201', '127.0.0.1'),
+(13, 4, 'CREATE_ROOM',         'MEETING_ROOM', 9,  'Created meeting room D301', '127.0.0.1'),
+(14, 4, 'CREATE_ROOM',         'MEETING_ROOM', 10, 'Created meeting room D401', '127.0.0.1'),
+(15, 4, 'APPROVE_RESERVATION', 'RESERVATION',  29, 'Approved reservation RSV20260917029', '127.0.0.1'),
+(16, 4, 'REJECT_RESERVATION',  'RESERVATION',  30, 'Rejected reservation RSV20260917030', '127.0.0.1');
+
 INSERT INTO user_violation (id, user_id, violation_type, credit_change, reason, operator_id) VALUES
 (1, 2, 'CREDIT_REWARD', 10,  '协助保障多场大型会议顺利举行，信用奖励', 1),
 (2, 3, 'CREDIT_DEDUCT', -20, '预约后未到场且未提前取消，信用扣分',     1);
