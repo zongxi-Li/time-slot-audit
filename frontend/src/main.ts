@@ -1,3 +1,5 @@
+// 文件职责：创建 Vue 应用并注册 Pinia、Vue Router、Element Plus 和全局样式。
+// 接口：应用启动入口，无业务 HTTP 接口。
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'

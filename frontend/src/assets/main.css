@@ -1,3 +1,7 @@
+/*
+ * 文件职责：定义前端全局布局、颜色、字体和通用样式。
+ * 接口：由 main.ts 全局引入，无业务接口。
+ */
 :root {
   --el-color-primary: #0071e3;
   --el-color-primary-light-3: #4d9bea;

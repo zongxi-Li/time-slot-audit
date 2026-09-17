@@ -1,3 +1,5 @@
+// 文件职责：定义后端 API 请求、响应、错误和资源类型。
+// 接口：对应 Spring Boot Controller 的 JSON 契约。
 import type { ReservationStatus, Role, RoomFlag } from '@/types'
 
 export interface ApiResponse<T> {

@@ -1,3 +1,5 @@
+// 文件职责：封装 fetch、请求头、JWT 注入、响应解析和统一错误处理。
+// 接口：被所有前端 API 适配器调用。
 import { API_BASE_URL, TOKEN_STORAGE_KEY } from './config'
 import type { ApiErrorBody, ApiResponse } from './types'
 import { ApiError } from './types'

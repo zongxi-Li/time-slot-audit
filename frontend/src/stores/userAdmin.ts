@@ -1,3 +1,5 @@
+// 文件职责：Pinia store，维护管理员用户、部门、信用和违规数据。
+// 接口：调用 adminUsersApi、departmentsApi。
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { adminUsersApi, departmentsApi } from '@/shared/api'

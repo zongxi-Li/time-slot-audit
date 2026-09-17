@@ -1,3 +1,5 @@
+// 文件职责：TimeSlot 项目基础文件。
+// 接口：供对应工具链加载。
 export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
 
 /** API 与 Domain 统一角色；Mock 适配器也使用同一组语义。 */

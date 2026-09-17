@@ -1,3 +1,5 @@
+// 文件职责：Pinia store，维护登录用户、JWT 和角色状态。
+// 接口：调用 authApi。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '@/shared/api'

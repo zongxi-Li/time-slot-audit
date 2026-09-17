@@ -1,3 +1,5 @@
+// 文件职责：封装身份、会议室、预约、用户、部门、维护和报修 API。
+// 接口：/api/auth、/api/users、/api/rooms、/api/reservations、/api/admin/*。
 import type { Reservation, MeetingRoom, CurrentUser, ReservationDraft } from '@/types'
 import { buildQuery, request } from './http'
 import { TOKEN_STORAGE_KEY } from './config'

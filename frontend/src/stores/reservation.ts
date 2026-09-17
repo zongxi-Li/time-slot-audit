@@ -1,3 +1,5 @@
+// 文件职责：Pinia store，维护预约日历、我的预约、创建和取消预约。
+// 接口：调用 reservationsApi。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { mockReservations } from '@/mock/reservations'

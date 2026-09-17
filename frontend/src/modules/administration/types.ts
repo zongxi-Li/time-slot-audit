@@ -1,3 +1,5 @@
+// 文件职责：前端业务模块的 types 入口、页面、组件或类型定义。
+// 接口：导出本模块的页面、store、API 或类型。
 export interface ApprovalRecord {
   id: number
   reservationId: number

@@ -1,3 +1,5 @@
+// 文件职责：封装管理员预约审批、强制取消、审计日志和运营统计 API。
+// 接口：/api/admin/reservations、/api/admin/audit-logs、/api/admin/statistics。
 import { API_BASE_URL, TOKEN_STORAGE_KEY } from '@/shared/api/config'
 import { buildQuery, request } from '@/shared/api/http'
 import type { AdminReservation, AuditLog, OperationsDashboard } from './types'

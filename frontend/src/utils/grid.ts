@@ -1,3 +1,5 @@
+// 文件职责：提供 grid 前端工具函数。
+// 接口：被 stores、views 和 components 调用，不直接访问后端。
 import { PX_PER_HOUR, BUSINESS_START_HOUR, toMinutes } from './datetime'
 import type { Reservation } from '@/types'
 

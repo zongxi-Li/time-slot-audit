@@ -1,3 +1,5 @@
+// 文件职责：定义页面路由、登录拦截和管理员权限拦截。
+// 接口：/login、/board、/my、/meetings、/rooms 及 /admin/* 路由。
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'

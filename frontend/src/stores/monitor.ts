@@ -1,3 +1,5 @@
+// 文件职责：Pinia store，维护运营监控、审计日志和演示指标。
+// 接口：调用 相关 store 和本地状态。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useReservationStore } from './reservation'

@@ -1,3 +1,5 @@
+// 文件职责：提供 violation 前端工具函数。
+// 接口：被 stores、views 和 components 调用，不直接访问后端。
 import type { ViolationType } from '@/shared/api'
 
 /** 违规/信用记录类型元数据（管理端与用户端共用），取值与后端 ViolationType 一致 */

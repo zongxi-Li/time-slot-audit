@@ -1,3 +1,5 @@
+// 文件职责：封装会议执行、参会人、签到签退和通知 API。
+// 接口：/api/meetings/*、/api/notifications/*。
 import { request } from '@/shared/api/http'
 
 /** 参与人/出勤视图（与后端 AttendeeView 对齐） */

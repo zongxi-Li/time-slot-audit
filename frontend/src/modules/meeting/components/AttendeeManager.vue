@@ -1,3 +1,7 @@
+<!--
+  文件职责：前端业务模块的 AttendeeManager 入口、页面、组件或类型定义。
+  接口：导出本模块的页面、store、API 或类型。
+-->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

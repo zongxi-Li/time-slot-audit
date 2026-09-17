@@ -1,3 +1,5 @@
+// 文件职责：提供 reservations 本地 Mock 数据。
+// 接口：被 Mock 模式下的 Pinia store 使用，不调用 HTTP API。
 import type { Reservation } from '@/types'
 
 /**

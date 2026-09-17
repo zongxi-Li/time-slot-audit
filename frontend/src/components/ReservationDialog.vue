@@ -1,3 +1,7 @@
+<!--
+  文件职责：实现可复用的 ReservationDialog Vue 组件。
+  接口：通过 props、emits 与父页面通信，必要时通过 store 间接访问 API。
+-->
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'

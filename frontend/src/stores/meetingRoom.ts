@@ -1,3 +1,5 @@
+// 文件职责：Pinia store，维护会议室列表和管理员资源操作。
+// 接口：调用 roomsApi、adminRoomsApi。
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { mockMeetingRooms } from '@/mock/meetingRooms'

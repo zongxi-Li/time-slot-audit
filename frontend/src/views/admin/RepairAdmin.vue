@@ -1,3 +1,7 @@
+<!--
+  文件职责：实现 RepairAdmin 页面，负责展示、交互和表单状态。
+  接口：通过 Pinia store 或 shared/api 调用后端；管理员页面使用 /api/admin/*。
+-->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'

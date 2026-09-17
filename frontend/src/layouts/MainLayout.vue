@@ -1,3 +1,7 @@
+<!--
+  文件职责：TimeSlot 项目基础文件。
+  接口：供对应工具链加载。
+-->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
