@@ -14,10 +14,14 @@ import type { MeetingRoom, Reservation, ReservationDraft } from '@/types'
 
 const visible = defineModel<boolean>({ default: false })
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** 从看板点击空白格进入时的预填信息 */
   initial?: Partial<Pick<ReservationDraft, 'roomId' | 'date' | 'startTime' | 'endTime'>>
-}>()
+  /** 传入已有预约时为编辑（改期）模式，提交走 PUT /api/reservations/{id} */
+  editing?: Reservation | null
+}>(), {
+  editing: null,
+})
 
 const emit = defineEmits<{
   saved: []
@@ -56,13 +60,14 @@ watch(visible, (open) => {
   if (!open) return
   conflictResult.value = null
   serverConflictMessage.value = ''
-  form.title = ''
-  form.roomId = props.initial?.roomId ?? ''
-  form.date = props.initial?.date ?? todayStr()
-  form.startTime = props.initial?.startTime ?? '10:00'
-  form.endTime = props.initial?.endTime ?? '11:00'
-  form.participantCount = 4
-  form.remark = ''
+  // 编辑模式预填现有预约；新建模式回退到看板预填信息或默认值。
+  form.title = props.editing?.title ?? ''
+  form.roomId = props.editing?.roomId ?? props.initial?.roomId ?? ''
+  form.date = props.editing?.date ?? props.initial?.date ?? todayStr()
+  form.startTime = props.editing?.startTime ?? props.initial?.startTime ?? '10:00'
+  form.endTime = props.editing?.endTime ?? props.initial?.endTime ?? '11:00'
+  form.participantCount = props.editing?.participantCount ?? 4
+  form.remark = props.editing?.remark ?? ''
 })
 
 const selectedRoom = computed(() => roomStore.getRoom(form.roomId))
@@ -106,9 +111,33 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    // 冲突的最终裁决在 Spring Boot + MySQL 事务内；前端不做业务预判。
-    await store.addReservation({ ...form })
-    ElMessage.success('预约成功')
+    // 冲突与状态重算的最终裁决在 Spring Boot + MySQL 事务内；前端不做业务预判。
+    if (props.editing) {
+      const updated = await store.updateReservation(props.editing.id, { ...form })
+      ElMessage.success(updated.status === 'PENDING'
+        ? '预约已修改，新会议室需管理员审批'
+        : '预约已修改')
+      monitor.pushFeed({
+        method: 'PUT',
+        path: `/api/reservations/${props.editing.id}`,
+        status: 200,
+        user: store.currentUser.name,
+        note: `修改预约 ${form.title} · ${roomStore.roomName(form.roomId)} ${form.startTime}-${form.endTime}`,
+      })
+      monitor.log(
+        '修改预约',
+        `${form.title} · ${roomStore.roomName(form.roomId)} ${form.date} ${form.startTime}-${form.endTime}`,
+        store.currentUser.name,
+        store.currentUser.role,
+      )
+      visible.value = false
+      emit('saved')
+      return
+    }
+    const created = await store.addReservation({ ...form })
+    ElMessage.success(created.status === 'PENDING'
+      ? '预约已提交，等待管理员审批'
+      : '预约成功')
     // 上报并发监视：201 成功
     monitor.noteSuccess()
     monitor.pushFeed({
@@ -157,7 +186,7 @@ async function handleSubmit() {
 <template>
   <el-dialog
     v-model="visible"
-    title="新建预约"
+    :title="props.editing ? '修改预约' : '新建预约'"
     width="520px"
     :close-on-click-modal="false"
     destroy-on-close

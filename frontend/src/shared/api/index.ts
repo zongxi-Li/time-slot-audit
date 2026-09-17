@@ -231,6 +231,18 @@ export const reservationsApi = {
       body: reason ? { reason } : undefined,
     }))
   },
+  /** 修改/改期：状态由后端按新会议室审批规则重算（可能返回 PENDING） */
+  async update(id: string, draft: ReservationDraft): Promise<Reservation> {
+    const body = {
+      roomId: draft.roomId,
+      title: draft.title,
+      startTime: `${draft.date}T${draft.startTime}:00`,
+      endTime: `${draft.date}T${draft.endTime}:00`,
+      participantCount: draft.participantCount,
+      remark: draft.remark,
+    }
+    return toReservation(await request<ReservationResponse>(`/reservations/${id}`, { method: 'PUT', body }))
+  },
 }
 
 export { ApiError } from './types'

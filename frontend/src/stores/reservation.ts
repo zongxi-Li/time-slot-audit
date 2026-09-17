@@ -114,6 +114,13 @@ export const useReservationStore = defineStore('reservation', () => {
     replaceLocalReservation(cancelled)
   }
 
+  /** 修改/改期：改到需审批的会议室时后端会把状态重算为 PENDING */
+  async function updateReservation(id: string, input: ReservationDraft): Promise<Reservation> {
+    const updated = await reservationsApi.update(id, input)
+    replaceLocalReservation(updated)
+    return updated
+  }
+
   return {
     reservations,
     currentUser,
@@ -128,5 +135,6 @@ export const useReservationStore = defineStore('reservation', () => {
     findAvailableRooms,
     addReservation,
     cancelReservation,
+    updateReservation,
   }
 })

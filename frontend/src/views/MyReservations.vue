@@ -3,7 +3,7 @@
   接口：通过 Pinia store 或 shared/api 调用后端；管理员页面使用 /api/admin/*。
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
@@ -13,8 +13,9 @@ import { formatDateTime, parseDateStr, toMinutes } from '@/utils/datetime'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { myViolationsApi } from '@/shared/api'
 import type { ViolationResponse } from '@/shared/api'
-import type { DisplayStatus } from '@/types'
+import type { DisplayStatus, Reservation } from '@/types'
 import ReservationDetail from '@/components/ReservationDetail.vue'
+import ReservationDialog from '@/components/ReservationDialog.vue'
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
@@ -67,6 +68,29 @@ function openDetail(id: string) {
   detailId.value = id
   detailVisible.value = true
 }
+
+/* —— 修改/改期 —— */
+const editDialogVisible = ref(false)
+const editingReservation = ref<Reservation | null>(null)
+
+/** 与后端 Guard 一致的展示层入口条件：PENDING/CONFIRMED 且尚未开始（最终裁决在后端） */
+function canEdit(r: Reservation): boolean {
+  if (r.status !== 'PENDING' && r.status !== 'CONFIRMED') return false
+  const start = parseDateStr(r.date)
+  const [h, m] = r.startTime.split(':').map(Number)
+  start.setHours(h, m, 0, 0)
+  return start.getTime() > Date.now()
+}
+
+function openEdit(id: string) {
+  editingReservation.value = store.getById(id) ?? null
+  editDialogVisible.value = true
+}
+
+// 关闭后清空编辑对象，避免下次打开时闪现上一条的预填数据
+watch(editDialogVisible, (open) => {
+  if (!open) editingReservation.value = null
+})
 
 /* —— 我的违规/信用记录 —— */
 const creditDrawerVisible = ref(false)
@@ -141,13 +165,22 @@ async function handleCancel(row: { id: string; title: string }) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row.id)">
               查看
             </el-button>
             <el-button
-              v-if="displayStatus(row.id) === '待进行'"
+              v-if="canEdit(row)"
+              link
+              type="warning"
+              size="small"
+              @click="openEdit(row.id)"
+            >
+              修改
+            </el-button>
+            <el-button
+              v-if="displayStatus(row.id) === '待进行' || displayStatus(row.id) === '待审核'"
               link
               type="danger"
               size="small"
@@ -161,6 +194,12 @@ async function handleCancel(row: { id: string; title: string }) {
     </div>
 
     <ReservationDetail v-model="detailVisible" :reservation-id="detailId" />
+
+    <ReservationDialog
+      v-model="editDialogVisible"
+      :editing="editingReservation"
+      @saved="store.refreshMine().catch(() => undefined)"
+    />
 
     <el-drawer v-model="creditDrawerVisible" size="560px" title="我的违规与信用记录">
       <el-table v-loading="violationsLoading" :data="myViolations" style="width: 100%">
