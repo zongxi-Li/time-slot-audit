@@ -25,6 +25,17 @@
   --shadow-card: 0 12px 36px rgba(29, 29, 31, 0.06), 0 2px 7px rgba(29, 29, 31, 0.035);
   --shadow-float: 0 22px 60px rgba(29, 29, 31, 0.12), 0 4px 14px rgba(29, 29, 31, 0.05);
 
+  /* 工作台统一间距、表面和动效变量 */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --surface-subtle: rgba(245, 245, 247, 0.72);
+  --surface-hover: rgba(29, 29, 31, 0.045);
+  --transition-fast: color 160ms ease, background-color 160ms ease, border-color 160ms ease,
+    box-shadow 160ms ease, transform 160ms ease;
+
   --el-border-radius-base: 11px;
   --el-border-radius-small: 9px;
   --el-border-radius-round: 999px;
@@ -96,6 +107,33 @@ button:focus-visible,
   box-shadow: var(--shadow-card);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
+}
+
+.el-loading-mask {
+  background: rgba(245, 245, 247, 0.66);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.el-loading-spinner .path {
+  stroke: var(--el-color-primary);
+}
+
+.el-empty {
+  padding: 34px 16px;
+}
+
+.el-empty__image {
+  opacity: 0.78;
+}
+
+.el-empty__description {
+  margin-top: 12px;
+}
+
+.el-empty__description p {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .page {

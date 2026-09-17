@@ -151,30 +151,33 @@ function openDetail(id: string) {
     </header>
 
     <!-- 预约网格：日视图（会议室×时间）/ 周视图（星期×时间） -->
-    <section class="grid-panel">
-      <el-empty
-        v-if="viewMode === 'day' && filteredRooms.length === 0"
-        description="没有符合条件的会议室"
-        class="grid-empty"
-      />
-      <ReservationGrid
-        v-else-if="viewMode === 'day'"
-        :rooms="filteredRooms"
-        :date="selectedDate"
-        @open="openDetail"
-        @create="onCreateFromGrid"
-      />
-      <ReservationWeekGrid
-        v-else
-        :rooms="filteredRooms"
-        :week-days="weekDays"
-        @open="openDetail"
-        @create="onCreateFromWeek"
-      />
-    </section>
+    <div class="board-workspace">
+      <section class="grid-panel">
+        <el-empty
+          v-if="viewMode === 'day' && filteredRooms.length === 0"
+          description="没有符合条件的会议室"
+          class="grid-empty"
+        />
+        <ReservationGrid
+          v-else-if="viewMode === 'day'"
+          :rooms="filteredRooms"
+          :date="selectedDate"
+          @open="openDetail"
+          @create="onCreateFromGrid"
+        />
+        <ReservationWeekGrid
+          v-else
+          :rooms="filteredRooms"
+          :week-days="weekDays"
+          @open="openDetail"
+          @create="onCreateFromWeek"
+        />
+      </section>
+
+      <ReservationDetail v-model="detailVisible" :reservation-id="detailId" mode="panel" />
+    </div>
 
     <ReservationDialog v-model="dialogVisible" :initial="dialogInitial" />
-    <ReservationDetail v-model="detailVisible" :reservation-id="detailId" />
   </div>
 </template>
 
@@ -184,6 +187,14 @@ function openDetail(id: string) {
   flex-direction: column;
   gap: 12px;
   height: 100%;
+}
+
+.board-workspace {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 12px;
 }
 
 .toolbar {
@@ -423,6 +434,7 @@ function openDetail(id: string) {
 .grid-panel {
   display: flex;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   padding: 0;
   overflow: hidden;
@@ -451,6 +463,18 @@ function openDetail(id: string) {
 }
 
 @media (max-width: 760px) {
+  .board-workspace {
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+  }
+
+  .grid-panel {
+    flex: 1 1 auto;
+    min-height: 420px;
+    overflow: auto;
+  }
+
   .toolbar {
     padding: 14px 14px 12px;
   }
