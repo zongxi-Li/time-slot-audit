@@ -62,11 +62,8 @@ public class ReservationService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号不允许预约：" + qualification.reason());
         }
 
-        TimeInterval interval = parseInterval(request.startTime(), request.endTime());
         LocalDateTime now = LocalDateTime.now(clock);
-        if (interval.start().isBefore(now)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约开始时间不能早于当前时间");
-        }
+        TimeInterval interval = parseFutureInterval(request.startTime(), request.endTime(), now);
 
         // Critical ordering: lock one meeting_room row before the conflict query.
         BookableRoomProfile room = resourceBookingQueryService.lockBookableRoom(request.roomId());
@@ -107,26 +104,10 @@ public class ReservationService {
     @Transactional
     public ReservationResponse update(Long id, UpdateReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
-        Reservation reservation = reservationMapper.findByIdForUpdate(id);
-        if (reservation == null) {
-            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "预约不存在");
-        }
-        if (!reservation.getUserId().equals(user.userId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "只能修改本人预约");
-        }
-        if (!EDITABLE.contains(reservation.getStatus())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "当前预约状态不可修改");
-        }
-        if (!LocalDateTime.now(clock).isBefore(reservation.getStartTime())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约已开始，不能修改");
-        }
+        Reservation reservation = requireOwnedEditable(id, user, "修改");
 
-        TimeInterval interval = parseInterval(request.startTime(), request.endTime());
         LocalDateTime now = LocalDateTime.now(clock);
-        if (interval.start().isBefore(now)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约开始时间不能早于当前时间");
-        }
-
+        TimeInterval interval = parseFutureInterval(request.startTime(), request.endTime(), now);
         BookableRoomProfile room = resourceBookingQueryService.lockBookableRoom(request.roomId());
         validateSlot(room, interval, request.participantCount(), now, reservation.getId());
 
@@ -171,23 +152,41 @@ public class ReservationService {
     @Transactional
     public ReservationResponse cancel(Long id, CancelReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
+        Reservation reservation = requireOwnedEditable(id, user, "取消");
+        reservationMapper.updateStatus(id, ReservationStatus.CANCELLED.name(), request == null ? null : request.reason());
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        return ReservationResponse.from(reservation, clock);
+    }
+
+    /**
+     * Shared owner-side guard for update/cancel: the reservation must exist,
+     * belong to the caller, be in an editable state, and not have started.
+     * ADMIN must instead use the governed force-cancel path from administration
+     * (reason + audit); {@code action} is the verb used in user-facing messages（修改/取消）.
+     */
+    private Reservation requireOwnedEditable(Long id, AuthenticatedUser user, String action) {
         Reservation reservation = reservationMapper.findByIdForUpdate(id);
         if (reservation == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "预约不存在");
         }
-        // ADMIN must use the governed force-cancel path from administration (reason + audit).
         if (!reservation.getUserId().equals(user.userId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "只能取消本人预约");
+            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "只能" + action + "本人预约");
         }
         if (!EDITABLE.contains(reservation.getStatus())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "当前预约状态不可取消");
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "当前预约状态不可" + action);
         }
         if (!LocalDateTime.now(clock).isBefore(reservation.getStartTime())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约已经开始，不能取消");
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约已开始，不能" + action);
         }
-        reservationMapper.updateStatus(id, ReservationStatus.CANCELLED.name(), request == null ? null : request.reason());
-        reservation.setStatus(ReservationStatus.CANCELLED);
-        return ReservationResponse.from(reservation, clock);
+        return reservation;
+    }
+
+    private TimeInterval parseFutureInterval(LocalDateTime start, LocalDateTime end, LocalDateTime now) {
+        TimeInterval interval = parseInterval(start, end);
+        if (interval.start().isBefore(now)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约开始时间不能早于当前时间");
+        }
+        return interval;
     }
 
     private TimeInterval parseInterval(LocalDateTime start, LocalDateTime end) {
