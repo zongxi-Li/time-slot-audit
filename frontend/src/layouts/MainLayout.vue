@@ -3,34 +3,31 @@
   接口：供对应工具链加载。
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Calendar,
+  Close,
   DArrowLeft,
   DArrowRight,
+  Menu,
   Tickets,
   OfficeBuilding,
   Odometer,
   List,
   Management,
   Monitor,
-  SwitchButton,
   Tools,
   User,
-  UserFilled,
   AlarmClock,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
-import { useMonitorStore } from '@/stores/monitor'
-import { useMock } from '@/shared/api/config'
 import NotificationBell from '@/modules/meeting/components/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const monitor = useMonitorStore()
 
 const userMenus = [
   { path: '/board', label: '预约看板', icon: Calendar },
@@ -48,38 +45,164 @@ const adminMenus = [
   { path: '/admin/monitor', label: '操作审计', icon: Monitor },
 ]
 
-const showAdminMenus = computed(() => auth.isAdmin)
-const activityMenus = computed(() => (auth.isAdmin ? [...userMenus, ...adminMenus] : userMenus))
-const currentMenu = computed(() => activityMenus.value.find((item) => item.path === route.path))
-const isSidebarCollapsed = ref(false)
+type WorkspaceTab = {
+  path: string
+  label: string
+  icon: Component
+}
 
-onMounted(() => void auth.initialize())
+const showAdminMenus = computed(() => auth.isAdmin)
+const navigationMenus = computed(() => (auth.isAdmin ? [...userMenus, ...adminMenus] : userMenus))
+const currentMenu = computed(() => navigationMenus.value.find((item) => item.path === route.path))
+const SIDEBAR_COLLAPSED_KEY = 'timeslot.sidebar.collapsed'
+const WORKSPACE_TABS_KEY = 'timeslot.workspace.tabs'
+const isSidebarCollapsed = ref(readBooleanPreference(SIDEBAR_COLLAPSED_KEY))
+const isMobile = ref(false)
+const isMobileSidebarOpen = ref(false)
+const workspaceTabs = ref<WorkspaceTab[]>([])
+let mobileMediaQuery: MediaQueryList | null = null
+
+function readBooleanPreference(key: string) {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(key) === '1'
+}
+
+function readStoredTabPaths() {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(WORKSPACE_TABS_KEY) ?? '[]')
+    return Array.isArray(value) ? value.filter((path): path is string => typeof path === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+onMounted(async () => {
+  mobileMediaQuery = window.matchMedia('(max-width: 760px)')
+  isMobile.value = mobileMediaQuery.matches
+  mobileMediaQuery.addEventListener('change', handleMobileMediaChange)
+
+  await auth.initialize()
+  restoreWorkspaceTabs()
+})
+
+onBeforeUnmount(() => {
+  mobileMediaQuery?.removeEventListener('change', handleMobileMediaChange)
+})
+
+function findMenu(path: string) {
+  return navigationMenus.value.find((item) => item.path === path)
+}
+
+function ensureWorkspaceTab(path: string) {
+  const menu = findMenu(path)
+  if (!menu || workspaceTabs.value.some((tab) => tab.path === path)) return
+
+  workspaceTabs.value.push({
+    path: menu.path,
+    label: menu.label,
+    icon: menu.icon,
+  })
+}
+
+function activateWorkspaceTab(path: string) {
+  ensureWorkspaceTab(path)
+  isMobileSidebarOpen.value = false
+  void router.push(path)
+}
+
+function closeWorkspaceTab(path: string) {
+  if (workspaceTabs.value.length <= 1) return
+
+  const tabIndex = workspaceTabs.value.findIndex((tab) => tab.path === path)
+  if (tabIndex < 0) return
+
+  const isActiveTab = route.path === path
+  workspaceTabs.value.splice(tabIndex, 1)
+
+  if (isActiveTab) {
+    const nextTab = workspaceTabs.value[tabIndex] ?? workspaceTabs.value[tabIndex - 1]
+    if (nextTab) void router.push(nextTab.path)
+  }
+}
+
+watch(
+  () => route.path,
+  (path) => ensureWorkspaceTab(path),
+)
+
+function persistWorkspaceTabs() {
+  if (typeof window === 'undefined') return
+  const paths = workspaceTabs.value.map((tab) => tab.path)
+  window.localStorage.setItem(WORKSPACE_TABS_KEY, JSON.stringify(paths))
+}
+
+watch(
+  workspaceTabs,
+  persistWorkspaceTabs,
+  { deep: true },
+)
+
+function restoreWorkspaceTabs() {
+  for (const path of readStoredTabPaths()) ensureWorkspaceTab(path)
+  ensureWorkspaceTab(route.path)
+  persistWorkspaceTabs()
+}
+
+function handleMobileMediaChange(event: MediaQueryListEvent) {
+  isMobile.value = event.matches
+  if (!event.matches) isMobileSidebarOpen.value = false
+}
+
+function toggleSidebar() {
+  if (isMobile.value) {
+    isMobileSidebarOpen.value = !isMobileSidebarOpen.value
+    return
+  }
+
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+  window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isSidebarCollapsed.value ? '1' : '0')
+}
+
+function closeMobileSidebar() {
+  isMobileSidebarOpen.value = false
+}
+
+function handleMenuSelect() {
+  if (isMobile.value) closeMobileSidebar()
+}
 
 function onUserCommand(command: string) {
-  if (command === 'switch-role') {
-    const next = auth.switchRole()
-    monitor.log(
-      '切换视角',
-      next === 'ADMIN' ? '切换到管理员视角' : '切换到普通用户视角',
-      auth.currentUser.name,
-      next,
-    )
-    ElMessage.success(next === 'ADMIN' ? '已切换到管理员视角' : '已切换到普通用户视角')
-    if (route.path.startsWith('/admin') && next !== 'ADMIN') {
-      router.push('/board')
-    }
-  } else if (command === 'logout') {
+  if (command === 'logout') {
     auth.logout()
     void router.push('/login')
-    ElMessage.success(useMock ? '已退出 Demo 视角' : '已退出登录')
+    ElMessage.success('已退出登录')
   }
 }
 </script>
 
 <template>
-  <el-container class="layout" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+  <el-container
+    class="layout"
+    :class="{
+      'sidebar-collapsed': isSidebarCollapsed && !isMobile,
+      'is-mobile': isMobile,
+      'mobile-sidebar-open': isMobileSidebarOpen
+    }"
+  >
     <el-header class="layout-header" height="68px">
       <div class="brand">
+        <button
+          v-if="isMobile"
+          type="button"
+          class="mobile-nav-toggle"
+          aria-label="打开导航栏"
+          title="打开导航栏"
+          @click="isMobileSidebarOpen = true"
+        >
+          <el-icon><Menu /></el-icon>
+        </button>
         <div class="brand-logo">智</div>
         <div class="brand-copy">
           <span class="brand-name">智会会议室预约系统</span>
@@ -109,13 +232,6 @@ function onUserCommand(command: string) {
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item
-              v-if="useMock"
-              command="switch-role"
-              :icon="auth.isAdmin ? UserFilled : SwitchButton"
-            >
-              {{ auth.isAdmin ? '切换到普通用户视角' : '切换到管理员视角' }}
-            </el-dropdown-item>
             <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -124,58 +240,52 @@ function onUserCommand(command: string) {
     </el-header>
 
     <el-container class="layout-body">
-      <nav class="activity-bar" aria-label="主导航">
-        <div class="activity-group">
-          <button
-            v-for="item in activityMenus"
-            :key="item.path"
-            type="button"
-            class="activity-button"
-            :class="{ active: route.path === item.path }"
-            :aria-label="item.label"
-            :title="item.label"
-            @click="router.push(item.path)"
-          >
-            <el-icon><component :is="item.icon" /></el-icon>
-          </button>
-        </div>
-        <div class="activity-group activity-bottom">
-          <button
-            type="button"
-            class="activity-button"
-            :aria-label="isSidebarCollapsed ? '展开导航栏' : '收起导航栏'"
-            :title="isSidebarCollapsed ? '展开导航栏' : '收起导航栏'"
-            @click="isSidebarCollapsed = !isSidebarCollapsed"
-          >
-            <el-icon><component :is="isSidebarCollapsed ? DArrowRight : DArrowLeft" /></el-icon>
-          </button>
-        </div>
-      </nav>
+      <button
+        v-if="isMobile && isMobileSidebarOpen"
+        type="button"
+        class="mobile-sidebar-backdrop"
+        aria-label="关闭导航栏"
+        @click="closeMobileSidebar"
+      />
 
       <el-aside width="206px" class="layout-aside">
-        <el-menu :default-active="route.path" router class="aside-menu">
-          <div class="menu-group-label menu-group-heading">
-            <span>工作台</span>
-            <button
-              type="button"
-              class="aside-collapse-button"
-              aria-label="收起导航面板"
-              title="收起导航面板"
-              @click="isSidebarCollapsed = true"
-            >
-              <el-icon><DArrowLeft /></el-icon>
-            </button>
-          </div>
+        <div class="sidebar-header">
+          <span v-if="!isSidebarCollapsed || isMobile" class="sidebar-title">工作台</span>
+          <button
+            type="button"
+            class="sidebar-toggle"
+            :aria-label="
+              isMobile ? '关闭导航栏' : (isSidebarCollapsed ? '展开侧边栏' : '隐藏侧边栏')
+            "
+            :title="
+              isMobile ? '关闭导航栏' : (isSidebarCollapsed ? '展开侧边栏' : '隐藏侧边栏')
+            "
+            @click="isMobile ? closeMobileSidebar() : toggleSidebar()"
+          >
+            <el-icon>
+              <component :is="isMobile ? Close : (isSidebarCollapsed ? DArrowRight : DArrowLeft)" />
+            </el-icon>
+          </button>
+        </div>
+
+        <el-menu
+          :default-active="route.path"
+          router
+          class="aside-menu"
+          :collapse="!isMobile && isSidebarCollapsed"
+          :collapse-transition="false"
+          @select="handleMenuSelect"
+        >
           <el-menu-item v-for="item in userMenus" :key="item.path" :index="item.path">
             <el-icon><component :is="item.icon" /></el-icon>
-            <span>{{ item.label }}</span>
+            <span v-if="!isSidebarCollapsed || isMobile">{{ item.label }}</span>
           </el-menu-item>
 
           <template v-if="showAdminMenus">
-            <div class="menu-group-label admin-label">系统管理</div>
+            <div v-if="!isSidebarCollapsed || isMobile" class="menu-group-label admin-label">系统管理</div>
             <el-menu-item v-for="item in adminMenus" :key="item.path" :index="item.path">
               <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
+              <span v-if="!isSidebarCollapsed || isMobile">{{ item.label }}</span>
             </el-menu-item>
           </template>
         </el-menu>
@@ -184,9 +294,32 @@ function onUserCommand(command: string) {
       <el-main class="layout-main">
         <div class="workbench-shell">
           <div class="workbench-tabs" role="tablist" aria-label="工作区标签">
-            <div class="workbench-tab is-active" role="tab" aria-selected="true">
-              <el-icon><component :is="currentMenu ? currentMenu.icon : Calendar" /></el-icon>
-              <span>{{ currentMenu?.label ?? '工作台' }}</span>
+            <div class="workbench-tab-list">
+              <div
+                v-for="tab in workspaceTabs"
+                :key="tab.path"
+                class="workbench-tab"
+                :class="{ 'is-active': tab.path === route.path }"
+                role="tab"
+                :aria-selected="tab.path === route.path"
+                :tabindex="tab.path === route.path ? 0 : -1"
+                @click="activateWorkspaceTab(tab.path)"
+                @keydown.enter="activateWorkspaceTab(tab.path)"
+                @keydown.space.prevent="activateWorkspaceTab(tab.path)"
+              >
+                <el-icon><component :is="tab.icon" /></el-icon>
+                <span class="workbench-tab-label">{{ tab.label }}</span>
+                <button
+                  v-if="workspaceTabs.length > 1"
+                  type="button"
+                  class="workbench-tab-close"
+                  :aria-label="`关闭${tab.label}`"
+                  :title="`关闭${tab.label}`"
+                  @click.stop="closeWorkspaceTab(tab.path)"
+                >
+                  <el-icon><Close /></el-icon>
+                </button>
+              </div>
             </div>
             <div class="workbench-tab-spacer" />
             <span class="workbench-context">TIME / SLOT WORKSPACE</span>
@@ -232,6 +365,24 @@ function onUserCommand(command: string) {
   align-items: center;
   gap: 12px;
   min-width: 0;
+}
+
+.mobile-nav-toggle {
+  display: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.mobile-nav-toggle:hover {
+  color: var(--el-color-primary);
+  background: rgba(0, 113, 227, 0.08);
 }
 
 .brand-logo {
@@ -335,64 +486,9 @@ function onUserCommand(command: string) {
 }
 
 .layout-body {
+  position: relative;
   height: calc(100% - 68px);
   min-height: 0;
-}
-
-.activity-bar {
-  z-index: 6;
-  display: flex;
-  flex: 0 0 54px;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 8px;
-  background: rgba(239, 240, 242, 0.86);
-  border-right: 1px solid var(--border-light);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-}
-
-.activity-group {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.activity-bottom {
-  margin-top: auto;
-}
-
-.activity-button {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  color: var(--text-muted);
-  background: transparent;
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.activity-button:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.76);
-  transform: translateY(-1px);
-}
-
-.activity-button.active {
-  color: var(--el-color-primary);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 4px 12px rgba(29, 29, 31, 0.08), inset 0 0 0 1px rgba(0, 113, 227, 0.1);
-}
-
-.activity-button .el-icon {
-  font-size: 19px;
 }
 
 .layout-aside {
@@ -404,16 +500,27 @@ function onUserCommand(command: string) {
   overflow-y: auto;
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
+  transition: width 180ms ease, flex-basis 180ms ease;
 }
 
-.menu-group-heading {
+.sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-right: 3px;
+  min-height: 56px;
+  padding: 10px 12px 8px 25px;
+  border-bottom: 1px solid rgba(29, 29, 31, 0.06);
 }
 
-.aside-collapse-button {
+.sidebar-title {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sidebar-toggle {
   display: grid;
   place-items: center;
   width: 28px;
@@ -427,9 +534,13 @@ function onUserCommand(command: string) {
   transition: color 180ms ease, background-color 180ms ease;
 }
 
-.aside-collapse-button:hover {
+.sidebar-toggle:hover {
   color: var(--el-color-primary);
   background: rgba(0, 113, 227, 0.08);
+}
+
+.mobile-sidebar-backdrop {
+  display: none;
 }
 
 .aside-menu {
@@ -513,16 +624,37 @@ function onUserCommand(command: string) {
   backdrop-filter: blur(18px);
 }
 
+.workbench-tab-list {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.workbench-tab-list::-webkit-scrollbar {
+  display: none;
+}
+
 .workbench-tab {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 156px;
-  padding: 0 17px;
+  flex: 0 0 auto;
+  min-width: 142px;
+  max-width: 220px;
+  padding: 0 8px 0 17px;
   color: var(--text-muted);
   border-right: 1px solid var(--border-light);
   font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.workbench-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.64);
 }
 
 .workbench-tab.is-active {
@@ -544,6 +676,43 @@ function onUserCommand(command: string) {
 .workbench-tab .el-icon {
   color: var(--el-color-primary);
   font-size: 15px;
+}
+
+.workbench-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-tab-close {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.workbench-tab:hover .workbench-tab-close,
+.workbench-tab.is-active .workbench-tab-close {
+  opacity: 1;
+}
+
+.workbench-tab-close:hover {
+  color: var(--text-primary);
+  background: rgba(29, 29, 31, 0.08);
+}
+
+.workbench-tab-close .el-icon {
+  color: currentColor;
+  font-size: 13px;
 }
 
 .workbench-tab-spacer {
@@ -589,15 +758,31 @@ function onUserCommand(command: string) {
 }
 
 .sidebar-collapsed .layout-aside {
-  width: 0 !important;
-  flex-basis: 0;
-  overflow: hidden;
-  border-right: 0;
+  width: 56px !important;
+  flex-basis: 56px;
+}
+
+.sidebar-collapsed .sidebar-header {
+  justify-content: center;
+  padding: 10px 4px 8px;
 }
 
 .sidebar-collapsed .aside-menu {
-  pointer-events: none;
-  opacity: 0;
+  width: 56px !important;
+  padding: 18px 4px;
+}
+
+.sidebar-collapsed .aside-menu .el-menu-item {
+  justify-content: center;
+  padding: 0 !important;
+}
+
+.sidebar-collapsed .aside-menu .el-menu-item .el-icon {
+  margin-right: 0;
+}
+
+.sidebar-collapsed .aside-menu .el-menu-item span {
+  display: none;
 }
 
 @media (max-width: 760px) {
@@ -611,21 +796,49 @@ function onUserCommand(command: string) {
     display: none;
   }
 
-  .layout-aside {
-    width: 76px !important;
-    flex-basis: 76px;
+  .mobile-nav-toggle {
+    display: grid;
   }
 
-  .activity-bar {
-    display: none;
+  .layout-aside {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    width: min(280px, calc(100vw - 32px)) !important;
+    flex-basis: min(280px, calc(100vw - 32px));
+    box-shadow: 14px 0 32px rgba(29, 29, 31, 0.14);
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+  }
+
+  .mobile-sidebar-open .layout-aside {
+    transform: translateX(0);
+  }
+
+  .mobile-sidebar-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    display: block;
+    padding: 0;
+    background: rgba(29, 29, 31, 0.2);
+    border: 0;
+    cursor: pointer;
+  }
+
+  .sidebar-header {
+    justify-content: space-between;
+    padding: 10px 12px 8px 25px;
+  }
+
+  .sidebar-title {
+    display: block;
   }
 
   .aside-menu {
     padding: 16px 8px;
-  }
-
-  .aside-collapse-button {
-    display: none;
   }
 
   .menu-group-label {
@@ -644,10 +857,6 @@ function onUserCommand(command: string) {
     margin-right: 0;
   }
 
-  .aside-menu .el-menu-item span:not(.el-icon) {
-    display: none;
-  }
-
   .workbench-tabs {
     flex-basis: 36px;
   }
@@ -655,6 +864,10 @@ function onUserCommand(command: string) {
   .workbench-tab {
     min-width: 0;
     padding: 0 13px;
+  }
+
+  .workbench-tab-close {
+    opacity: 1;
   }
 
   .workbench-context {

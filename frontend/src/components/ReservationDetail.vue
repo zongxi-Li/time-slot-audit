@@ -4,19 +4,24 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
+import { administrationApi } from '@/modules/administration/api'
 import { parseDateStr } from '@/utils/datetime'
 import { RESERVATION_STATUS_TAG, RESERVATION_STATUS_TEXT } from '@/utils/reservationStatus'
 
 const visible = defineModel<boolean>({ default: false })
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   reservationId: string | null
-}>()
+  mode?: 'drawer' | 'panel'
+}>(), {
+  mode: 'drawer',
+})
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
@@ -91,7 +96,7 @@ async function handleAudit(approve: boolean) {
   let reason = ''
   if (!approve) {
     try {
-      const { value } = await ElMessageBox.prompt('请输入驳回原因（写入审计日志）', '驳回预约', {
+      const { value } = await ElMessageBox.prompt('请输入驳回原因（写入审批记录与审计日志）', '驳回预约', {
         confirmButtonText: '确定驳回',
         cancelButtonText: '再想想',
         inputPlaceholder: '例如：该时段需优先保障教学活动',
@@ -102,12 +107,18 @@ async function handleAudit(approve: boolean) {
     }
   }
 
-  const ok = approve ? store.approveReservation(r.id) : store.rejectReservation(r.id)
-  if (!ok) return
+  // 审批状态迁移由后端唯一状态机裁决；前端只用返回的最新数据替换本地记录。
+  const updated = approve
+    ? await administrationApi.approve(Number(r.id))
+    : await administrationApi.reject(Number(r.id), reason)
+  store.replaceLocalReservation({
+    ...r,
+    status: updated.status,
+  })
 
   monitor.pushFeed({
     method: 'PUT',
-    path: `/api/reservations/${r.id}/audit`,
+    path: `/api/admin/reservations/${r.id}/${approve ? 'approve' : 'reject'}`,
     status: 200,
     user: auth.currentUser.name,
     note: approve ? '审核通过' : `驳回${reason ? '：' + reason : ''}`,
@@ -124,6 +135,7 @@ async function handleAudit(approve: boolean) {
 
 <template>
   <el-drawer
+    v-if="props.mode === 'drawer'"
     v-model="visible"
     title="预约详情"
     size="400px"
@@ -169,6 +181,65 @@ async function handleAudit(approve: boolean) {
       </div>
     </template>
   </el-drawer>
+
+  <aside v-else-if="visible" class="reservation-inspector" aria-label="预约详情">
+    <header class="inspector-head">
+      <div>
+        <span class="inspector-kicker">RESERVATION</span>
+        <h3>{{ reservation?.title ?? '预约详情' }}</h3>
+      </div>
+      <button
+        type="button"
+        class="inspector-close"
+        aria-label="关闭预约详情"
+        title="关闭预约详情"
+        @click="visible = false"
+      >
+        <el-icon><Close /></el-icon>
+      </button>
+    </header>
+
+    <div class="inspector-body">
+      <template v-if="reservation">
+        <div class="detail-head">
+          <div class="detail-title">预约信息</div>
+          <el-tag :type="RESERVATION_STATUS_TAG[reservation.status]" size="small" effect="light">
+            {{ RESERVATION_STATUS_TEXT[reservation.status] }}
+          </el-tag>
+        </div>
+
+        <el-descriptions :column="1" border size="large" class="detail-desc">
+          <el-descriptions-item label="会议室">
+            {{ room?.name ?? reservation.roomId }}
+            <span v-if="room" class="room-loc">{{ room.location }} · 容量 {{ room.capacity }} 人</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="预约日期">{{ reservation.date }}</el-descriptions-item>
+          <el-descriptions-item label="时间">
+            {{ reservation.startTime }} - {{ reservation.endTime }}
+          </el-descriptions-item>
+          <el-descriptions-item label="预约人">{{ reservation.userName }}</el-descriptions-item>
+          <el-descriptions-item label="参会人数">{{ reservation.participantCount }} 人</el-descriptions-item>
+          <el-descriptions-item label="备注">
+            {{ reservation.remark || '—' }}
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="isMine" class="mine-note">这是我创建的预约</div>
+      </template>
+      <el-empty v-else description="暂无预约详情" :image-size="64" />
+    </div>
+
+    <footer class="inspector-footer">
+      <el-button @click="visible = false">关闭</el-button>
+      <template v-if="canAudit">
+        <el-button type="warning" plain @click="handleAudit(false)">驳回</el-button>
+        <el-button type="primary" @click="handleAudit(true)">通过</el-button>
+      </template>
+      <el-button v-else-if="canCancel" type="danger" plain @click="handleCancel">
+        取消预约
+      </el-button>
+    </footer>
+  </aside>
 </template>
 
 <style scoped>
@@ -208,5 +279,90 @@ async function handleAudit(approve: boolean) {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.reservation-inspector {
+  display: flex;
+  flex: 0 0 330px;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.82);
+  border-left: 1px solid var(--border-light);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.inspector-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 13px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.inspector-kicker {
+  display: block;
+  color: var(--el-color-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.inspector-head h3 {
+  max-width: 250px;
+  margin: 5px 0 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.inspector-close:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.inspector-body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.inspector-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+@media (max-width: 760px) {
+  .reservation-inspector {
+    flex: 1 1 auto;
+    height: auto;
+    max-height: 55vh;
+    border-top: 1px solid var(--border-light);
+    border-left: 0;
+  }
 }
 </style>

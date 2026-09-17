@@ -8,7 +8,6 @@ import { ElMessage } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
 import { repairTicketsApi, roomsApi } from '@/shared/api'
-import { useMock } from '@/shared/api/config'
 import { ApiError } from '@/shared/api/types'
 import type { FacilityResponse } from '@/shared/api/types'
 import { nowMinutes, toMinutes, todayStr } from '@/utils/datetime'
@@ -67,21 +66,11 @@ async function openRepair(room: RoomCard) {
   repairForm.facilityName = ''
   repairForm.issue = ''
   repairVisible.value = true
-  if (!useMock) {
-    try {
-      const detail = await roomsApi.detail(room.id)
-      facilityOptions.value = detail.facilities
-    } catch (error) {
-      ElMessage.error(error instanceof ApiError ? error.message : '获取设施列表失败')
-    }
-  } else {
-    facilityOptions.value = room.equipment.map((name, index) => ({
-      id: index,
-      roomId: room.id,
-      name,
-      quantity: 1,
-      description: null,
-    }))
+  try {
+    const detail = await roomsApi.detail(room.id)
+    facilityOptions.value = detail.facilities
+  } catch (error) {
+    ElMessage.error(error instanceof ApiError ? error.message : '获取设施列表失败')
   }
 }
 
@@ -94,14 +83,12 @@ async function submitRepair() {
   }
   repairSaving.value = true
   try {
-    if (!useMock) {
-      const selected = facilityOptions.value.find((f) => f.id === repairForm.facilityId)
-      await repairTicketsApi.create(repairRoom.value.id, {
-        facilityId: selected ? selected.id : null,
-        facilityName: selected ? null : repairForm.facilityName.trim() || null,
-        issue,
-      })
-    }
+    const selected = facilityOptions.value.find((f) => f.id === repairForm.facilityId)
+    await repairTicketsApi.create(repairRoom.value.id, {
+      facilityId: selected ? selected.id : null,
+      facilityName: selected ? null : repairForm.facilityName.trim() || null,
+      issue,
+    })
     ElMessage.success('报修已提交，管理员会尽快处理')
     repairVisible.value = false
   } catch (error) {

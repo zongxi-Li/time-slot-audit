@@ -2,8 +2,6 @@
 // 接口：调用 相关 store 和本地状态。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { useReservationStore } from './reservation'
-import { todayStr } from '@/utils/datetime'
 import type { AuditLogEntry, RequestFeedItem, ServiceStatus } from '@/types'
 
 let seq = 0
@@ -142,58 +140,6 @@ export const useMonitorStore = defineStore('monitor', () => {
     successCount.value += 1
   }
 
-  /**
-   * 并发演示：模拟 3 个用户同时抢订 A101 今天 16:00-17:00。
-   * 时段空闲时仅 1 个请求成功（真实写入看板），其余被冲突检测以 409 拒绝；
-   * 时段已被占用时全部 409。
-   */
-  function simulateConcurrentBooking(): { free: boolean } {
-    const reservationStore = useReservationStore()
-    const roomId = 'A101'
-    const date = todayStr()
-    const startTime = '16:00'
-    const endTime = '17:00'
-    const racers = [
-      { id: 'u2001', name: '张三', department: '机械学院' },
-      { id: 'u2002', name: '李四', department: '计算机学院' },
-      { id: 'u2003', name: '王五', department: '经济管理学院' },
-    ]
-
-    const free =
-      reservationStore.findConflicts({ roomId, date, startTime, endTime }).length === 0
-    const winner = free ? racers[Math.floor(Math.random() * racers.length)] : null
-
-    racers.forEach((u, i) => {
-      window.setTimeout(() => {
-        if (winner && u.id === winner.id) {
-          reservationStore.addReservation(
-            {
-              title: '高并发抢订演示',
-              roomId,
-              date,
-              startTime,
-              endTime,
-              participantCount: 3,
-              remark: '由“模拟并发提交”生成',
-            },
-            u,
-          )
-          pushFeed({ method: 'POST', path: '/api/reservations', status: 201, user: u.name, note: `抢订 ${roomId} ${startTime}-${endTime} 成功` })
-          successCount.value += 1
-          log('并发演示', `${u.name} 抢订 A101 ${startTime}-${endTime} 成功，其余请求被冲突拦截`, '系统', 'ADMIN')
-        } else {
-          pushFeed({ method: 'POST', path: '/api/reservations', status: 409, user: u.name, note: `冲突：${roomId} ${startTime}-${endTime} 已被占用` })
-          conflictCount.value += 1
-        }
-      }, 250 * (i + 1))
-    })
-
-    if (!winner) {
-      log('并发演示', `A101 ${startTime}-${endTime} 已被占用，3 个并发请求全部被冲突检测拦截`, '系统', 'ADMIN')
-    }
-    return { free }
-  }
-
   const uptime = computed(() => {
     const ms = Date.now() - startedAt + 3 * 24 * 3600 * 1000 + 14 * 3600 * 1000
     const days = Math.floor(ms / 86400000)
@@ -226,6 +172,5 @@ export const useMonitorStore = defineStore('monitor', () => {
     log,
     noteConflict,
     noteSuccess,
-    simulateConcurrentBooking,
   }
 })

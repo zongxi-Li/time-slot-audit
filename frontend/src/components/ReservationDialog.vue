@@ -10,7 +10,6 @@ import { useReservationStore } from '@/stores/reservation'
 import { useMonitorStore } from '@/stores/monitor'
 import { todayStr } from '@/utils/datetime'
 import { ApiError } from '@/shared/api'
-import { useMock } from '@/shared/api/config'
 import type { MeetingRoom, Reservation, ReservationDraft } from '@/types'
 
 const visible = defineModel<boolean>({ default: false })
@@ -107,32 +106,7 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    // Mock 保留即时预校验；真实模式以 Spring Boot + MySQL 事务结果为最终裁决。
-    const conflicts = useMock ? store.findConflicts({ ...form }) : []
-    if (conflicts.length > 0) {
-      conflictResult.value = {
-        conflicts,
-        roomName: roomStore.roomName(form.roomId),
-        alternatives: store.findAvailableRooms({ ...form }),
-      }
-      ElMessage.error('时间冲突，预约未提交')
-      // 上报并发监视：409 冲突
-      monitor.noteConflict()
-      monitor.pushFeed({
-        method: 'POST',
-        path: '/api/reservations',
-        status: 409,
-        user: store.currentUser.name,
-        note: `冲突：${conflictResult.value.roomName} ${form.startTime} - ${form.endTime} 已被占用`,
-      })
-      monitor.log(
-        '冲突拦截',
-        `${store.currentUser.name} 尝试预约 ${conflictResult.value.roomName} ${form.date} ${form.startTime}-${form.endTime}，与「${conflicts[0].title}」冲突`,
-        '系统',
-      )
-      return
-    }
-
+    // 冲突的最终裁决在 Spring Boot + MySQL 事务内；前端不做业务预判。
     await store.addReservation({ ...form })
     ElMessage.success('预约成功')
     // 上报并发监视：201 成功
@@ -154,13 +128,22 @@ async function handleSubmit() {
     emit('saved')
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
+      // 后端 409：展示占用事实，并基于最新日历数据推荐可用会议室。
       serverConflictMessage.value = error.message
+      await store.refreshCalendar(form.date)
       conflictResult.value = {
-        conflicts: [],
+        conflicts: store.findConflicts({ ...form }),
         roomName: roomStore.roomName(form.roomId),
-        alternatives: [],
+        alternatives: store.findAvailableRooms({ ...form }),
       }
-      await store.refreshCalendar(form.date, form.roomId)
+      monitor.noteConflict()
+      monitor.pushFeed({
+        method: 'POST',
+        path: '/api/reservations',
+        status: 409,
+        user: store.currentUser.name,
+        note: `冲突：${conflictResult.value.roomName} ${form.startTime} - ${form.endTime} 已被占用`,
+      })
       ElMessage.error(error.message)
       return
     }

@@ -7,7 +7,6 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { repairTicketsApi } from '@/shared/api'
-import { useMock } from '@/shared/api/config'
 import { ApiError } from '@/shared/api/types'
 import { formatDateTime } from '@/utils/datetime'
 import type { RepairTicketResponse } from '@/shared/api/types'
@@ -22,7 +21,7 @@ onMounted(async () => {
   loading.value = true
   try {
     await roomStore.refreshRooms()
-    if (!useMock) await refreshTickets()
+    await refreshTickets()
   } catch (error) {
     ElMessage.error(errorMessage(error))
   } finally {

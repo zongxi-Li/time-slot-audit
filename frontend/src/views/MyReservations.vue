@@ -12,7 +12,6 @@ import { useMonitorStore } from '@/stores/monitor'
 import { formatDateTime, parseDateStr, toMinutes } from '@/utils/datetime'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { myViolationsApi } from '@/shared/api'
-import { useMock } from '@/shared/api/config'
 import type { ViolationResponse } from '@/shared/api'
 import type { DisplayStatus } from '@/types'
 import ReservationDetail from '@/components/ReservationDetail.vue'
@@ -76,7 +75,6 @@ const violationsLoading = ref(false)
 
 async function openCreditRecords() {
   creditDrawerVisible.value = true
-  if (useMock) return
   violationsLoading.value = true
   try {
     myViolations.value = await myViolationsApi.list()

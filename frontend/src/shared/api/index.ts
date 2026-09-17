@@ -141,7 +141,7 @@ export const roomsApi = {
   },
 }
 
-/** 管理端资源治理接口；Demo（useMock）模式下视图层不应调用。 */
+/** 管理端资源治理接口（仅 ADMIN 可用，授权由后端裁决）。 */
 export const adminRoomsApi = {
   async create(payload: SaveRoomRequest) {
     return request<RoomResponse>('/admin/rooms', { method: 'POST', body: payload })

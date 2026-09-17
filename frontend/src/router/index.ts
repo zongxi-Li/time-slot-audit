@@ -5,7 +5,6 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import LoginView from '@/views/LoginView.vue'
-import { useMock } from '@/shared/api/config'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -83,11 +82,11 @@ const router = createRouter({
   ],
 })
 
-/** 权限守卫：非管理员访问管理路由时拦截（Demo 用前端角色模拟权限） */
+/** 权限守卫：未登录跳转登录页；非管理员访问管理路由时拦截（授权最终以后端为准） */
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.initialize()
-  if (!useMock && to.path !== '/login' && !auth.currentUser.id) {
+  if (to.path !== '/login' && !auth.currentUser.id) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
   if (to.meta.requiresAdmin) {

@@ -1,10 +1,8 @@
 // 文件职责：Pinia store，维护预约日历、我的预约、创建和取消预约。
-// 接口：调用 reservationsApi。
+// 接口：调用 reservationsApi；预约状态完全以后端 Response 为准，前端不自造状态机。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { mockReservations } from '@/mock/reservations'
 import { reservationsApi } from '@/shared/api'
-import { useMock } from '@/shared/api/config'
 import { useAuthStore } from './auth'
 import { useMeetingRoomStore } from './meetingRoom'
 import { isTimeOverlap } from '@/utils/conflict'
@@ -23,11 +21,10 @@ export type ConflictQuery = Pick<
 >
 
 export const useReservationStore = defineStore('reservation', () => {
-  /** Mock 内存数据：刷新页面后还原为初始 Mock，正式版由后端接口替换 */
-  const reservations = ref<Reservation[]>(useMock ? mockReservations.map((r) => ({ ...r })) : [])
+  /** 缓存的后端预约数据；最终裁决（冲突/状态）始终在 Spring Boot + MySQL */
+  const reservations = ref<Reservation[]>([])
 
   const auth = useAuthStore()
-  /** 当前用户由角色（auth store）决定：普通用户=李明，管理员=王建国 */
   const currentUser = computed<CurrentUser>(() => auth.currentUser)
 
   /** 有效预约（未取消） */
@@ -47,8 +44,14 @@ export const useReservationStore = defineStore('reservation', () => {
     return reservations.value.find((r) => r.id === id)
   }
 
+  /** 用后端返回的最新数据替换本地同 id 记录 */
+  function replaceLocalReservation(updated: Reservation) {
+    const index = reservations.value.findIndex((r) => r.id === updated.id)
+    if (index >= 0) reservations.value[index] = updated
+    else reservations.value.push(updated)
+  }
+
   async function refreshCalendar(date: string, roomId?: string) {
-    if (useMock) return reservations.value
     const start = `${date}T00:00:00`
     const next = new Date(`${date}T00:00:00`)
     next.setDate(next.getDate() + 1)
@@ -60,7 +63,6 @@ export const useReservationStore = defineStore('reservation', () => {
   }
 
   async function refreshMine() {
-    if (useMock) return myReservations.value
     reservations.value = await reservationsApi.mine()
     return reservations.value
   }
@@ -74,8 +76,9 @@ export const useReservationStore = defineStore('reservation', () => {
   }
 
   /**
-   * 时间冲突检测（核心业务逻辑）。
-   * 返回与 [startTime, endTime) 相交的所有同会议室同日期有效预约。
+   * 时间冲突检测（基于已加载日历数据的本地预览，仅用于 UI 提示）。
+   * 返回与 [startTime, endTime) 相交的所有同会议室同日期有效预约；
+   * 最终裁决由后端事务内的冲突查询给出。
    */
   function findConflicts(input: ConflictQuery, excludeId?: string): Reservation[] {
     return activeReservations.value.filter(
@@ -94,80 +97,21 @@ export const useReservationStore = defineStore('reservation', () => {
       (room) =>
         room.status === 'AVAILABLE' &&
         room.capacity >= input.participantCount &&
-        !activeReservations.value.some(
-          (r) =>
-            r.roomId === room.id &&
-            r.date === input.date &&
-            isTimeOverlap(input.startTime, input.endTime, r.startTime, r.endTime),
-        ),
+        !findConflicts({ ...input }).some((r) => r.roomId === room.id),
     )
   }
 
-  /** 新增预约（调用方需先通过 findConflicts 检查）；user 供并发演示指定预约人 */
-  async function addReservation(
-    input: ReservationDraft,
-    user: CurrentUser = auth.currentUser,
-  ): Promise<Reservation> {
-    const reservation: Reservation = {
-      id: `u${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      userId: user.id,
-      userName: user.name,
-      status: 'CONFIRMED',
-      ...input,
-    }
-    if (useMock) {
-      reservations.value.push(reservation)
-      return reservation
-    }
+  /** 新增预约：状态由后端根据会议室审批规则决定（CONFIRMED 或 PENDING） */
+  async function addReservation(input: ReservationDraft): Promise<Reservation> {
     const created = await reservationsApi.create(input)
-    reservations.value.push(created)
+    replaceLocalReservation(created)
     return created
   }
 
-  /** 用户取消自己的预约 */
-  async function cancelReservation(id: string): Promise<void> {
-    if (!useMock) {
-      const cancelled = await reservationsApi.cancel(id)
-      const index = reservations.value.findIndex((r) => r.id === id)
-      if (index >= 0) reservations.value[index] = cancelled
-      return
-    }
-    const target = reservations.value.find((r) => r.id === id)
-    if (target && target.status !== 'CANCELLED') {
-      target.status = 'CANCELLED'
-    }
-  }
-
-  /* —— 管理员操作 —— */
-
-  /** 审核通过：待审核 → 已预约 */
-  function approveReservation(id: string): boolean {
-    const target = reservations.value.find((r) => r.id === id && r.status === 'PENDING')
-    if (target) {
-      target.status = 'CONFIRMED'
-      return true
-    }
-    return false
-  }
-
-  /** 审核驳回：待审核 → 已取消 */
-  function rejectReservation(id: string): boolean {
-    const target = reservations.value.find((r) => r.id === id && r.status === 'PENDING')
-    if (target) {
-      target.status = 'REJECTED'
-      return true
-    }
-    return false
-  }
-
-  /** 强制取消任意未取消的预约（管理员），需给出原因 */
-  function forceCancelReservation(id: string): boolean {
-    const target = reservations.value.find((r) => r.id === id && r.status !== 'CANCELLED')
-    if (target) {
-      target.status = 'CANCELLED'
-      return true
-    }
-    return false
+  /** 用户取消自己的预约：以取消后的后端 Response 为准 */
+  async function cancelReservation(id: string, reason?: string): Promise<void> {
+    const cancelled = await reservationsApi.cancel(id, reason)
+    replaceLocalReservation(cancelled)
   }
 
   return {
@@ -178,13 +122,11 @@ export const useReservationStore = defineStore('reservation', () => {
     refreshMine,
     myReservations,
     getById,
+    replaceLocalReservation,
     listByRoomAndDate,
     findConflicts,
     findAvailableRooms,
     addReservation,
     cancelReservation,
-    approveReservation,
-    rejectReservation,
-    forceCancelReservation,
   }
 })

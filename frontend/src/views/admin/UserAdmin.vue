@@ -9,7 +9,6 @@ import { ArrowDown } from '@element-plus/icons-vue'
 import { useUserAdminStore } from '@/stores/userAdmin'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
-import { useMock } from '@/shared/api/config'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { formatDateTime } from '@/utils/datetime'
 import type { AdminUserResponse } from '@/shared/api'
@@ -27,7 +26,6 @@ const AUTO_BLACKLIST_CREDIT = 40
 const filters = reactive({ keyword: '', status: '' as '' | '0' | '1' })
 
 async function refresh() {
-  if (useMock) return
   const params: { keyword?: string; status?: number } = {}
   if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
   if (filters.status !== '') params.status = Number(filters.status)
@@ -43,7 +41,7 @@ function resetFilters() {
 
 onMounted(() => {
   void refresh()
-  if (!useMock) void userAdmin.loadDepartments().catch(() => undefined)
+  void userAdmin.loadDepartments().catch(() => undefined)
 })
 
 function onError(e: unknown) {
@@ -379,15 +377,6 @@ function onRowCommand(command: string, user: AdminUserResponse) {
         <el-button type="primary" @click="openCreateUser">+ 新增用户</el-button>
       </div>
     </div>
-
-    <el-alert
-      v-if="useMock"
-      class="demo-alert"
-      title="当前为 Demo 模式（无后端），用户与信用管理需要连接 Spring Boot 后端使用"
-      type="info"
-      show-icon
-      :closable="false"
-    />
 
     <div class="panel toolbar-panel">
       <el-input
