@@ -71,7 +71,8 @@ public class AdministrationService {
     public AdminReservationResponse reject(Long id, String reason, String ipAddress) {
         AdminReservationResponse reservation = requirePending(id);
         AuthenticatedUser operator = currentUserProvider.getRequired();
-        String normalizedReason = requireReason(reason, "驳回原因不能为空");
+        // 空值与长度由 RejectReservationRequest 注解约束；原因校验的最终防线在 ReservationLifecycleService。
+        String normalizedReason = reason.trim();
         lifecycle().reject(id, operator.userId(), normalizedReason);
         mapper.insertApprovalRecord(id, operator.userId(), ApprovalAction.REJECT.name(), normalizedReason);
         mapper.insertOperationLog(operator.userId(), "REJECT_RESERVATION", "RESERVATION", id,
@@ -84,7 +85,8 @@ public class AdministrationService {
     public AdminReservationResponse forceCancel(Long id, String reason, String ipAddress) {
         AdminReservationResponse reservation = requireReservation(id);
         AuthenticatedUser operator = currentUserProvider.getRequired();
-        String normalizedReason = requireReason(reason, "强制取消原因不能为空");
+        // 空值与长度由 ForceCancelRequest 注解约束；原因校验的最终防线在 ReservationLifecycleService。
+        String normalizedReason = reason.trim();
         lifecycle().forceCancel(id, operator.userId(), normalizedReason);
         mapper.insertOperationLog(operator.userId(), "FORCE_CANCEL_RESERVATION", "RESERVATION", id,
                 "强制取消预约 " + reservation.reservationNo() + "（" + reservation.title() + "），原因：" + normalizedReason,
@@ -154,13 +156,6 @@ public class AdministrationService {
                     "预约生命周期服务尚未接入，请先合并 reservation 域公开服务");
         }
         return lifecycle;
-    }
-
-    private String requireReason(String reason, String message) {
-        if (reason == null || reason.isBlank()) throw validation(message);
-        String normalized = reason.trim();
-        if (normalized.length() > 500) throw validation("原因不能超过500字");
-        return normalized;
     }
 
     private void validateRange(LocalDateTime start, LocalDateTime end) {

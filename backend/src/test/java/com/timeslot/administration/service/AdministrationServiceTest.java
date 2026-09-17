@@ -72,18 +72,6 @@ class AdministrationServiceTest {
     }
 
     @Test
-    void blankRejectReasonDoesNotChangeReservation() {
-        when(mapper.findReservationById(42L)).thenReturn(pending);
-
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> service.reject(42L, "   ", null));
-
-        assertEquals(ErrorCode.VALIDATION_ERROR, error.getCode());
-        verify(lifecycle, never()).reject(42L, 1L, "");
-        verify(mapper, never()).insertApprovalRecord(42L, 1L, "REJECT", "");
-    }
-
-    @Test
     void repeatedApprovalReturnsExplicitInvalidState() {
         when(mapper.findReservationById(42L)).thenReturn(reservation("CONFIRMED"));
 
