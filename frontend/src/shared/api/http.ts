@@ -10,6 +10,16 @@ function clearToken() {
   localStorage.removeItem(TOKEN_STORAGE_KEY)
 }
 
+/** 组装查询串：跳过 undefined/空串，返回 "?a=1&b=2" 或 "" */
+export function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') search.set(key, String(value))
+  })
+  const serialized = search.toString()
+  return serialized ? `?${serialized}` : ''
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
   const headers = new Headers(options.headers)

@@ -1,5 +1,5 @@
 import type { Reservation, MeetingRoom, CurrentUser, ReservationDraft } from '@/types'
-import { request } from './http'
+import { buildQuery, request } from './http'
 import { TOKEN_STORAGE_KEY } from './config'
 import type {
   AdminUserResponse,
@@ -95,11 +95,7 @@ export const departmentsApi = {
 
 export const adminUsersApi = {
   async list(params?: { keyword?: string; status?: number }) {
-    const query = new URLSearchParams()
-    if (params?.keyword) query.set('keyword', params.keyword)
-    if (params?.status !== undefined) query.set('status', String(params.status))
-    const qs = query.toString()
-    return request<AdminUserResponse[]>(`/admin/users${qs ? `?${qs}` : ''}`)
+    return request<AdminUserResponse[]>(`/admin/users${buildQuery(params ?? {})}`)
   },
   async qualification(id: number | string) {
     return request<QualificationResponse>(`/admin/users/${id}/qualification`)
@@ -210,9 +206,7 @@ export const repairTicketsApi = {
 
 export const reservationsApi = {
   async calendar(start: string, end: string, roomId?: string) {
-    const params = new URLSearchParams({ start, end })
-    if (roomId) params.set('roomId', roomId)
-    return (await request<ReservationResponse[]>(`/reservations/calendar?${params}`)).map(toReservation)
+    return (await request<ReservationResponse[]>(`/reservations/calendar${buildQuery({ start, end, roomId })}`)).map(toReservation)
   },
   async mine() {
     return (await request<ReservationResponse[]>('/reservations/my')).map(toReservation)

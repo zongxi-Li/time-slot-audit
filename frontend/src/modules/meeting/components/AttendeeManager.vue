@@ -2,7 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
-import { meetingsApi, formatDateTime } from '../api'
+import { meetingsApi } from '../api'
+import { formatDateTime } from '@/utils/datetime'
 import type { AttendanceView, AttendeeView } from '../api'
 
 const visible = defineModel<boolean>({ default: false })

@@ -1,4 +1,5 @@
-export { meetingsApi, notificationsApi, formatDateTime } from './api'
+export { meetingsApi, notificationsApi } from './api'
+export { formatDateTime } from '@/utils/datetime'
 export type {
   AttendeeView,
   AttendanceView,

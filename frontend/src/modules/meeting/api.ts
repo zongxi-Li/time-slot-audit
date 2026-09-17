@@ -95,9 +95,3 @@ export const notificationsApi = {
     return request<void>('/notifications/read-all', { method: 'POST' })
   },
 }
-
-/** ISO datetime -> "YYYY-MM-DD HH:mm" */
-export function formatDateTime(value: string | null): string {
-  if (!value) return '—'
-  return `${value.slice(0, 10)} ${value.slice(11, 16)}`
-}

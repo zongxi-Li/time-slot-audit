@@ -84,3 +84,8 @@ export function nowMinutes(): number {
   const now = new Date()
   return now.getHours() * 60 + now.getMinutes()
 }
+
+/** 后端时间为 ISO-8601（yyyy-MM-ddTHH:mm:ss），展示为 yyyy-MM-dd HH:mm */
+export function formatDateTime(value?: string | null): string {
+  return value ? value.replace('T', ' ').slice(0, 16) : '—'
+}

@@ -6,6 +6,7 @@ import { useMonitorStore } from '@/stores/monitor'
 import { adminCategoriesApi, adminRoomsApi, roomsApi } from '@/shared/api'
 import { useMock } from '@/shared/api/config'
 import { ApiError } from '@/shared/api/types'
+import { formatDateTime } from '@/utils/datetime'
 import type { CategoryResponse, MaintenanceResponse, SaveFacilityRequest } from '@/shared/api/types'
 import type { MeetingRoom, RoomFlag } from '@/types'
 
@@ -603,7 +604,7 @@ async function finishMaintenance(plan: MaintenanceResponse) {
         <el-table-column prop="reason" label="原因" min-width="150" show-overflow-tooltip />
         <el-table-column label="时间段" min-width="220">
           <template #default="{ row }">
-            {{ row.startTime.slice(0, 16).replace('T', ' ') }} ~ {{ row.endTime.slice(0, 16).replace('T', ' ') }}
+            {{ formatDateTime(row.startTime) }} ~ {{ formatDateTime(row.endTime) }}
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90">

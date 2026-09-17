@@ -6,7 +6,7 @@ import { useReservationStore } from '@/stores/reservation'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { parseDateStr } from '@/utils/datetime'
-import type { ReservationStatus } from '@/types'
+import { RESERVATION_STATUS_TAG, RESERVATION_STATUS_TEXT } from '@/utils/reservationStatus'
 
 const visible = defineModel<boolean>({ default: false })
 
@@ -49,20 +49,6 @@ const canCancel = computed(
 const canAudit = computed(
   () => auth.isAdmin && reservation.value?.status === 'PENDING',
 )
-
-const statusText: Record<ReservationStatus, string> = {
-  CONFIRMED: '已预约',
-  PENDING: '待审核',
-  REJECTED: '已驳回',
-  CANCELLED: '已取消',
-}
-
-const statusTagType: Record<ReservationStatus, 'primary' | 'warning' | 'info' | 'danger'> = {
-  CONFIRMED: 'primary',
-  PENDING: 'warning',
-  REJECTED: 'danger',
-  CANCELLED: 'info',
-}
 
 async function handleCancel() {
   const r = reservation.value
@@ -142,8 +128,8 @@ async function handleAudit(approve: boolean) {
     <template v-if="reservation">
       <div class="detail-head">
         <div class="detail-title">{{ reservation.title }}</div>
-        <el-tag :type="statusTagType[reservation.status]" size="small" effect="light">
-          {{ statusText[reservation.status] }}
+        <el-tag :type="RESERVATION_STATUS_TAG[reservation.status]" size="small" effect="light">
+          {{ RESERVATION_STATUS_TEXT[reservation.status] }}
         </el-tag>
       </div>
 

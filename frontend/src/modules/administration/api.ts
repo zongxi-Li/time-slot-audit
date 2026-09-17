@@ -1,19 +1,10 @@
 import { API_BASE_URL, TOKEN_STORAGE_KEY } from '@/shared/api/config'
-import { request } from '@/shared/api/http'
+import { buildQuery, request } from '@/shared/api/http'
 import type { AdminReservation, AuditLog, OperationsDashboard } from './types'
-
-function query(params: Record<string, string | number | undefined>) {
-  const search = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== '') search.set(key, String(value))
-  })
-  const serialized = search.toString()
-  return serialized ? `?${serialized}` : ''
-}
 
 export const administrationApi = {
   reservations(status?: string) {
-    return request<AdminReservation[]>(`/admin/reservations${query({ status })}`)
+    return request<AdminReservation[]>(`/admin/reservations${buildQuery({ status })}`)
   },
   reservation(id: number) {
     return request<AdminReservation>(`/admin/reservations/${id}`)
@@ -40,14 +31,14 @@ export const administrationApi = {
     end?: string
     limit?: number
   }) {
-    return request<AuditLog[]>(`/admin/audit-logs${query(params)}`)
+    return request<AuditLog[]>(`/admin/audit-logs${buildQuery(params)}`)
   },
   statistics(params: { start?: string; end?: string; top?: number }) {
-    return request<OperationsDashboard>(`/admin/statistics${query(params)}`)
+    return request<OperationsDashboard>(`/admin/statistics${buildQuery(params)}`)
   },
   async exportAuditLogs(params: { operatorId?: number; businessType?: string; start?: string; end?: string }) {
     const token = localStorage.getItem(TOKEN_STORAGE_KEY)
-    const response = await fetch(`${API_BASE_URL}/admin/audit-logs/export${query(params)}`, {
+    const response = await fetch(`${API_BASE_URL}/admin/audit-logs/export${buildQuery(params)}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     })
     if (!response.ok) throw new Error('导出审计日志失败')

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { meetingsApi, formatDateTime } from '../api'
+import { meetingsApi } from '../api'
+import { formatDateTime } from '@/utils/datetime'
+import { RESERVATION_STATUS_TEXT } from '@/utils/reservationStatus'
 import type { MeetingExecutionView } from '../api'
 import AttendeeManager from '../components/AttendeeManager.vue'
 
@@ -46,13 +48,6 @@ const attendanceTagType: Record<string, 'info' | 'success' | 'primary' | 'danger
   CHECKED_IN: 'success',
   CHECKED_OUT: 'primary',
   NO_SHOW: 'danger',
-}
-
-const reservationTagText: Record<string, string> = {
-  PENDING: '待审核',
-  CONFIRMED: '已确认',
-  REJECTED: '已驳回',
-  CANCELLED: '已取消',
 }
 
 async function load() {
@@ -160,7 +155,7 @@ function openManager(m: MeetingExecutionView) {
         <el-table-column label="阶段" width="90">
           <template #default="{ row }">
             <el-tag :type="phaseTagType[phaseOf(row)]" size="small" effect="light">
-              {{ row.reservationStatus === 'PENDING' ? reservationTagText.PENDING : phaseOf(row) }}
+              {{ row.reservationStatus === 'PENDING' ? RESERVATION_STATUS_TEXT.PENDING : phaseOf(row) }}
             </el-tag>
           </template>
         </el-table-column>

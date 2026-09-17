@@ -5,6 +5,7 @@ import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { repairTicketsApi } from '@/shared/api'
 import { useMock } from '@/shared/api/config'
 import { ApiError } from '@/shared/api/types'
+import { formatDateTime } from '@/utils/datetime'
 import type { RepairTicketResponse } from '@/shared/api/types'
 
 const roomStore = useMeetingRoomStore()
@@ -44,10 +45,6 @@ const filteredTickets = computed(() =>
 )
 
 const openCount = computed(() => tickets.value.filter((t) => t.status === 'OPEN').length)
-
-function formatTime(value?: string | null): string {
-  return value ? value.slice(0, 16).replace('T', ' ') : '—'
-}
 
 async function resolveTicket(ticket: RepairTicketResponse) {
   try {
@@ -114,7 +111,7 @@ async function resolveTicket(ticket: RepairTicketResponse) {
           <template #default="{ row }">{{ row.reporterName }}</template>
         </el-table-column>
         <el-table-column label="报修时间" width="140">
-          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="88">
           <template #default="{ row }">
@@ -127,7 +124,7 @@ async function resolveTicket(ticket: RepairTicketResponse) {
           <template #default="{ row }">
             <template v-if="row.status === 'RESOLVED'">
               <div class="resolve-remark">{{ row.resolveRemark || '—' }}</div>
-              <div class="resolve-time">{{ formatTime(row.resolvedAt) }}</div>
+              <div class="resolve-time">{{ formatDateTime(row.resolvedAt) }}</div>
             </template>
             <span v-else class="muted">—</span>
           </template>

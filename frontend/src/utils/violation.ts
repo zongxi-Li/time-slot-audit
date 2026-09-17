@@ -17,8 +17,3 @@ export function violationLabel(type: string) {
 export function violationTagType(type: string) {
   return VIOLATION_META[type as ViolationType]?.type ?? 'info'
 }
-
-/** 后端时间为 ISO-8601（yyyy-MM-ddTHH:mm:ss），展示为 yyyy-MM-dd HH:mm */
-export function formatDateTime(value?: string | null) {
-  return value ? value.replace('T', ' ').slice(0, 16) : '—'
-}

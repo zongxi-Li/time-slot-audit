@@ -2,7 +2,8 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
-import { notificationsApi, formatDateTime } from '../api'
+import { notificationsApi } from '../api'
+import { formatDateTime } from '@/utils/datetime'
 import type { NotificationView } from '../api'
 
 const drawerVisible = ref(false)
