@@ -115,10 +115,9 @@ AND existing.end_time > newStart
 
 创建预约要求 `requestId`。应用层先查询已有请求，数据库唯一约束作为并发最终防线；发生重复键时，Service 查询并返回已有预约，不将正常重试转换为 500。
 
-## 9. 前端 Mock/API 双模式
+## 9. 前端统一真实 API
 
-- `VITE_USE_MOCK=true`：保留原有 Demo Mock 和 Pinia 行为。
-- `VITE_USE_MOCK=false`：默认模式，统一经 `src/shared/api/` 调用 Spring Boot。
+- 运行时 Mock 已随核心业务全量接通真实 API 而删除（`VITE_USE_MOCK`/`useMock` 与 `src/mock/` 不复存在）；统一经 `src/shared/api/` 调用 Spring Boot。
 - Vite 将 `/api` 代理到 `http://localhost:8080`。
 - JWT 统一由 API Client 注入；401 清理 token 并回到登录流程。
 - Vite API 代理默认指向 `http://localhost:8080`，可用 `VITE_API_PROXY_TARGET` 临时覆盖到其他本地后端端口。
