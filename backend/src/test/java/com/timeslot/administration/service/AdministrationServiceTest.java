@@ -26,6 +26,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -76,14 +79,19 @@ class AdministrationServiceTest {
     }
 
     @Test
-    void repeatedApprovalReturnsExplicitInvalidState() {
+    void invalidStateFromLifecycleRollsBackWithoutWritingAuditFacts() {
         when(mapper.findReservationById(42L)).thenReturn(reservation("CONFIRMED"));
+        doThrow(new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "当前预约状态不可审批（CONFIRMED）"))
+                .when(lifecycle).approve(42L, 1L);
 
         BusinessException error = assertThrows(BusinessException.class,
                 () -> service.approve(42L, "127.0.0.1"));
 
         assertEquals(ErrorCode.RESERVATION_INVALID_STATE, error.getCode());
-        verify(lifecycle, never()).approve(42L, 1L);
+        // 状态合法性由 reservation 域状态机裁决；其失败必须阻止审批记录与操作日志落库。
+        verify(lifecycle).approve(42L, 1L);
+        verify(mapper, never()).insertApprovalRecord(42L, 1L, "APPROVE", null);
+        verify(mapper, never()).insertOperationLog(anyLong(), anyString(), anyString(), anyLong(), anyString(), anyString());
     }
 
     @Test

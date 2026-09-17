@@ -7,7 +7,9 @@ package com.timeslot.reservation.service;
 import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.reservation.domain.Reservation;
+import com.timeslot.reservation.domain.ReservationEvent;
 import com.timeslot.reservation.domain.ReservationStatus;
+import com.timeslot.reservation.domain.ReservationStateMachine;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.mapper.ReservationMapper;
 import org.springframework.http.HttpStatus;
@@ -15,19 +17,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.util.Set;
 
 /**
  * The only write entry for reservation status transitions driven by other domains.
  * administration (approve/reject/force-cancel) and meeting (check-in flows) must go
- * through this service; calling {@link ReservationMapper#updateStatus} directly from
+ * through this service; calling the reservation mappers' status updates directly from
  * another domain is a boundary violation. Audit records (approval_record /
  * operation_log) stay owned by the calling domain and are written around these calls.
+ *
+ * {@code operatorId} is intentionally unused here: approver identity belongs to the
+ * administration domain (approval_record / operation_log) and must not leak into
+ * reservation-owned tables. It is kept in the public signature for port compatibility.
  */
 @Service
 public class ReservationLifecycleService {
     private static final int MAX_REASON_LENGTH = 500;
-    private static final Set<ReservationStatus> FORCE_CANCELABLE = Set.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
 
     private final ReservationMapper reservationMapper;
     private final Clock clock;
@@ -37,12 +41,13 @@ public class ReservationLifecycleService {
         this.clock = clock;
     }
 
-    /** PENDING -> CONFIRMED. */
+    /** PENDING -> CONFIRMED. Illegal states are rejected by the shared state machine. */
     @Transactional
     public ReservationResponse approve(Long reservationId, Long operatorId) {
         Reservation reservation = lockForTransition(reservationId);
-        requireStatus(reservation, ReservationStatus.PENDING, "仅待审批的预约可以通过审批");
-        return transition(reservation, ReservationStatus.CONFIRMED, null);
+        ReservationStatus target = ReservationStateMachine.transition(reservation.getStatus(),
+                ReservationEvent.APPROVE);
+        return transitionStatus(reservation, target);
     }
 
     /** PENDING -> REJECTED. The contract requires a non-blank reject remark. */
@@ -50,8 +55,9 @@ public class ReservationLifecycleService {
     public ReservationResponse reject(Long reservationId, Long operatorId, String reason) {
         requireReason(reason, "驳回必须填写原因");
         Reservation reservation = lockForTransition(reservationId);
-        requireStatus(reservation, ReservationStatus.PENDING, "仅待审批的预约可以驳回");
-        return transition(reservation, ReservationStatus.REJECTED, reason);
+        ReservationStatus target = ReservationStateMachine.transition(reservation.getStatus(),
+                ReservationEvent.REJECT);
+        return transitionStatus(reservation, target);
     }
 
     /**
@@ -62,10 +68,9 @@ public class ReservationLifecycleService {
     public ReservationResponse forceCancel(Long reservationId, Long operatorId, String reason) {
         requireReason(reason, "强制取消必须填写原因");
         Reservation reservation = lockForTransition(reservationId);
-        if (!FORCE_CANCELABLE.contains(reservation.getStatus())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "仅待审批或已确认的预约可以强制取消");
-        }
-        return transition(reservation, ReservationStatus.CANCELLED, reason);
+        ReservationStatus target = ReservationStateMachine.transition(reservation.getStatus(),
+                ReservationEvent.FORCE_CANCEL);
+        return cancel(reservation, target, reason);
     }
 
     private Reservation lockForTransition(Long reservationId) {
@@ -74,12 +79,6 @@ public class ReservationLifecycleService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "预约不存在");
         }
         return reservation;
-    }
-
-    private void requireStatus(Reservation reservation, ReservationStatus required, String message) {
-        if (reservation.getStatus() != required) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, message);
-        }
     }
 
     private void requireReason(String reason, String message) {
@@ -91,9 +90,31 @@ public class ReservationLifecycleService {
         }
     }
 
-    private ReservationResponse transition(Reservation reservation, ReservationStatus target, String reason) {
-        reservationMapper.updateStatus(reservation.getId(), target.name(), reason);
+    /**
+     * APPROVE / REJECT：只更新 status，驳回理由由 administration 写入 approval_record.remark，
+     * 因此这里绝不触碰 cancel_reason，避免字段语义污染。
+     */
+    private ReservationResponse transitionStatus(Reservation reservation, ReservationStatus target) {
+        int affectedRows = reservationMapper.transitionStatusExpected(reservation.getId(),
+                reservation.getStatus().name(), target.name());
+        requireAffectedRow(affectedRows);
         reservation.setStatus(target);
         return ReservationResponse.from(reservation, clock);
+    }
+
+    /** OWNER_CANCEL / FORCE_CANCEL 语义的取消：status 与 cancel_reason 原子写入。 */
+    private ReservationResponse cancel(Reservation reservation, ReservationStatus target, String reason) {
+        int affectedRows = reservationMapper.cancelExpected(reservation.getId(),
+                reservation.getStatus().name(), target.name(), reason);
+        requireAffectedRow(affectedRows);
+        reservation.setStatus(target);
+        return ReservationResponse.from(reservation, clock);
+    }
+
+    /** expected-state 条件未命中（affectedRows != 1）时 fail-closed，绝不静默成功。 */
+    private void requireAffectedRow(int affectedRows) {
+        if (affectedRows != 1) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约状态已变化，操作未生效，请刷新后重试");
+        }
     }
 }

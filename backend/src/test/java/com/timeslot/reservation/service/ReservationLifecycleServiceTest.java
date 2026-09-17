@@ -44,6 +44,9 @@ class ReservationLifecycleServiceTest {
     @BeforeEach
     void setUp() {
         service = new ReservationLifecycleService(reservationMapper, clock);
+        // 默认桩：expected-state UPDATE 命中 1 行；需要模拟并发失配的测试自行改为 0。
+        when(reservationMapper.transitionStatusExpected(anyLong(), anyString(), anyString())).thenReturn(1);
+        when(reservationMapper.cancelExpected(anyLong(), anyString(), anyString(), any())).thenReturn(1);
     }
 
     private Reservation reservation(ReservationStatus status) {
@@ -69,7 +72,7 @@ class ReservationLifecycleServiceTest {
         ReservationResponse response = service.approve(9L, 1L);
 
         assertEquals("CONFIRMED", response.status());
-        verify(reservationMapper).updateStatus(9L, "CONFIRMED", null);
+        verify(reservationMapper).transitionStatusExpected(9L, "PENDING", "CONFIRMED");
     }
 
     @Test
@@ -79,17 +82,20 @@ class ReservationLifecycleServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.approve(9L, 1L));
 
         assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
-        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+        verify(reservationMapper, never()).transitionStatusExpected(anyLong(), anyString(), anyString());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
-    void rejectTransitionsPendingToRejectedWithReason() {
+    void rejectTransitionsPendingToRejectedWithoutTouchingCancelReason() {
         when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.PENDING));
 
         ReservationResponse response = service.reject(9L, 1L, "该时段需预留场地维护");
 
         assertEquals("REJECTED", response.status());
-        verify(reservationMapper).updateStatus(9L, "REJECTED", "该时段需预留场地维护");
+        // 驳回理由属于 approval_record.remark，cancel_reason 相关更新绝不能发生。
+        verify(reservationMapper).transitionStatusExpected(9L, "PENDING", "REJECTED");
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
@@ -99,7 +105,17 @@ class ReservationLifecycleServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.reject(9L, 1L, "  "));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
-        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+        verify(reservationMapper, never()).transitionStatusExpected(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void rejectReasonLongerThan500IsRejected() {
+        when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.PENDING));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.reject(9L, 1L, "长".repeat(501)));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
     }
 
     @Test
@@ -107,7 +123,7 @@ class ReservationLifecycleServiceTest {
         when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.CONFIRMED));
 
         assertEquals("CANCELLED", service.forceCancel(9L, 1L, "设备检修").status());
-        verify(reservationMapper).updateStatus(eq(9L), eq("CANCELLED"), eq("设备检修"));
+        verify(reservationMapper).cancelExpected(9L, "CONFIRMED", "CANCELLED", "设备检修");
     }
 
     @Test
@@ -115,6 +131,7 @@ class ReservationLifecycleServiceTest {
         when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.PENDING));
 
         assertEquals("CANCELLED", service.forceCancel(9L, 1L, "活动取消").status());
+        verify(reservationMapper).cancelExpected(9L, "PENDING", "CANCELLED", "活动取消");
     }
 
     @Test
@@ -124,7 +141,7 @@ class ReservationLifecycleServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.forceCancel(9L, 1L, null));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
-        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
@@ -134,6 +151,7 @@ class ReservationLifecycleServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.forceCancel(9L, 1L, "重复取消"));
 
         assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
@@ -143,5 +161,28 @@ class ReservationLifecycleServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.approve(404L, 1L));
 
         assertEquals(ErrorCode.RESOURCE_NOT_FOUND, exception.getCode());
+    }
+
+    // —— expected-state 防线：affectedRows != 1 必须 fail-closed —— //
+
+    @Test
+    void approveFailsClosedWhenExpectedStateMisses() {
+        when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.PENDING));
+        when(reservationMapper.transitionStatusExpected(9L, "PENDING", "CONFIRMED")).thenReturn(0);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.approve(9L, 1L));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+    }
+
+    @Test
+    void forceCancelFailsClosedWhenExpectedStateMisses() {
+        when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.CONFIRMED));
+        when(reservationMapper.cancelExpected(eq(9L), eq("CONFIRMED"), eq("CANCELLED"), any())).thenReturn(0);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.forceCancel(9L, 1L, "并发失配"));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
     }
 }

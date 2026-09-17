@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -73,6 +74,9 @@ class ReservationServiceTest {
         when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(room);
         when(resourceBookingQueryService.getOpenWindow(anyLong(), anyInt())).thenReturn(openWindow);
         when(reservationMapper.countConflicts(anyLong(), any(), any())).thenReturn(0);
+        // 默认桩：expected-state UPDATE 命中 1 行；模拟并发失配的测试自行改为 0。
+        when(reservationMapper.updateScheduleAndStatus(any(), anyString())).thenReturn(1);
+        when(reservationMapper.cancelExpected(anyLong(), anyString(), anyString(), any())).thenReturn(1);
     }
 
     private CreateReservationRequest request() {
@@ -266,7 +270,7 @@ class ReservationServiceTest {
         when(reservationMapper.findByIdForUpdate(7L)).thenReturn(reservation);
 
         assertEquals("CANCELLED", service.cancel(7L, null).status());
-        verify(reservationMapper).updateStatus(7L, "CANCELLED", null);
+        verify(reservationMapper).cancelExpected(7L, "CONFIRMED", "CANCELLED", null);
     }
 
     @Test
@@ -276,7 +280,7 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
-        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
@@ -287,7 +291,17 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
-        verify(reservationMapper, never()).updateStatus(anyLong(), anyString(), any());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void cancelFailsClosedWhenExpectedStateMisses() {
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
+        when(reservationMapper.cancelExpected(eq(7L), eq("CONFIRMED"), eq("CANCELLED"), any())).thenReturn(0);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
     }
 
     private UpdateReservationRequest updateRequest() {
@@ -307,7 +321,8 @@ class ReservationServiceTest {
         verify(resourceBookingQueryService).lockBookableRoom(1L);
         verify(reservationMapper).countConflictsExcluding(1L,
                 LocalDateTime.of(2026, 9, 12, 16, 0), LocalDateTime.of(2026, 9, 12, 17, 0), 7L);
-        verify(reservationMapper).updateSchedule(reservation);
+        // 改期字段与重算后的状态必须同一条 UPDATE 原子写入。
+        verify(reservationMapper).updateScheduleAndStatus(reservation, "CONFIRMED");
     }
 
     @Test
@@ -322,7 +337,42 @@ class ReservationServiceTest {
                         LocalDateTime.of(2026, 9, 12, 17, 0), 30, null));
 
         assertEquals("PENDING", response.status());
-        verify(reservationMapper).updateSchedule(reservation);
+        verify(reservationMapper).updateScheduleAndStatus(reservation, "CONFIRMED");
+    }
+
+    @Test
+    void reschedulePendingToNormalRoomBecomesConfirmed() {
+        Reservation pending = ownedReservation(2L);
+        pending.setStatus(ReservationStatus.PENDING);
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(pending);
+
+        ReservationResponse response = service.update(7L, updateRequest());
+
+        assertEquals("CONFIRMED", response.status());
+        verify(reservationMapper).updateScheduleAndStatus(pending, "PENDING");
+    }
+
+    @Test
+    void rescheduleFailsClosedWhenExpectedStateMisses() {
+        Reservation reservation = ownedReservation(2L);
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(reservation);
+        when(reservationMapper.updateScheduleAndStatus(any(), eq("CONFIRMED"))).thenReturn(0);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+    }
+
+    @Test
+    void rejectedReservationCannotBeRescheduled() {
+        Reservation rejected = ownedReservation(2L);
+        rejected.setStatus(ReservationStatus.REJECTED);
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(rejected);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(reservationMapper, never()).updateScheduleAndStatus(any(), anyString());
     }
 
     @Test
@@ -333,7 +383,7 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
 
         assertEquals(ErrorCode.RESERVATION_TIME_CONFLICT, exception.getCode());
-        verify(reservationMapper, never()).updateSchedule(any());
+        verify(reservationMapper, never()).updateScheduleAndStatus(any(), anyString());
     }
 
     @Test
@@ -343,7 +393,7 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
-        verify(reservationMapper, never()).updateSchedule(any());
+        verify(reservationMapper, never()).updateScheduleAndStatus(any(), anyString());
     }
 
     @Test
@@ -368,7 +418,7 @@ class ReservationServiceTest {
                         LocalDateTime.of(2026, 9, 13, 1, 0), 4, null)));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
-        verify(reservationMapper, never()).updateSchedule(any());
+        verify(reservationMapper, never()).updateScheduleAndStatus(any(), anyString());
     }
 
     @Test

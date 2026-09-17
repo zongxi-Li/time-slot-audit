@@ -11,7 +11,9 @@ import com.timeslot.common.security.CurrentUserProvider;
 import com.timeslot.identity.domain.BookingQualification;
 import com.timeslot.identity.service.BookingQualificationService;
 import com.timeslot.reservation.domain.Reservation;
+import com.timeslot.reservation.domain.ReservationEvent;
 import com.timeslot.reservation.domain.ReservationStatus;
+import com.timeslot.reservation.domain.ReservationStateMachine;
 import com.timeslot.reservation.domain.TimeInterval;
 import com.timeslot.reservation.dto.CancelReservationRequest;
 import com.timeslot.reservation.dto.CreateReservationRequest;
@@ -31,13 +33,10 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class ReservationService {
-    private static final Set<ReservationStatus> EDITABLE = Set.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
-
     private final ReservationMapper reservationMapper;
     private final ResourceBookingQueryService resourceBookingQueryService;
     private final BookingQualificationService bookingQualificationService;
@@ -88,7 +87,7 @@ public class ReservationService {
         reservation.setStartTime(interval.start());
         reservation.setEndTime(interval.end());
         reservation.setParticipantCount(request.participantCount());
-        reservation.setStatus(room.approvalRequired() ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED);
+        reservation.setStatus(ReservationStateMachine.initialStatus(room.approvalRequired()));
         reservation.setRemark(request.remark());
         try {
             reservationMapper.insert(reservation);
@@ -103,18 +102,24 @@ public class ReservationService {
     /**
      * Owner-only reschedule. The new slot goes through the full rule chain again
      * (room row lock, room status, category rules, open window, half-open conflict
-     * query excluding this reservation's own id).
+     * query excluding this reservation's own id). The schedule fields and the
+     * recalculated status are persisted in one atomic UPDATE guarded by the
+     * expected-state condition, so Response.status always equals Database.status.
      */
     @Transactional
     public ReservationResponse update(Long id, UpdateReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
-        Reservation reservation = requireOwnedEditable(id, user, "修改");
+        Reservation reservation = requireOwnedEditable(id, user, ReservationEvent.RESCHEDULE);
 
         LocalDateTime now = LocalDateTime.now(clock);
         TimeInterval interval = parseFutureInterval(request.startTime(), request.endTime(), now);
         BookableRoomProfile room = resourceBookingQueryService.lockBookableRoom(request.roomId());
         validateSlot(room, interval, request.participantCount(), now, reservation.getId());
 
+        ReservationStatus expectedStatus = reservation.getStatus();
+        // Approval semantics follow the (possibly new) room category: PENDING/CONFIRMED -> PENDING/CONFIRMED.
+        ReservationStatus targetStatus = ReservationStateMachine.transition(expectedStatus,
+                ReservationEvent.RESCHEDULE, room.approvalRequired());
         reservation.setRoomId(room.roomId());
         reservation.setRoomName(room.roomName());
         reservation.setTitle(request.title());
@@ -122,9 +127,9 @@ public class ReservationService {
         reservation.setEndTime(interval.end());
         reservation.setParticipantCount(request.participantCount());
         reservation.setRemark(request.remark());
-        // Approval semantics follow the (possibly new) room category.
-        reservation.setStatus(room.approvalRequired() ? ReservationStatus.PENDING : ReservationStatus.CONFIRMED);
-        reservationMapper.updateSchedule(reservation);
+        reservation.setStatus(targetStatus);
+        int affectedRows = reservationMapper.updateScheduleAndStatus(reservation, expectedStatus.name());
+        requireAffectedRow(affectedRows);
         return ReservationResponse.from(reservation, clock);
     }
 
@@ -156,33 +161,46 @@ public class ReservationService {
     @Transactional
     public ReservationResponse cancel(Long id, CancelReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
-        Reservation reservation = requireOwnedEditable(id, user, "取消");
-        reservationMapper.updateStatus(id, ReservationStatus.CANCELLED.name(), request == null ? null : request.reason());
-        reservation.setStatus(ReservationStatus.CANCELLED);
+        Reservation reservation = requireOwnedEditable(id, user, ReservationEvent.OWNER_CANCEL);
+        ReservationStatus targetStatus = ReservationStateMachine.transition(reservation.getStatus(),
+                ReservationEvent.OWNER_CANCEL);
+        String reason = request == null ? null : request.reason();
+        int affectedRows = reservationMapper.cancelExpected(id, reservation.getStatus().name(),
+                targetStatus.name(), reason);
+        requireAffectedRow(affectedRows);
+        reservation.setStatus(targetStatus);
         return ReservationResponse.from(reservation, clock);
     }
 
     /**
      * Shared owner-side guard for update/cancel: the reservation must exist,
-     * belong to the caller, be in an editable state, and not have started.
-     * ADMIN must instead use the governed force-cancel path from administration
-     * (reason + audit); {@code action} is the verb used in user-facing messages（修改/取消）.
+     * belong to the caller, be in a state the state machine allows for {@code event},
+     * and not have started. ADMIN must instead use the governed force-cancel path
+     * from administration (reason + audit); the verb in user-facing messages
+     * comes from the event label（修改/取消）.
      */
-    private Reservation requireOwnedEditable(Long id, AuthenticatedUser user, String action) {
+    private Reservation requireOwnedEditable(Long id, AuthenticatedUser user, ReservationEvent event) {
         Reservation reservation = reservationMapper.findByIdForUpdate(id);
         if (reservation == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "预约不存在");
         }
         if (!reservation.getUserId().equals(user.userId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "只能" + action + "本人预约");
+            throw new BusinessException(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, "只能" + event.label() + "本人预约");
         }
-        if (!EDITABLE.contains(reservation.getStatus())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "当前预约状态不可" + action);
-        }
+        // 状态合法性由唯一状态机裁决（非法即抛 RESERVATION_INVALID_STATE）。
+        // RESCHEDULE 的合法性只看当前状态（PENDING/CONFIRMED）；目标状态在锁到新会议室后再按审批规则计算。
+        ReservationStateMachine.transition(reservation.getStatus(), event, false);
         if (!LocalDateTime.now(clock).isBefore(reservation.getStartTime())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约已开始，不能" + action);
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约已开始，不能" + event.label());
         }
         return reservation;
+    }
+
+    /** expected-state 条件未命中（affectedRows != 1）时 fail-closed，绝不静默成功。 */
+    private void requireAffectedRow(int affectedRows) {
+        if (affectedRows != 1) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "预约状态已变化，操作未生效，请刷新后重试");
+        }
     }
 
     private TimeInterval parseFutureInterval(LocalDateTime start, LocalDateTime end, LocalDateTime now) {

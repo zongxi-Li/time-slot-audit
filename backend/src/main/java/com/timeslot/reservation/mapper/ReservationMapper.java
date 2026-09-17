@@ -74,13 +74,21 @@ public interface ReservationMapper {
     int countConflictsExcluding(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
                                 @Param("endTime") LocalDateTime endTime, @Param("excludeId") Long excludeId);
 
+    /**
+     * 改期必须把预约字段和重算后的状态在同一个 UPDATE 中原子持久化；
+     * expected-state 条件保证并发下状态被他人变更时 affectedRows == 0，调用方必须 fail-closed。
+     */
     @Update("""
             UPDATE reservation
-            SET room_id = #{roomId}, title = #{title}, start_time = #{startTime}, end_time = #{endTime},
-                participant_count = #{participantCount}, remark = #{remark}
-            WHERE id = #{id}
+            SET room_id = #{reservation.roomId}, title = #{reservation.title},
+                start_time = #{reservation.startTime}, end_time = #{reservation.endTime},
+                participant_count = #{reservation.participantCount}, remark = #{reservation.remark},
+                status = #{reservation.status}
+            WHERE id = #{reservation.id}
+              AND status = #{expectedStatus}
             """)
-    int updateSchedule(Reservation reservation);
+    int updateScheduleAndStatus(@Param("reservation") Reservation reservation,
+                                @Param("expectedStatus") String expectedStatus);
 
     @Insert("""
             INSERT INTO reservation
@@ -122,10 +130,26 @@ public interface ReservationMapper {
                                    @Param("endTime") LocalDateTime endTime,
                                    @Param("roomId") Long roomId);
 
+    /**
+     * 审批类状态迁移（APPROVE / REJECT）：只更新 status，绝不触碰 cancel_reason——
+     * 驳回理由属于 administration 的 approval_record.remark，取消原因才写 cancel_reason。
+     */
     @Update("""
             UPDATE reservation
-            SET status = #{status}, cancel_reason = #{reason}
+            SET status = #{targetStatus}
             WHERE id = #{id}
+              AND status = #{expectedStatus}
             """)
-    int updateStatus(@Param("id") Long id, @Param("status") String status, @Param("reason") String reason);
+    int transitionStatusExpected(@Param("id") Long id, @Param("expectedStatus") String expectedStatus,
+                                 @Param("targetStatus") String targetStatus);
+
+    /** 取消类迁移（OWNER_CANCEL / FORCE_CANCEL）：status 与 cancel_reason 同一条 UPDATE 写入。 */
+    @Update("""
+            UPDATE reservation
+            SET status = #{targetStatus}, cancel_reason = #{reason}
+            WHERE id = #{id}
+              AND status = #{expectedStatus}
+            """)
+    int cancelExpected(@Param("id") Long id, @Param("expectedStatus") String expectedStatus,
+                       @Param("targetStatus") String targetStatus, @Param("reason") String reason);
 }

@@ -62,8 +62,9 @@ public class AdministrationService {
 
     @Transactional
     public AdminReservationResponse approve(Long id, String ipAddress) {
-        AdminReservationResponse reservation = requirePending(id);
+        AdminReservationResponse reservation = requireReservation(id);
         AuthenticatedUser operator = currentUserProvider.getRequired();
+        // 状态合法性（仅 PENDING 可审批）由 ReservationLifecycleService 内的统一状态机裁决。
         lifecycle().approve(id, operator.userId());
         mapper.insertApprovalRecord(id, operator.userId(), ApprovalAction.APPROVE.name(), null);
         mapper.insertOperationLog(operator.userId(), "APPROVE_RESERVATION", "RESERVATION", id,
@@ -73,7 +74,7 @@ public class AdministrationService {
 
     @Transactional
     public AdminReservationResponse reject(Long id, String reason, String ipAddress) {
-        AdminReservationResponse reservation = requirePending(id);
+        AdminReservationResponse reservation = requireReservation(id);
         AuthenticatedUser operator = currentUserProvider.getRequired();
         // 空值与长度由 RejectReservationRequest 注解约束；原因校验的最终防线在 ReservationLifecycleService。
         String normalizedReason = reason.trim();
@@ -143,14 +144,6 @@ public class AdministrationService {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "预约不存在");
         }
         return row.toResponse();
-    }
-
-    private AdminReservationResponse requirePending(Long id) {
-        AdminReservationResponse reservation = requireReservation(id);
-        if (!"PENDING".equals(reservation.status())) {
-            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE, "仅待审批预约可执行该操作");
-        }
-        return reservation;
     }
 
     private ReservationLifecyclePort lifecycle() {
