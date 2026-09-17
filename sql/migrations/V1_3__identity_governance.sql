@@ -22,9 +22,9 @@ CREATE TABLE department (
 --    credit_score 默认 100（新用户视为正常）；
 --    restricted_until 为空或已过期表示无限制，非空且在未来表示处于黑名单/限制期。
 ALTER TABLE sys_user
-    ADD COLUMN department_id     BIGINT   NULL AFTER role COMMENT '所属部门ID（可空）',
-    ADD COLUMN credit_score      INT      NOT NULL DEFAULT 100 AFTER department_id COMMENT '信用分（预约资格门槛由应用层维护）',
-    ADD COLUMN restricted_until  DATETIME NULL AFTER credit_score COMMENT '限制截止时间（非空且在未来=黑名单/限制期）';
+    ADD COLUMN department_id     BIGINT   NULL COMMENT '所属部门ID（可空）' AFTER role,
+    ADD COLUMN credit_score      INT      NOT NULL DEFAULT 100 COMMENT '信用分（预约资格门槛由应用层维护）' AFTER department_id,
+    ADD COLUMN restricted_until  DATETIME NULL COMMENT '限制截止时间（非空且在未来=黑名单/限制期）' AFTER credit_score;
 
 ALTER TABLE sys_user
     ADD CONSTRAINT fk_user_department FOREIGN KEY (department_id) REFERENCES department (id);
