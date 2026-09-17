@@ -1,3 +1,9 @@
+/**
+ * 文件职责：提供 会议室资源 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 接口：GET /api/admin/room-categories；
+ *        POST /api/admin/room-categories；
+ *        PUT /api/admin/room-categories/{categoryId}。
+ */
 package com.timeslot.resource.controller;
 
 import com.timeslot.common.api.ApiResponse;

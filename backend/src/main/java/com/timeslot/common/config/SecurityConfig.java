@@ -1,3 +1,7 @@
+/**
+ * 文件职责：配置 Spring Security、JWT 过滤器和管理员路由权限。
+ * 接口：放行登录接口并保护 /api 接口。
+ */
 package com.timeslot.common.config;
 
 import com.timeslot.common.security.JwtAuthenticationFilter;

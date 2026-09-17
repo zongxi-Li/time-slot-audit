@@ -1,3 +1,7 @@
+/**
+ * 文件职责：验证 JwtServiceTest 相关业务、接口安全或边界条件。
+ * 接口：使用 JUnit、Mockito 或 Spring 测试工具，不属于运行时接口。
+ */
 package com.timeslot.common.security;
 
 import org.junit.jupiter.api.Test;

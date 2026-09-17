@@ -1,3 +1,7 @@
+/**
+ * 文件职责：提供会议室、分类和资源详情的只读查询。
+ * 接口：被 RoomController 和管理服务调用。
+ */
 package com.timeslot.resource.service;
 
 import com.timeslot.resource.domain.MeetingRoom;

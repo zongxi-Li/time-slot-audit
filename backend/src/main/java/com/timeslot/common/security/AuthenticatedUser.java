@@ -1,3 +1,7 @@
+/**
+ * 文件职责：表示当前请求的认证用户信息。
+ * 接口：供 CurrentUserProvider 和业务 Service 使用。
+ */
 package com.timeslot.common.security;
 
 import org.springframework.security.core.GrantedAuthority;

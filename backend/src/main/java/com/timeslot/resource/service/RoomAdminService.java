@@ -1,3 +1,7 @@
+/**
+ * 文件职责：实现会议室、设施、开放时间和分类的管理员维护。
+ * 接口：由资源管理 Controller 调用。
+ */
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

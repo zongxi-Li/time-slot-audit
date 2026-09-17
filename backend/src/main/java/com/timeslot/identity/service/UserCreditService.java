@@ -1,3 +1,7 @@
+/**
+ * 文件职责：维护用户信用分、违规记录和限制状态。
+ * 接口：被管理员用户管理服务调用。
+ */
 package com.timeslot.identity.service;
 
 import com.timeslot.common.api.ErrorCode;

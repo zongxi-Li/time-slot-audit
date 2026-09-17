@@ -1,3 +1,7 @@
+/**
+ * 文件职责：创建、查询和标记用户通知。
+ * 接口：由 NotificationController 和会议服务调用。
+ */
 package com.timeslot.meeting.service;
 
 import com.timeslot.common.api.ErrorCode;

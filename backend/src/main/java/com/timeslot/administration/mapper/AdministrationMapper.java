@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定义 管理员运营 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 接口：供本域 Service 使用，不直接暴露 HTTP。
+ */
 package com.timeslot.administration.mapper;
 
 import com.timeslot.administration.dto.AdminReservationRow;

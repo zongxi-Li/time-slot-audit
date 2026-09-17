@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定义后端统一错误码，供业务异常和全局异常处理器使用。
+ * 接口：映射 HTTP 错误响应。
+ */
 package com.timeslot.common.api;
 
 public enum ErrorCode {

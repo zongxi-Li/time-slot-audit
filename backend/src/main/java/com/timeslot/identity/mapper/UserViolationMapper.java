@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定义 身份与用户 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 接口：供本域 Service 使用，不直接暴露 HTTP。
+ */
 package com.timeslot.identity.mapper;
 
 import com.timeslot.identity.domain.UserViolation;

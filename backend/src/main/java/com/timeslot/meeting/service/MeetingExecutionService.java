@@ -1,3 +1,7 @@
+/**
+ * 文件职责：管理会议执行记录、参会人、签到和签退。
+ * 接口：由 MeetingExecutionController 调用。
+ */
 package com.timeslot.meeting.service;
 
 import com.timeslot.common.api.ErrorCode;

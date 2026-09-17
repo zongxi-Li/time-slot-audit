@@ -1,3 +1,12 @@
+/**
+ * 文件职责：提供 预约核心 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 接口：GET /api/reservations/calendar；
+ *        GET /api/reservations/my；
+ *        POST /api/reservations；
+ *        GET /api/reservations/{id}；
+ *        PUT /api/reservations/{id}；
+ *        …。
+ */
 package com.timeslot.reservation.controller;
 
 import com.timeslot.common.api.ApiResponse;

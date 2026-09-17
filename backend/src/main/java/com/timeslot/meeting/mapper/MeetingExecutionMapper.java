@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定义 会议执行 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 接口：供本域 Service 使用，不直接暴露 HTTP。
+ */
 package com.timeslot.meeting.mapper;
 
 import com.timeslot.meeting.domain.Attendee;

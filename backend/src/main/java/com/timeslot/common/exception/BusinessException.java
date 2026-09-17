@@ -1,3 +1,7 @@
+/**
+ * 文件职责：表示可预期的业务异常，携带错误码和 HTTP 状态。
+ * 接口：由 Service 抛出并交给全局处理器。
+ */
 package com.timeslot.common.exception;
 
 import com.timeslot.common.api.ErrorCode;

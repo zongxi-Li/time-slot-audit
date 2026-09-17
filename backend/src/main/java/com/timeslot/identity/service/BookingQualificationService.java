@@ -1,3 +1,7 @@
+/**
+ * 文件职责：根据用户状态、信用分和限制期判断预约资格。
+ * 接口：被 ReservationService 调用。
+ */
 package com.timeslot.identity.service;
 
 import com.timeslot.identity.domain.BookingQualification;

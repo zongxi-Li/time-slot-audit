@@ -1,3 +1,7 @@
+/**
+ * 文件职责：实现预约审批、强制取消、审计日志和运营统计。
+ * 接口：由 AdministrationController 调用。
+ */
 package com.timeslot.administration.service;
 
 import com.timeslot.administration.domain.ApprovalAction;

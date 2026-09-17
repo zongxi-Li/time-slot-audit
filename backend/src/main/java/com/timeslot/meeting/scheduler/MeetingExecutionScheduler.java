@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定时扫描预约并推进会议执行状态、提醒和结束后的处理。
+ * 接口：由 Spring Scheduler 定时触发。
+ */
 package com.timeslot.meeting.scheduler;
 
 import com.timeslot.meeting.service.MeetingExecutionService;

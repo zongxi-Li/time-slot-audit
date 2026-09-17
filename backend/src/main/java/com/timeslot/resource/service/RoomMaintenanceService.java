@@ -1,3 +1,7 @@
+/**
+ * 文件职责：登记、查询和完成会议室维护计划。
+ * 接口：由 RoomAdminController 调用。
+ */
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

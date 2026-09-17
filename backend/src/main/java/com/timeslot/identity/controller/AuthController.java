@@ -1,3 +1,7 @@
+/**
+ * 文件职责：提供 身份与用户 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 接口：POST /api/auth/login。
+ */
 package com.timeslot.identity.controller;
 
 import com.timeslot.common.api.ApiResponse;

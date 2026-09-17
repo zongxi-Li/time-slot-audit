@@ -1,3 +1,7 @@
+/**
+ * 文件职责：为预约域提供可预约会议室、开放规则查询和会议室行锁。
+ * 接口：被 ReservationService 调用。
+ */
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

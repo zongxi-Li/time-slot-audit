@@ -1,3 +1,7 @@
+/**
+ * 文件职责：提供预约域对外的只读查询，避免其他领域直接访问预约表。
+ * 接口：被 meeting 和 administration 调用。
+ */
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;

@@ -1,3 +1,7 @@
+/**
+ * 文件职责：实现部门查询和管理员部门维护。
+ * 接口：由 DepartmentController 调用。
+ */
 package com.timeslot.identity.service;
 
 import com.timeslot.common.api.ErrorCode;

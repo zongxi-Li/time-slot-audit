@@ -1,3 +1,7 @@
+/**
+ * 文件职责：负责 JWT 的签发、解析和校验。
+ * 接口：被 AuthService 和认证过滤器调用。
+ */
 package com.timeslot.common.security;
 
 import io.jsonwebtoken.Claims;

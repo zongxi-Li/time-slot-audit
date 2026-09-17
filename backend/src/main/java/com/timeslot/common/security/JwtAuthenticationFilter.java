@@ -1,3 +1,7 @@
+/**
+ * 文件职责：解析 Authorization Bearer Token 并建立登录上下文。
+ * 接口：处理每个受保护 /api 请求。
+ */
 package com.timeslot.common.security;
 
 import jakarta.servlet.FilterChain;

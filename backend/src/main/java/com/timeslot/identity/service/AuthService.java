@@ -1,3 +1,7 @@
+/**
+ * 文件职责：执行用户名密码登录、密码校验和 JWT 签发。
+ * 接口：由 AuthController 的 POST /api/auth/login 调用。
+ */
 package com.timeslot.identity.service;
 
 import com.timeslot.common.api.ErrorCode;

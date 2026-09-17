@@ -1,3 +1,7 @@
+/**
+ * 文件职责：执行预约创建、修改和取消，校验资格、容量、开放时间和时间冲突。
+ * 接口：由 ReservationController 调用。
+ */
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;

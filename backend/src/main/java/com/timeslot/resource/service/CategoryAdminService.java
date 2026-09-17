@@ -1,3 +1,7 @@
+/**
+ * 文件职责：实现会议室分类的管理员新增和修改。
+ * 接口：由 CategoryAdminController 调用。
+ */
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

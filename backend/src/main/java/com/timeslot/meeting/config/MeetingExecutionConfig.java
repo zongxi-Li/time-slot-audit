@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定义 会议执行 的运行配置。
+ * 接口：被 Spring Boot 或本域定时任务加载。
+ */
 package com.timeslot.meeting.config;
 
 import org.springframework.context.annotation.Configuration;

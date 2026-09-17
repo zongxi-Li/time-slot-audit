@@ -1,3 +1,7 @@
+/**
+ * 文件职责：实现管理员用户查询、创建、修改、停用、重置密码和信用治理。
+ * 接口：由 UserAdminController 调用。
+ */
 package com.timeslot.identity.service;
 
 import com.timeslot.common.api.ErrorCode;

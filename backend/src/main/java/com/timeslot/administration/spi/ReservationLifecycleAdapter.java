@@ -1,3 +1,7 @@
+/**
+ * 文件职责：把管理员域生命周期操作适配到 reservation 域公开服务。
+ * 接口：实现 ReservationLifecyclePort。
+ */
 package com.timeslot.administration.spi;
 
 import com.timeslot.reservation.service.ReservationLifecycleService;

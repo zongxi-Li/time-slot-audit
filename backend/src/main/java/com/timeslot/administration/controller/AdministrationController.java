@@ -1,3 +1,12 @@
+/**
+ * 文件职责：提供 管理员运营 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 接口：GET /api/admin/reservations；
+ *        GET /api/admin/reservations/{id}；
+ *        POST /api/admin/reservations/{id}/approve；
+ *        POST /api/admin/reservations/{id}/reject；
+ *        POST /api/admin/reservations/{id}/force-cancel；
+ *        …。
+ */
 package com.timeslot.administration.controller;
 
 import com.timeslot.administration.dto.AdminReservationResponse;

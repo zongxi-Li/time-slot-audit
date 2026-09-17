@@ -1,3 +1,7 @@
+/**
+ * 文件职责：定义后端统一成功响应结构，供所有 Controller 返回给前端。
+ * 接口：统一包装业务数据和状态信息。
+ */
 package com.timeslot.common.api;
 
 public record ApiResponse<T>(String code, String message, T data) {

@@ -1,3 +1,7 @@
+/**
+ * 文件职责：统一处理参数校验、业务和系统异常。
+ * 接口：向前端输出统一 ApiResponse 错误结构。
+ */
 package com.timeslot.common.exception;
 
 import com.timeslot.common.api.ApiResponse;
