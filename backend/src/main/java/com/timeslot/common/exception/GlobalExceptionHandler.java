@@ -2,6 +2,8 @@ package com.timeslot.common.exception;
 
 import com.timeslot.common.api.ApiResponse;
 import com.timeslot.common.api.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException exception) {
         return ResponseEntity.status(403)
@@ -52,6 +56,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception exception) {
+        log.error("Unhandled exception", exception);
         return ResponseEntity.internalServerError()
                 .body(ApiResponse.error(ErrorCode.INTERNAL_ERROR.name(), "服务器内部错误"));
     }

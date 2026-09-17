@@ -96,13 +96,13 @@ public interface AdministrationMapper {
 
     @Select("""
             SELECT COUNT(*) FROM reservation
-            WHERE start_time &lt; #{end} AND end_time &gt; #{start}
+            WHERE start_time < #{end} AND end_time > #{start}
             """)
     long countReservations(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Select("""
             SELECT COUNT(*) FROM reservation
-            WHERE status = 'CANCELLED' AND start_time &lt; #{end} AND end_time &gt; #{start}
+            WHERE status = 'CANCELLED' AND start_time < #{end} AND end_time > #{start}
             """)
     long countCancelledReservations(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
@@ -113,7 +113,7 @@ public interface AdministrationMapper {
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             WHERE r.status = 'CONFIRMED'
-              AND r.start_time &lt; #{end} AND r.end_time &gt; #{start}
+              AND r.start_time < #{end} AND r.end_time > #{start}
             GROUP BY r.room_id, mr.room_name
             ORDER BY used_hours DESC, booking_count DESC, r.room_id
             LIMIT #{limit}
@@ -126,7 +126,7 @@ public interface AdministrationMapper {
             SELECT HOUR(start_time) AS hour, COUNT(*) AS booking_count
             FROM reservation
             WHERE status = 'CONFIRMED'
-              AND start_time &gt;= #{start} AND start_time &lt; #{end}
+              AND start_time >= #{start} AND start_time < #{end}
             GROUP BY HOUR(start_time)
             ORDER BY booking_count DESC, hour
             """)
