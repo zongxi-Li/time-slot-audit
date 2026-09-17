@@ -20,6 +20,12 @@ import java.util.List;
  */
 @Mapper
 public interface MeetingExecutionMapper {
+    String ATTENDEE_COLUMNS = """
+            a.id, a.reservation_id, a.user_id, a.attendee_role, a.attendance_status,
+            a.check_in_at, a.check_out_at, a.created_at, u.username, u.real_name
+            FROM reservation_attendee a
+            JOIN sys_user u ON u.id = a.user_id
+            """;
 
     // ---------------------------------------------------------------------
     // 参与人写入（仅 reservation_attendee）
@@ -70,20 +76,16 @@ public interface MeetingExecutionMapper {
     // ---------------------------------------------------------------------
 
     @Select("""
-            SELECT a.id, a.reservation_id, a.user_id, a.attendee_role, a.attendance_status,
-                   a.check_in_at, a.check_out_at, a.created_at, u.username, u.real_name
-            FROM reservation_attendee a
-            JOIN sys_user u ON u.id = a.user_id
+            SELECT
+            """ + ATTENDEE_COLUMNS + """
             WHERE a.reservation_id = #{reservationId}
             ORDER BY a.id
             """)
     List<Attendee> findByReservationId(Long reservationId);
 
     @Select("""
-            SELECT a.id, a.reservation_id, a.user_id, a.attendee_role, a.attendance_status,
-                   a.check_in_at, a.check_out_at, a.created_at, u.username, u.real_name
-            FROM reservation_attendee a
-            JOIN sys_user u ON u.id = a.user_id
+            SELECT
+            """ + ATTENDEE_COLUMNS + """
             WHERE a.reservation_id = #{reservationId} AND a.user_id = #{userId}
             """)
     Attendee findRow(@Param("reservationId") Long reservationId, @Param("userId") Long userId);

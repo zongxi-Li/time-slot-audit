@@ -13,6 +13,10 @@ import java.util.List;
 
 @Mapper
 public interface ResourceMapper {
+    String ROOM_COLUMNS = """
+            id, category_id, room_name, location, capacity, status, description
+            """;
+
     @Select("""
             SELECT r.id, r.category_id, r.room_name, r.location, r.capacity, r.status, r.description,
                    c.category_name,
@@ -26,7 +30,8 @@ public interface ResourceMapper {
     List<RoomRow> listRooms();
 
     @Select("""
-            SELECT id, category_id, room_name, location, capacity, status, description
+            SELECT
+            """ + ROOM_COLUMNS + """
             FROM meeting_room
             WHERE id = #{roomId}
             FOR UPDATE
@@ -34,14 +39,16 @@ public interface ResourceMapper {
     RoomRow findRoomForUpdate(@Param("roomId") Long roomId);
 
     @Select("""
-            SELECT id, category_id, room_name, location, capacity, status, description
+            SELECT
+            """ + ROOM_COLUMNS + """
             FROM meeting_room
             WHERE id = #{roomId}
             """)
     RoomRow findRoomById(@Param("roomId") Long roomId);
 
     @Select("""
-            SELECT id, category_id, room_name, location, capacity, status, description
+            SELECT
+            """ + ROOM_COLUMNS + """
             FROM meeting_room
             WHERE room_name = #{roomName}
             """)
