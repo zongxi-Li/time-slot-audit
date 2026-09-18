@@ -317,7 +317,8 @@ async function handleAudit(approve: boolean) {
 
 .reservation-inspector {
   position: fixed;
-  top: var(--inspector-inset, 12px);
+  /* 顶部从布局顶栏（68px）之下开始，浮动卡片不与顶栏内容重叠 */
+  top: calc(68px + var(--inspector-inset, 12px));
   right: var(--inspector-inset, 12px);
   bottom: var(--inspector-inset, 12px);
   z-index: 30;
@@ -408,7 +409,6 @@ async function handleAudit(approve: boolean) {
 
 @media (max-width: 760px) {
   .reservation-inspector {
-    top: 10px;
     right: 10px;
     bottom: 10px;
     width: min(340px, 88vw);
@@ -417,21 +417,16 @@ async function handleAudit(approve: boolean) {
 </style>
 
 <style>
-/* 全局样式：详情侧栏为浮动卡片（圆角 + 投影，四周留缝悬于页面之上）。
-   打开时顶栏与工作台（标签栏/内容/状态栏）整体左移让位；
+/* 全局样式：详情侧栏为浮动卡片（圆角 + 投影，悬于工作台区域之上、顶栏之下）。
+   打开时工作台（标签栏/内容/状态栏）整体左移让位；
    窄屏下不再挤压布局，改为浮层。 */
 :root {
   --inspector-width: 340px;
   --inspector-inset: 12px;
 }
 
-.layout-header,
 .workbench-shell {
   transition: padding-right 220ms ease;
-}
-
-body.reservation-inspector-open .layout-header {
-  padding-right: calc(var(--inspector-width) + var(--inspector-inset) * 2 + 26px);
 }
 
 body.reservation-inspector-open .workbench-shell {
@@ -439,7 +434,6 @@ body.reservation-inspector-open .workbench-shell {
 }
 
 @media (max-width: 760px) {
-  body.reservation-inspector-open .layout-header,
   body.reservation-inspector-open .workbench-shell {
     padding-right: 0;
   }
