@@ -5,6 +5,8 @@
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;
+import com.timeslot.common.bookingwindow.BookingWindowResponse;
+import com.timeslot.common.bookingwindow.BookingWindowService;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
 import com.timeslot.common.security.CurrentUserProvider;
@@ -21,7 +23,6 @@ import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
 import com.timeslot.resource.dto.BookableRoomProfile;
-import com.timeslot.resource.dto.BookingOpenWindow;
 import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -41,15 +42,18 @@ public class ReservationService {
     private final ResourceBookingQueryService resourceBookingQueryService;
     private final BookingQualificationService bookingQualificationService;
     private final CurrentUserProvider currentUserProvider;
+    private final BookingWindowService bookingWindowService;
     private final Clock clock;
 
     public ReservationService(ReservationMapper reservationMapper, ResourceBookingQueryService resourceBookingQueryService,
                               BookingQualificationService bookingQualificationService,
-                              CurrentUserProvider currentUserProvider, Clock clock) {
+                              CurrentUserProvider currentUserProvider, BookingWindowService bookingWindowService,
+                              Clock clock) {
         this.reservationMapper = reservationMapper;
         this.resourceBookingQueryService = resourceBookingQueryService;
         this.bookingQualificationService = bookingQualificationService;
         this.currentUserProvider = currentUserProvider;
+        this.bookingWindowService = bookingWindowService;
         this.clock = clock;
     }
 
@@ -225,10 +229,8 @@ public class ReservationService {
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "结束时间必须晚于开始时间");
         }
-        // The open-rule model is per weekday, so a reservation must stay inside one day.
-        if (!interval.start().toLocalDate().equals(interval.end().toLocalDate())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约不允许跨日期，请在同一天内选择时段");
-        }
+        // 允许结束时间落在次日（跨天），但必须仍在管理员设定的可预约窗口内；
+        // 窗口按“预约日期 00:00 起算的分钟数”度量，超出部分由 validateSlot 拒绝。
         return interval;
     }
 
@@ -252,12 +254,14 @@ public class ReservationService {
         if (participantCount > room.capacity()) {
             throw new BusinessException(ErrorCode.ROOM_CAPACITY_EXCEEDED, "参与人数超过会议室容量");
         }
-        BookingOpenWindow openWindow = resourceBookingQueryService.getOpenWindow(room.roomId(),
-                interval.start().getDayOfWeek().getValue());
-        if (openWindow == null || !openWindow.enabled()
-                || interval.start().toLocalTime().isBefore(openWindow.openTime())
-                || interval.end().toLocalTime().isAfter(openWindow.closeTime())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "预约时间不在会议室开放时间内");
+        // 全局可预约时段（管理员设置）：以预约开始日期 00:00 为原点度量，结束可跨到次日。
+        BookingWindowResponse window = bookingWindowService.get();
+        LocalDateTime dayStart = interval.start().toLocalDate().atStartOfDay();
+        long startOffset = ChronoUnit.MINUTES.between(dayStart, interval.start());
+        long endOffset = ChronoUnit.MINUTES.between(dayStart, interval.end());
+        if (startOffset < window.startMinute() || endOffset > window.endMinute()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
+                    "预约时间不在开放的可预约时段内（" + window.startLabel() + " 至 " + window.endLabel() + "）");
         }
         int conflicts = excludeReservationId == null
                 ? reservationMapper.countConflicts(room.roomId(), interval.start(), interval.end())

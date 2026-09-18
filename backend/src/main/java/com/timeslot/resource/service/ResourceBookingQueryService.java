@@ -8,7 +8,6 @@ import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.resource.domain.MeetingRoomStatus;
 import com.timeslot.resource.dto.BookableRoomProfile;
-import com.timeslot.resource.dto.BookingOpenWindow;
 import com.timeslot.resource.mapper.ResourceMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,10 +41,5 @@ public class ResourceBookingQueryService {
         return new BookableRoomProfile(row.getId(), row.getRoomName(), row.getCapacity(),
                 MeetingRoomStatus.fromDb(row.getStatus()).name(), category.getApprovalRequired() == 1,
                 category.getMaxDurationMinutes(), category.getAdvanceDays());
-    }
-
-    public BookingOpenWindow getOpenWindow(Long roomId, int weekday) {
-        ResourceMapper.OpenRuleRow row = mapper.findOpenRule(roomId, weekday);
-        return row == null ? null : new BookingOpenWindow(row.getOpenTime(), row.getCloseTime(), row.getEnabled() == 1);
     }
 }

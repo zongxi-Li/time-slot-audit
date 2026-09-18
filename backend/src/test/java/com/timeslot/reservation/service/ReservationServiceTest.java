@@ -5,6 +5,8 @@
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;
+import com.timeslot.common.bookingwindow.BookingWindowResponse;
+import com.timeslot.common.bookingwindow.BookingWindowService;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
 import com.timeslot.common.security.CurrentUserProvider;
@@ -17,7 +19,6 @@ import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
 import com.timeslot.resource.dto.BookableRoomProfile;
-import com.timeslot.resource.dto.BookingOpenWindow;
 import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,23 +56,25 @@ class ReservationServiceTest {
     @Mock ResourceBookingQueryService resourceBookingQueryService;
     @Mock BookingQualificationService bookingQualificationService;
     @Mock CurrentUserProvider currentUserProvider;
+    @Mock BookingWindowService bookingWindowService;
 
     private ReservationService service;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-11T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
-    /** Small normal room: no approval required, max 120 minutes, 7 days in advance, open 08:00-19:00. */
+    /** Small normal room: no approval required, max 120 minutes, 7 days in advance. */
     private final BookableRoomProfile room = new BookableRoomProfile(1L, "A301", 8, "AVAILABLE",
             false, 120, 7);
-    private final BookingOpenWindow openWindow = new BookingOpenWindow(LocalTime.of(8, 0), LocalTime.of(19, 0), true);
+    /** 默认全局可预约窗口 08:00 - 次日 08:00（480..1920 分钟）。 */
+    private static final BookingWindowResponse DEFAULT_WINDOW = new BookingWindowResponse(480, 1920);
 
     @BeforeEach
     void setUp() {
         service = new ReservationService(reservationMapper, resourceBookingQueryService, bookingQualificationService,
-                currentUserProvider, clock);
+                currentUserProvider, bookingWindowService, clock);
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(2L, "zhangsan", "USER"));
         when(bookingQualificationService.check(2L)).thenReturn(BookingQualification.allow(2L, 100));
         when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
         when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(room);
-        when(resourceBookingQueryService.getOpenWindow(anyLong(), anyInt())).thenReturn(openWindow);
+        when(bookingWindowService.get()).thenReturn(DEFAULT_WINDOW);
         when(reservationMapper.countConflicts(anyLong(), any(), any())).thenReturn(0);
         // 默认桩：expected-state UPDATE 命中 1 行；模拟并发失配的测试自行改为 0。
         when(reservationMapper.updateScheduleAndStatus(any(), anyString(), anyInt())).thenReturn(1);
@@ -155,24 +157,39 @@ class ReservationServiceTest {
     }
 
     @Test
-    void crossDayReservationIsRejected() {
+    void overnightReservationInsideWindowIsAllowed() {
+        // 18:00 至次日 01:00（1500 分钟）仍在默认窗口 480..1920 内；房间时长上限放开以聚焦窗口规则
+        when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(
+                new BookableRoomProfile(1L, "A301", 8, "AVAILABLE", false, 24 * 60, 7));
         CreateReservationRequest overnight = new CreateReservationRequest("request-1", 1L, "通宵研讨",
                 LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 1, 0), 4, null);
 
-        BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(overnight));
+        assertEquals("CONFIRMED", service.createReservation(overnight).status());
+        verify(reservationMapper).insert(any(Reservation.class));
+    }
+
+    @Test
+    void reservationBeyondWindowEndIsRejected() {
+        // 结束落到次日 10:00（2040 分钟），超出默认窗口 1920 分钟
+        CreateReservationRequest beyond = new CreateReservationRequest("request-1", 1L, "超时段预约",
+                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 10, 0), 4, null);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(beyond));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
-        verify(resourceBookingQueryService, never()).lockBookableRoom(anyLong());
         verify(reservationMapper, never()).insert(any(Reservation.class));
     }
 
     @Test
-    void closedOpenWindowIsRejected() {
-        when(resourceBookingQueryService.getOpenWindow(anyLong(), anyInt()))
-                .thenReturn(new BookingOpenWindow(LocalTime.of(8, 0), LocalTime.of(19, 0), false));
+    void reservationBeforeWindowStartIsRejected() {
+        when(bookingWindowService.get()).thenReturn(new BookingWindowResponse(600, 1080));
+        CreateReservationRequest early = new CreateReservationRequest("request-1", 1L, "过早预约",
+                LocalDateTime.of(2026, 9, 12, 9, 0), LocalDateTime.of(2026, 9, 12, 10, 0), 4, null);
 
-        assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(BusinessException.class,
-                () -> service.createReservation(request())).getCode());
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(early));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
     }
 
     @Test
@@ -424,15 +441,29 @@ class ReservationServiceTest {
     }
 
     @Test
-    void rescheduleAcrossDaysIsRejected() {
+    void rescheduleBeyondWindowEndIsRejected() {
         when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L,
-                new UpdateReservationRequest(0, 1L, "跨日改期", LocalDateTime.of(2026, 9, 12, 18, 0),
-                        LocalDateTime.of(2026, 9, 13, 1, 0), 4, null)));
+                new UpdateReservationRequest(0, 1L, "改期超出时段", LocalDateTime.of(2026, 9, 12, 18, 0),
+                        LocalDateTime.of(2026, 9, 13, 10, 0), 4, null)));
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
         verify(reservationMapper, never()).updateScheduleAndStatus(any(), anyString(), anyInt());
+    }
+
+    @Test
+    void rescheduleToNextDayInsideWindowIsAllowed() {
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
+        when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(
+                new BookableRoomProfile(1L, "A301", 8, "AVAILABLE", false, 24 * 60, 7));
+
+        ReservationResponse response = service.update(7L,
+                new UpdateReservationRequest(0, 1L, "跨日改期", LocalDateTime.of(2026, 9, 12, 18, 0),
+                        LocalDateTime.of(2026, 9, 13, 1, 0), 4, null));
+
+        assertEquals(LocalDateTime.of(2026, 9, 13, 1, 0), response.endTime());
+        verify(reservationMapper).updateScheduleAndStatus(any(), anyString(), anyInt());
     }
 
     @Test
