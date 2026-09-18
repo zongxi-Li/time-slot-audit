@@ -116,4 +116,4 @@ docs(reservation): 更新预约核心规则与集成说明（本报告）
 2. administration PR 接入 `ReservationLifecycleService` 后，删除/废弃其内部直接状态更新路径；
 3. 前端需同步：ADMIN 侧“取消他人预约”入口迁移到强制取消（必填原因）；新增详情/改期入口；
 4. 建议保留 100 并发额外验证（本轮已验证 10 并发；机器本地可扩展至 100 线程重跑同一测试）；
-5. Phase C（临时延长/周期/候补）使用 `V1_7__reservation_recurrence_waitlist.sql` 或更高，不占用 V1_3~V1_6。
+5. Phase C（临时延长/周期/候补）使用 `V1_9__reservation_recurrence_waitlist.sql` 或更高，不占用已发布的 V1_1~V1_8。

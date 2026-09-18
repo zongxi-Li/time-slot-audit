@@ -20,6 +20,8 @@ public class Reservation {
     private Integer participantCount;
     private ReservationStatus status;
     private String remark;
+    /** Optimistic-lock version. Every reservation write increments it. */
+    private int version;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -47,4 +49,6 @@ public class Reservation {
     public void setStatus(ReservationStatus status) { this.status = status; }
     public String getRemark() { return remark; }
     public void setRemark(String remark) { this.remark = remark; }
+    public int getVersion() { return version; }
+    public void setVersion(int version) { this.version = version; }
 }

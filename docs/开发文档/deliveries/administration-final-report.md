@@ -76,7 +76,7 @@
 因此在 Reservation 服务 adapter 合入前：
 
 - 查询、详情、审批历史、审计、统计和 CSV 导出可运行。
-- 审批、驳回、强制取消会明确返回 HTTP 503。
+- 历史快照中审批、驳回、强制取消曾返回 HTTP 503；当前已由 `ReservationLifecycleAdapter` 接通 reservation 域生命周期服务。
 - 不会写入不一致的审批/审计记录。
 
 组长集成时必须先合入 Reservation 生命周期公开服务，再增加端口 adapter，并执行

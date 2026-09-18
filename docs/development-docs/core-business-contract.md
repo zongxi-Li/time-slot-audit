@@ -28,7 +28,7 @@ REJECTED                                                  -> REJECTED
 CANCELLED                                                 -> CANCELLED
 ```
 
-前端可以用 `displayStatus` 或同等函数推导展示状态，但不能把展示状态提交给 API。
+后端以统一 `Clock` 计算并返回 `displayStatus`；前端只负责映射文案，不能重新按浏览器时间推导、更不能把展示状态提交给 API。
 
 ## 2. 冲突占用集合
 
@@ -94,6 +94,8 @@ APPROVE: PENDING -> CONFIRMED
 REJECT:  PENDING -> REJECTED
 ```
 
+审批和驳回只允许发生在 `start_time` 之前；开始后的待审批记录不得再被批准为已进行或已完成预约，须由运营流程单独处置。管理员强制取消允许在预约进行中发生，但 `now >= end_time` 时必须拒绝，确保 `COMPLETED` 展示终态不被改写为 `CANCELLED`。
+
 绝不使用 `PENDING -> CANCELLED` 表示审批驳回。取消是对原有效预约的生命周期操作，不是审批结果。
 
 ## 7. 创建预约不变量与顺序
@@ -117,7 +119,12 @@ REJECT:  PENDING -> REJECTED
 
 先查冲突再锁房间、先查冲突再插入、全局 synchronized 或 Java 全局锁都不符合本契约。
 
-## 8. Ownership
+## 8. 幂等与并发修改
+
+- 创建预约的 `requestId` 由一次逻辑提交生成；网络超时后的重试必须复用同一个值，直到客户端明确放弃该次提交。
+- `reservation.version` 是乐观锁版本。所有预约写操作递增版本；`PUT /api/reservations/{id}` 必须携带读取到的 `version`，不匹配时返回 `RESERVATION_INVALID_STATE` 并要求刷新，禁止静默后写覆盖。
+
+## 9. Ownership
 
 - `identity`：用户、角色和认证上下文；
 - `resource`：会议室、分类、设施、开放时间；
@@ -126,4 +133,3 @@ REJECT:  PENDING -> REJECTED
 - `administration`：审批行为历史、操作日志和统计读取模型。
 
 跨域只能调用对方公开 Service/DTO，不得直接调用对方 Mapper 修改对方拥有的表。
-

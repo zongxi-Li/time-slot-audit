@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
 public record UpdateReservationRequest(
+        @NotNull @Min(0) Integer version,
         @NotNull Long roomId,
         @NotBlank @Size(max = 100) String title,
         @NotNull LocalDateTime startTime,

@@ -36,6 +36,8 @@ const bookableRooms = computed(() => roomStore.rooms.filter((r) => r.status === 
 
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
+// A request ID belongs to one logical create action, including a retry after a lost response.
+const createRequestId = ref<string | null>(null)
 
 interface ConflictResult {
   conflicts: Reservation[]
@@ -60,6 +62,7 @@ watch(visible, (open) => {
   if (!open) return
   conflictResult.value = null
   serverConflictMessage.value = ''
+  createRequestId.value = props.editing ? null : crypto.randomUUID()
   // 编辑模式预填现有预约；新建模式回退到看板预填信息或默认值。
   form.title = props.editing?.title ?? ''
   form.roomId = props.editing?.roomId ?? props.initial?.roomId ?? ''
@@ -134,7 +137,9 @@ async function handleSubmit() {
       emit('saved')
       return
     }
-    const created = await store.addReservation({ ...form })
+    const requestId = createRequestId.value ?? crypto.randomUUID()
+    createRequestId.value = requestId
+    const created = await store.addReservation({ ...form }, requestId)
     ElMessage.success(created.status === 'PENDING'
       ? '预约已提交，等待管理员审批'
       : '预约成功')
@@ -167,12 +172,16 @@ async function handleSubmit() {
       }
       monitor.noteConflict()
       monitor.pushFeed({
-        method: 'POST',
-        path: '/api/reservations',
+        method: props.editing ? 'PUT' : 'POST',
+        path: props.editing ? `/api/reservations/${props.editing.id}` : '/api/reservations',
         status: 409,
         user: store.currentUser.name,
         note: `冲突：${conflictResult.value.roomName} ${form.startTime} - ${form.endTime} 已被占用`,
       })
+      ElMessage.error(error.message)
+      return
+    }
+    if (error instanceof ApiError) {
       ElMessage.error(error.message)
       return
     }

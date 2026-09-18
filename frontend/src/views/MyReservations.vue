@@ -9,7 +9,7 @@ import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
-import { formatDateTime, parseDateStr, toMinutes } from '@/utils/datetime'
+import { formatDateTime, parseDateStr } from '@/utils/datetime'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { myViolationsApi } from '@/shared/api'
 import type { ViolationResponse } from '@/shared/api'
@@ -26,18 +26,11 @@ type StatusFilter = '全部' | DisplayStatus
 const statusFilter = ref<StatusFilter>('全部')
 const filterOptions: StatusFilter[] = ['全部', '待进行', '已结束', '已取消']
 
-/** 展示状态：已取消 > 按结束时间与当前时间比较 */
+/** 展示状态由 ReservationResponse 在服务端按统一时钟推导。 */
 function displayStatus(reservationId: string): DisplayStatus {
   const r = store.getById(reservationId)
   if (!r) return '待进行'
-  if (r.status === 'CANCELLED') return '已取消'
-  if (r.status === 'REJECTED') return '已驳回'
-  if (r.status === 'PENDING') return '待审核'
-  const end = parseDateStr(r.date)
-  const [h, m] = r.endTime.split(':').map(Number)
-  end.setHours(h, m, 0, 0)
-  if (end.getTime() < Date.now()) return '已结束'
-  return Date.now() >= end.getTime() - (toMinutes(r.endTime) - toMinutes(r.startTime)) * 60 * 1000 ? '进行中' : '待进行'
+  return r.displayStatus
 }
 
 const filteredList = computed(() =>

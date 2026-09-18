@@ -76,6 +76,18 @@ class ReservationLifecycleServiceTest {
     }
 
     @Test
+    void approveRejectsReservationThatHasAlreadyStarted() {
+        Reservation started = reservation(ReservationStatus.PENDING);
+        started.setStartTime(LocalDateTime.of(2026, 9, 11, 9, 0));
+        when(reservationMapper.findByIdForUpdate(9L)).thenReturn(started);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.approve(9L, 1L));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(reservationMapper, never()).transitionStatusExpected(anyLong(), anyString(), anyString());
+    }
+
+    @Test
     void approveRejectsNonPendingReservation() {
         when(reservationMapper.findByIdForUpdate(9L)).thenReturn(reservation(ReservationStatus.CONFIRMED));
 
@@ -96,6 +108,19 @@ class ReservationLifecycleServiceTest {
         // 驳回理由属于 approval_record.remark，cancel_reason 相关更新绝不能发生。
         verify(reservationMapper).transitionStatusExpected(9L, "PENDING", "REJECTED");
         verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void rejectRejectsReservationThatHasAlreadyStarted() {
+        Reservation started = reservation(ReservationStatus.PENDING);
+        started.setStartTime(LocalDateTime.of(2026, 9, 11, 9, 0));
+        when(reservationMapper.findByIdForUpdate(9L)).thenReturn(started);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.reject(9L, 1L, "超时审批"));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(reservationMapper, never()).transitionStatusExpected(anyLong(), anyString(), anyString());
     }
 
     @Test
@@ -132,6 +157,20 @@ class ReservationLifecycleServiceTest {
 
         assertEquals("CANCELLED", service.forceCancel(9L, 1L, "活动取消").status());
         verify(reservationMapper).cancelExpected(9L, "PENDING", "CANCELLED", "活动取消");
+    }
+
+    @Test
+    void forceCancelRejectsCompletedDisplayReservation() {
+        Reservation completed = reservation(ReservationStatus.CONFIRMED);
+        completed.setStartTime(LocalDateTime.of(2026, 9, 11, 8, 0));
+        completed.setEndTime(LocalDateTime.of(2026, 9, 11, 9, 0));
+        when(reservationMapper.findByIdForUpdate(9L)).thenReturn(completed);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.forceCancel(9L, 1L, "不应覆盖已完成记录"));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     @Test

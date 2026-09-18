@@ -154,8 +154,5 @@ INTERNAL_ERROR
 ```text
 GET /api/rooms/{id}/free-slots
 GET /api/rooms/available
-PUT /api/reservations/{id}
-POST /api/admin/reservations/{id}/approval
-GET /api/admin/reservations
 ```
 

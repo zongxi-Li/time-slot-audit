@@ -34,7 +34,10 @@ export interface Reservation {
   remark?: string
   status: ReservationStatus
   requestId?: string
-  displayStatus?: DisplayStatus
+  /** Server-derived display state; never recompute lifecycle state in the browser. */
+  displayStatus: DisplayStatus
+  /** Optimistic-lock version required by PUT /api/reservations/{id}. */
+  version: number
 }
 
 export interface CurrentUser {

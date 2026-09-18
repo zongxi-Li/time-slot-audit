@@ -220,7 +220,7 @@ CREATE TABLE facility_repair_ticket (
 -- 10. reservation 预约表（核心业务表）
 --    状态机：PENDING / CONFIRMED / REJECTED / CANCELLED。
 --    初始状态由分类的 approval_required 决定，故不设 DB 默认值。
---    不设 version / deleted：并发由事务+行锁控制（见设计文档第11节），
+--    version：改期使用乐观锁防止同一预约被静默覆盖；deleted 不设，
 --    预约全程用状态管理生命周期，不物理删除。
 --    冲突判定索引：idx_reservation_room_status_start
 -- =============================================================================
@@ -237,6 +237,7 @@ CREATE TABLE reservation (
     status            VARCHAR(20)  NOT NULL                COMMENT '状态：PENDING / CONFIRMED / REJECTED / CANCELLED（见chk_reservation_status）；PENDING与CONFIRMED占用时间段参与冲突检测',
     remark            VARCHAR(500) NULL                    COMMENT '预约备注（申请人填写）',
     cancel_reason     VARCHAR(500) NULL                    COMMENT '取消原因（仅用户取消或管理员强制取消时填写；审批驳回理由写 approval_record.remark）',
+    version           INT          NOT NULL DEFAULT 0      COMMENT '乐观锁版本；每次预约写操作递增',
     created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),

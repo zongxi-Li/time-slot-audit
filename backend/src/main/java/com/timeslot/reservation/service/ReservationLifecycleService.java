@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDateTime;
 
 /**
  * The only write entry for reservation status transitions driven by other domains.
@@ -45,6 +46,7 @@ public class ReservationLifecycleService {
     @Transactional
     public ReservationResponse approve(Long reservationId, Long operatorId) {
         Reservation reservation = lockForTransition(reservationId);
+        requireBeforeStart(reservation, "审批");
         ReservationStatus target = ReservationStateMachine.transition(reservation.getStatus(),
                 ReservationEvent.APPROVE);
         return transitionStatus(reservation, target);
@@ -55,6 +57,7 @@ public class ReservationLifecycleService {
     public ReservationResponse reject(Long reservationId, Long operatorId, String reason) {
         requireReason(reason, "驳回必须填写原因");
         Reservation reservation = lockForTransition(reservationId);
+        requireBeforeStart(reservation, "驳回");
         ReservationStatus target = ReservationStateMachine.transition(reservation.getStatus(),
                 ReservationEvent.REJECT);
         return transitionStatus(reservation, target);
@@ -68,6 +71,7 @@ public class ReservationLifecycleService {
     public ReservationResponse forceCancel(Long reservationId, Long operatorId, String reason) {
         requireReason(reason, "强制取消必须填写原因");
         Reservation reservation = lockForTransition(reservationId);
+        requireBeforeEnd(reservation);
         ReservationStatus target = ReservationStateMachine.transition(reservation.getStatus(),
                 ReservationEvent.FORCE_CANCEL);
         return cancel(reservation, target, reason);
@@ -90,6 +94,20 @@ public class ReservationLifecycleService {
         }
     }
 
+    private void requireBeforeStart(Reservation reservation, String action) {
+        if (!LocalDateTime.now(clock).isBefore(reservation.getStartTime())) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
+                    "预约已开始，不能" + action);
+        }
+    }
+
+    private void requireBeforeEnd(Reservation reservation) {
+        if (!LocalDateTime.now(clock).isBefore(reservation.getEndTime())) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
+                    "预约已结束，不能强制取消");
+        }
+    }
+
     /**
      * APPROVE / REJECT：只更新 status，驳回理由由 administration 写入 approval_record.remark，
      * 因此这里绝不触碰 cancel_reason，避免字段语义污染。
@@ -99,6 +117,7 @@ public class ReservationLifecycleService {
                 reservation.getStatus().name(), target.name());
         requireAffectedRow(affectedRows);
         reservation.setStatus(target);
+        reservation.setVersion(reservation.getVersion() + 1);
         return ReservationResponse.from(reservation, clock);
     }
 
@@ -108,6 +127,7 @@ public class ReservationLifecycleService {
                 reservation.getStatus().name(), target.name(), reason);
         requireAffectedRow(affectedRows);
         reservation.setStatus(target);
+        reservation.setVersion(reservation.getVersion() + 1);
         return ReservationResponse.from(reservation, clock);
     }
 

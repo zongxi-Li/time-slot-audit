@@ -38,11 +38,13 @@ mysql -u<user> -p < sql/schema.sql
 mysql -u<user> -p < sql/data.sql
 ```
 
-如果已有 v1.0 数据库，按顺序执行：
+新建数据库只执行上面的 `schema.sql` 与 `data.sql`，不要再执行增量脚本。已有旧数据库则按顺序执行全部增量脚本：
 
 ```bash
-mysql -u<user> -p meeting_room < sql/migrations/V1_1__team_ready_baseline.sql
+for f in sql/migrations/V1_*.sql; do mysql -u<user> -p meeting_room < "$f"; done
 ```
+
+PowerShell 可用：`Get-ChildItem sql/migrations/V1_*.sql | Sort-Object Name | ForEach-Object { Get-Content $_ -Raw | mysql -u<user> -p meeting_room }`。当前最新迁移为 `V1_8__reservation_optimistic_lock.sql`。
 
 种子账号仍使用测试密码 `123456`，数据库中保存的是 BCrypt 摘要：
 

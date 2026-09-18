@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 public record ReservationResponse(Long id, String requestId, String reservationNo, Long roomId, String roomName,
                                   Long userId, String userName, String title, LocalDateTime startTime,
                                   LocalDateTime endTime, Integer participantCount, String status,
-                                  String displayStatus, String remark) {
+                                  String displayStatus, String remark, Integer version) {
     public static ReservationResponse from(Reservation reservation, Clock clock) {
         String display = switch (reservation.getStatus()) {
             case PENDING -> "PENDING";
@@ -28,6 +28,6 @@ public record ReservationResponse(Long id, String requestId, String reservationN
         return new ReservationResponse(reservation.getId(), reservation.getRequestId(), reservation.getReservationNo(),
                 reservation.getRoomId(), reservation.getRoomName(), reservation.getUserId(), reservation.getUserName(),
                 reservation.getTitle(), reservation.getStartTime(), reservation.getEndTime(), reservation.getParticipantCount(),
-                reservation.getStatus().name(), display, reservation.getRemark());
+                reservation.getStatus().name(), display, reservation.getRemark(), reservation.getVersion());
     }
 }

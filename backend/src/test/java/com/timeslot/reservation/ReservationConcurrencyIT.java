@@ -173,11 +173,11 @@ class ReservationConcurrencyIT {
                 ROOM_A301, slotB, slotB.plusHours(1));
         assertTrue(reservationA.created() && reservationB.created(), "两条预约都应创建成功");
 
-        Result overlappingMove = update(zhangsanToken, reservationB.id, ROOM_A301,
+        Result overlappingMove = update(zhangsanToken, reservationB.id, reservationB.version, ROOM_A301,
                 slotA.plusMinutes(30), slotA.plusMinutes(90), "改入冲突时段");
         assertEquals("RESERVATION_TIME_CONFLICT", overlappingMove.code, "改期撞上他人预约应被拒绝: " + overlappingMove);
 
-        Result sameSlotMove = update(zhangsanToken, reservationA.id, ROOM_A301, slotA, slotA.plusHours(1), "原地改期");
+        Result sameSlotMove = update(zhangsanToken, reservationA.id, reservationA.version, ROOM_A301, slotA, slotA.plusHours(1), "原地改期");
         assertTrue(sameSlotMove.created(), "排除自身 id 后原地改期应成功: " + sameSlotMove);
     }
 
@@ -231,9 +231,9 @@ class ReservationConcurrencyIT {
         return Result.of(response, roomId);
     }
 
-    private Result update(String token, long id, long roomId, LocalDateTime start, LocalDateTime end, String title) {
+    private Result update(String token, long id, int version, long roomId, LocalDateTime start, LocalDateTime end, String title) {
         ResponseEntity<ApiResponse<ReservationResponse>> response = http.exchange("/api/reservations/" + id, HttpMethod.PUT,
-                jsonEntity(token, Map.of("roomId", roomId, "title", title,
+                jsonEntity(token, Map.of("version", version, "roomId", roomId, "title", title,
                         "startTime", start.toString(), "endTime", end.toString(),
                         "participantCount", 2, "remark", "ReservationConcurrencyIT")),
                 new ParameterizedTypeReference<>() {
@@ -248,13 +248,13 @@ class ReservationConcurrencyIT {
         return new HttpEntity<>(body, headers);
     }
 
-    private record Result(Long id, long roomId, String status, String code, boolean created) {
+    private record Result(Long id, long roomId, int version, String status, String code, boolean created) {
         static Result of(ResponseEntity<ApiResponse<ReservationResponse>> response, long roomId) {
             ApiResponse<ReservationResponse> body = response.getBody();
             boolean created = response.getStatusCode().is2xxSuccessful() && body != null && body.data() != null;
             String code = created ? "SUCCESS"
                     : (body != null && body.code() != null ? body.code() : "HTTP_" + response.getStatusCode().value());
-            return new Result(created ? body.data().id() : null, roomId,
+            return new Result(created ? body.data().id() : null, roomId, created ? body.data().version() : -1,
                     created ? body.data().status() : null, code, created);
         }
 

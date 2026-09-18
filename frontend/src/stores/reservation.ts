@@ -102,8 +102,8 @@ export const useReservationStore = defineStore('reservation', () => {
   }
 
   /** 新增预约：状态由后端根据会议室审批规则决定（CONFIRMED 或 PENDING） */
-  async function addReservation(input: ReservationDraft): Promise<Reservation> {
-    const created = await reservationsApi.create(input)
+  async function addReservation(input: ReservationDraft, requestId: string): Promise<Reservation> {
+    const created = await reservationsApi.create(input, requestId)
     replaceLocalReservation(created)
     return created
   }
@@ -116,7 +116,9 @@ export const useReservationStore = defineStore('reservation', () => {
 
   /** 修改/改期：改到需审批的会议室时后端会把状态重算为 PENDING */
   async function updateReservation(id: string, input: ReservationDraft): Promise<Reservation> {
-    const updated = await reservationsApi.update(id, input)
+    const current = getById(id)
+    if (!current) throw new Error('预约不存在或已过期，请刷新后重试')
+    const updated = await reservationsApi.update(id, input, current.version)
     replaceLocalReservation(updated)
     return updated
   }

@@ -2,7 +2,7 @@
 
 ## 1. 当前版本
 
-`Database Schema v1.4` 是当前目标快照（v1.1 Team-Ready Baseline + v1.4 资源管理增量）。`sql/schema.sql` 必须始终表示从零初始化后的最新完整结构；增量变化必须保存在 `sql/migrations/`。
+`Database Schema v1.8` 是当前目标快照（已整合 v1.1 至 v1.8）。`sql/schema.sql` 必须始终表示从零初始化后的最新完整结构；增量变化必须保存在 `sql/migrations/`。
 
 核心表继续保留：
 
@@ -17,7 +17,7 @@ approval_record
 operation_log
 ```
 
-v1.1 新增最小开放时间表 `room_open_rule`；v1.4 新增资源域轻量表 `room_maintenance`（维护计划）与 `facility_repair_ticket`（设施报修工单），不提前创建参会人、通知、统计等未实现功能的空表。
+v1.1 新增最小开放时间表 `room_open_rule`；v1.4 新增资源域轻量表；v1.5 新增 `reservation_attendee` 与 `notification`；v1.6 增加运营查询索引；v1.7 限制四个持久化预约状态；v1.8 增加 `reservation.version` 乐观锁列。完整结构均已同步到快照。
 
 ## 2. Migration 规则
 
@@ -39,14 +39,15 @@ v1.1 新增最小开放时间表 `room_open_rule`；v1.4 新增资源域轻量�
 5. 旧明文种子密码替换为 BCrypt（种子脚本可重建数据库，因此直接替换）；
 6. 相关索引和外键。
 
-## 4. v1.4 变更
+## 4. v1.4 至 v1.8 变更
 
 `V1_4__resource_management.sql`（Owner: resource）包含：
 
 1. `room_maintenance(id, room_id, reason, start_time, end_time, status, created_by, ...)`：维护计划登记表，状态 `PLANNED/FINISHED`；
 2. `facility_repair_ticket(id, room_id, facility_id, facility_name, issue, status, reporter_id, reporter_name, resolved_at, resolve_remark)`：报修工单表，状态 `OPEN/RESOLVED`，`facility_name` 为报修时快照；
 3. 前置条件为 v1.1 基线，不改动既有表；
-4. 同步更新 `schema.sql` 完整快照到 v1.4。
+4. v1.5 增加会议执行表，v1.6 增加运营索引，v1.7 收敛预约状态，v1.8 增加乐观锁版本。
+5. 同步更新 `schema.sql` 完整快照到 v1.8。
 
 ## 5. 数据所有权
 

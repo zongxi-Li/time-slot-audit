@@ -89,6 +89,7 @@ public class ReservationService {
         reservation.setParticipantCount(request.participantCount());
         reservation.setStatus(ReservationStateMachine.initialStatus(room.approvalRequired()));
         reservation.setRemark(request.remark());
+        reservation.setVersion(0);
         try {
             reservationMapper.insert(reservation);
         } catch (DuplicateKeyException duplicateKeyException) {
@@ -110,6 +111,10 @@ public class ReservationService {
     public ReservationResponse update(Long id, UpdateReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();
         Reservation reservation = requireOwnedEditable(id, user, ReservationEvent.RESCHEDULE);
+        if (request.version() != reservation.getVersion()) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
+                    "预约已被其他操作修改，请刷新后再提交");
+        }
 
         LocalDateTime now = LocalDateTime.now(clock);
         TimeInterval interval = parseFutureInterval(request.startTime(), request.endTime(), now);
@@ -128,8 +133,9 @@ public class ReservationService {
         reservation.setParticipantCount(request.participantCount());
         reservation.setRemark(request.remark());
         reservation.setStatus(targetStatus);
-        int affectedRows = reservationMapper.updateScheduleAndStatus(reservation, expectedStatus.name());
+        int affectedRows = reservationMapper.updateScheduleAndStatus(reservation, expectedStatus.name(), request.version());
         requireAffectedRow(affectedRows);
+        reservation.setVersion(reservation.getVersion() + 1);
         return ReservationResponse.from(reservation, clock);
     }
 
@@ -169,6 +175,7 @@ public class ReservationService {
                 targetStatus.name(), reason);
         requireAffectedRow(affectedRows);
         reservation.setStatus(targetStatus);
+        reservation.setVersion(reservation.getVersion() + 1);
         return ReservationResponse.from(reservation, clock);
     }
 

@@ -179,6 +179,7 @@ export interface ReservationResponse {
   status: ReservationStatus
   displayStatus: string
   remark?: string | null
+  version: number
 }
 
 export interface CreateReservationRequest {

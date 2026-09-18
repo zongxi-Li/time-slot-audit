@@ -20,7 +20,7 @@ public interface ReservationMapper {
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
-                   r.participant_count, r.status, r.remark
+                   r.participant_count, r.status, r.remark, r.version
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
@@ -31,7 +31,7 @@ public interface ReservationMapper {
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
-                   r.participant_count, r.status, r.remark
+                   r.participant_count, r.status, r.remark, r.version
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
@@ -42,7 +42,7 @@ public interface ReservationMapper {
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
-                   r.participant_count, r.status, r.remark
+                   r.participant_count, r.status, r.remark, r.version
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
@@ -83,20 +83,22 @@ public interface ReservationMapper {
             SET room_id = #{reservation.roomId}, title = #{reservation.title},
                 start_time = #{reservation.startTime}, end_time = #{reservation.endTime},
                 participant_count = #{reservation.participantCount}, remark = #{reservation.remark},
-                status = #{reservation.status}
+                status = #{reservation.status}, version = version + 1
             WHERE id = #{reservation.id}
               AND status = #{expectedStatus}
+              AND version = #{expectedVersion}
             """)
     int updateScheduleAndStatus(@Param("reservation") Reservation reservation,
-                                @Param("expectedStatus") String expectedStatus);
+                                @Param("expectedStatus") String expectedStatus,
+                                @Param("expectedVersion") int expectedVersion);
 
     @Insert("""
             INSERT INTO reservation
               (request_id, reservation_no, room_id, user_id, title, start_time, end_time,
-               participant_count, status, remark)
+               participant_count, status, remark, version)
             VALUES
               (#{requestId}, #{reservationNo}, #{roomId}, #{userId}, #{title}, #{startTime}, #{endTime},
-               #{participantCount}, #{status}, #{remark})
+               #{participantCount}, #{status}, #{remark}, #{version})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Reservation reservation);
@@ -104,7 +106,7 @@ public interface ReservationMapper {
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
-                   r.participant_count, r.status, r.remark
+                   r.participant_count, r.status, r.remark, r.version
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
@@ -116,7 +118,7 @@ public interface ReservationMapper {
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
-                   r.participant_count, r.status, r.remark
+                   r.participant_count, r.status, r.remark, r.version
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             JOIN sys_user u ON u.id = r.user_id
@@ -136,7 +138,7 @@ public interface ReservationMapper {
      */
     @Update("""
             UPDATE reservation
-            SET status = #{targetStatus}
+            SET status = #{targetStatus}, version = version + 1
             WHERE id = #{id}
               AND status = #{expectedStatus}
             """)
@@ -146,7 +148,7 @@ public interface ReservationMapper {
     /** 取消类迁移（OWNER_CANCEL / FORCE_CANCEL）：status 与 cancel_reason 同一条 UPDATE 写入。 */
     @Update("""
             UPDATE reservation
-            SET status = #{targetStatus}, cancel_reason = #{reason}
+            SET status = #{targetStatus}, cancel_reason = #{reason}, version = version + 1
             WHERE id = #{id}
               AND status = #{expectedStatus}
             """)

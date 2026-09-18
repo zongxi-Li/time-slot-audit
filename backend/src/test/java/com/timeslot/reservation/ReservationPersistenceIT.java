@@ -112,10 +112,10 @@ class ReservationPersistenceIT {
                 });
     }
 
-    private ResponseEntity<ApiResponse<ReservationResponse>> update(long id, long roomId,
+    private ResponseEntity<ApiResponse<ReservationResponse>> update(long id, int version, long roomId,
                                                                     LocalDateTime start, LocalDateTime end) {
         return http.exchange("/api/reservations/" + id, HttpMethod.PUT,
-                jsonEntity(zhangsanToken, Map.of("roomId", roomId, "title", "改期后的会议",
+                jsonEntity(zhangsanToken, Map.of("version", version, "roomId", roomId, "title", "改期后的会议",
                         "startTime", start.toString(), "endTime", end.toString(),
                         "participantCount", 2, "remark", "ReservationPersistenceIT")),
                 new ParameterizedTypeReference<>() {
@@ -174,7 +174,7 @@ class ReservationPersistenceIT {
         assertEquals("CONFIRMED", created.getBody().data().status());
 
         ResponseEntity<ApiResponse<ReservationResponse>> updated =
-                update(created.getBody().data().id(), ROOM_B502, slot, slot.plusHours(1));
+                update(created.getBody().data().id(), created.getBody().data().version(), ROOM_B502, slot, slot.plusHours(1));
 
         assertOk(updated);
         assertEquals("PENDING", updated.getBody().data().status());
@@ -192,7 +192,7 @@ class ReservationPersistenceIT {
         assertEquals("PENDING", created.getBody().data().status());
 
         ResponseEntity<ApiResponse<ReservationResponse>> updated =
-                update(created.getBody().data().id(), ROOM_A301, slot, slot.plusHours(1));
+                update(created.getBody().data().id(), created.getBody().data().version(), ROOM_A301, slot, slot.plusHours(1));
 
         assertOk(updated);
         assertEquals("CONFIRMED", updated.getBody().data().status());
@@ -264,7 +264,7 @@ class ReservationPersistenceIT {
         assertCode(adminPost("/" + rejectedId + "/approve", null), "RESERVATION_INVALID_STATE");
         assertCode(adminPost("/" + rejectedId + "/force-cancel", "终态测试-强删"), "RESERVATION_INVALID_STATE");
         assertCode(cancel(rejectedId, "终态测试-取消"), "RESERVATION_INVALID_STATE");
-        assertCode(update(rejectedId, ROOM_A301, rejectedSlot, rejectedSlot.plusHours(1)), "RESERVATION_INVALID_STATE");
+        assertCode(update(rejectedId, rejectedSeed.getBody().data().version(), ROOM_A301, rejectedSlot, rejectedSlot.plusHours(1)), "RESERVATION_INVALID_STATE");
         assertEquals("REJECTED", dbStatus(rejectedId), "非法操作不得改变终态");
 
         LocalDateTime cancelledSlot = freeSlot(ROOM_A301, 16);
@@ -277,7 +277,7 @@ class ReservationPersistenceIT {
 
         assertCode(cancel(cancelledId, "终态测试-重复取消"), "RESERVATION_INVALID_STATE");
         assertCode(adminPost("/" + cancelledId + "/force-cancel", "终态测试-强删"), "RESERVATION_INVALID_STATE");
-        assertCode(update(cancelledId, ROOM_A301, cancelledSlot, cancelledSlot.plusHours(1)), "RESERVATION_INVALID_STATE");
+        assertCode(update(cancelledId, cancelledSeed.getBody().data().version(), ROOM_A301, cancelledSlot, cancelledSlot.plusHours(1)), "RESERVATION_INVALID_STATE");
         assertEquals("CANCELLED", dbStatus(cancelledId), "非法操作不得改变终态");
     }
 

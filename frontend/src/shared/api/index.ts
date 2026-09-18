@@ -1,6 +1,6 @@
 // 文件职责：封装身份、会议室、预约、用户、部门、维护和报修 API。
 // 接口：/api/auth、/api/users、/api/rooms、/api/reservations、/api/admin/*。
-import type { Reservation, MeetingRoom, CurrentUser, ReservationDraft } from '@/types'
+import type { DisplayStatus, Reservation, MeetingRoom, CurrentUser, ReservationDraft } from '@/types'
 import { buildQuery, request } from './http'
 import { TOKEN_STORAGE_KEY } from './config'
 import type {
@@ -43,6 +43,16 @@ const toRoom = (room: RoomResponse): MeetingRoom => ({
   equipment: room.facilities,
 })
 
+const displayStatusMap: Record<string, DisplayStatus> = {
+  PENDING: '待审核',
+  CONFIRMED: '待进行',
+  UPCOMING: '待进行',
+  IN_USE: '进行中',
+  COMPLETED: '已结束',
+  CANCELLED: '已取消',
+  REJECTED: '已驳回',
+}
+
 const toReservation = (reservation: ReservationResponse): Reservation => {
   const start = reservation.startTime.slice(0, 16)
   const end = reservation.endTime.slice(0, 16)
@@ -59,7 +69,8 @@ const toReservation = (reservation: ReservationResponse): Reservation => {
     participantCount: reservation.participantCount,
     remark: reservation.remark ?? undefined,
     status: reservation.status,
-    displayStatus: reservation.displayStatus as Reservation['displayStatus'],
+    displayStatus: displayStatusMap[reservation.displayStatus] ?? '待进行',
+    version: reservation.version,
   }
 }
 
@@ -213,9 +224,9 @@ export const reservationsApi = {
   async mine() {
     return (await request<ReservationResponse[]>('/reservations/my')).map(toReservation)
   },
-  async create(draft: ReservationDraft): Promise<Reservation> {
+  async create(draft: ReservationDraft, requestId: string): Promise<Reservation> {
     const body: CreateReservationRequest = {
-      requestId: crypto.randomUUID(),
+      requestId,
       roomId: draft.roomId,
       title: draft.title,
       startTime: `${draft.date}T${draft.startTime}:00`,
@@ -232,8 +243,9 @@ export const reservationsApi = {
     }))
   },
   /** 修改/改期：状态由后端按新会议室审批规则重算（可能返回 PENDING） */
-  async update(id: string, draft: ReservationDraft): Promise<Reservation> {
+  async update(id: string, draft: ReservationDraft, version: number): Promise<Reservation> {
     const body = {
+      version,
       roomId: draft.roomId,
       title: draft.title,
       startTime: `${draft.date}T${draft.startTime}:00`,

@@ -33,7 +33,7 @@ forceCancel(Long reservationId, Long operatorId, String reason)
 事实均回滚。
 
 在 adapter 合入前，查询、审批历史、审计、统计和导出可独立运行；审批、驳回和
-强制取消接口会返回 HTTP 503，并明确提示生命周期服务尚未接入，不会越权写表或
+历史说明：在适配器接入前，强制取消接口会返回 HTTP 503。当前 `ReservationLifecycleAdapter` 已注册，接口会调用 reservation 域生命周期服务，不会越权写表或
 制造虚假的审批记录。
 
 ## 集成验收
