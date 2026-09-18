@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 /**
@@ -25,15 +26,17 @@ public class MeetingExecutionScheduler {
     private static final Logger log = LoggerFactory.getLogger(MeetingExecutionScheduler.class);
 
     private final MeetingExecutionService meetingExecutionService;
+    private final Clock clock;
 
-    public MeetingExecutionScheduler(MeetingExecutionService meetingExecutionService) {
+    public MeetingExecutionScheduler(MeetingExecutionService meetingExecutionService, Clock clock) {
         this.meetingExecutionService = meetingExecutionService;
+        this.clock = clock;
     }
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void execute() {
         try {
-            meetingExecutionService.processDueExecutions(LocalDateTime.now());
+            meetingExecutionService.processDueExecutions(LocalDateTime.now(clock));
         } catch (Exception exception) {
             log.error("Meeting execution scheduled pass failed", exception);
         }

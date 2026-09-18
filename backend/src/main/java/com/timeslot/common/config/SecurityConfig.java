@@ -18,7 +18,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.MediaType;
 
-import java.time.Clock;
 
 @Configuration
 @EnableMethodSecurity
@@ -59,8 +58,4 @@ public class SecurityConfig {
         };
     }
 
-    @Bean
-    Clock clock() {
-        return Clock.systemDefaultZone();
-    }
 }

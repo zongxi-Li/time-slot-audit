@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -36,13 +37,16 @@ public class AdministrationService {
     private final AdministrationMapper mapper;
     private final CurrentUserProvider currentUserProvider;
     private final ObjectProvider<ReservationLifecyclePort> lifecycleProvider;
+    private final Clock clock;
 
     public AdministrationService(AdministrationMapper mapper,
                                  CurrentUserProvider currentUserProvider,
-                                 ObjectProvider<ReservationLifecyclePort> lifecycleProvider) {
+                                 ObjectProvider<ReservationLifecyclePort> lifecycleProvider,
+                                 Clock clock) {
         this.mapper = mapper;
         this.currentUserProvider = currentUserProvider;
         this.lifecycleProvider = lifecycleProvider;
+        this.clock = clock;
     }
 
     public List<AdminReservationResponse> reservations(String status) {
@@ -107,7 +111,7 @@ public class AdministrationService {
     }
 
     public OperationsDashboardResponse dashboard(LocalDateTime start, LocalDateTime end, Integer top) {
-        LocalDateTime safeEnd = end == null ? LocalDateTime.now() : end;
+        LocalDateTime safeEnd = end == null ? LocalDateTime.now(clock) : end;
         LocalDateTime safeStart = start == null ? safeEnd.minusDays(30) : start;
         validateRange(safeStart, safeEnd);
         int safeTop = top == null ? 5 : Math.max(1, Math.min(top, 20));

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @MapperScan({
         "com.timeslot.administration.mapper",
+        "com.timeslot.common.time",
         "com.timeslot.identity.mapper",
         "com.timeslot.resource.mapper",
         "com.timeslot.reservation.mapper",

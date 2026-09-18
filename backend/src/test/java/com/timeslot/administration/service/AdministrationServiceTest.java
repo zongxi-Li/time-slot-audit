@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -46,7 +47,7 @@ class AdministrationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AdministrationService(mapper, currentUserProvider, lifecycleProvider);
+        service = new AdministrationService(mapper, currentUserProvider, lifecycleProvider, Clock.systemDefaultZone());
         pending = reservation("PENDING");
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(1L, "admin", "ADMIN"));
         when(lifecycleProvider.getIfAvailable()).thenReturn(lifecycle);
