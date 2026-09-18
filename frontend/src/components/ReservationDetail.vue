@@ -3,7 +3,7 @@
   接口：通过 props、emits 与父页面通信，必要时通过 store 间接访问 API。
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
@@ -60,6 +60,32 @@ const canCancel = computed(
 const canAudit = computed(
   () => auth.isAdmin && reservation.value?.status === 'PENDING',
 )
+
+/* panel 模式：侧栏为固定定位的整条右栏，打开时让页面布局为其让位（见文件底部全局样式） */
+const INSPECTOR_OPEN_CLASS = 'reservation-inspector-open'
+
+watch(
+  [visible, () => props.mode],
+  ([open, mode]) => {
+    document.body.classList.toggle(INSPECTOR_OPEN_CLASS, open && mode === 'panel')
+  },
+  { immediate: true },
+)
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  if (props.mode !== 'panel' || !visible.value) return
+  // 焦点在弹窗（如驳回原因输入框）内时，Esc 交给弹窗自己处理
+  if ((event.target as HTMLElement | null)?.closest?.('.el-overlay')) return
+  visible.value = false
+}
+
+window.addEventListener('keydown', handleGlobalKeydown)
+
+onBeforeUnmount(() => {
+  document.body.classList.remove(INSPECTOR_OPEN_CLASS)
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
 
 async function handleCancel() {
   const r = reservation.value
@@ -184,7 +210,12 @@ async function handleAudit(approve: boolean) {
     </template>
   </el-drawer>
 
-  <aside v-else-if="visible" class="reservation-inspector" aria-label="预约详情">
+  <Transition name="inspector">
+    <aside
+      v-if="props.mode === 'panel' && visible"
+      class="reservation-inspector"
+      aria-label="预约详情"
+    >
     <header class="inspector-head">
       <div>
         <span class="inspector-kicker">RESERVATION</span>
@@ -241,7 +272,8 @@ async function handleAudit(approve: boolean) {
         取消预约
       </el-button>
     </footer>
-  </aside>
+    </aside>
+  </Transition>
 </template>
 
 <style scoped>
@@ -284,17 +316,32 @@ async function handleAudit(approve: boolean) {
 }
 
 .reservation-inspector {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
   display: flex;
-  flex: 0 0 330px;
   flex-direction: column;
+  width: 340px;
   min-width: 0;
-  min-height: 0;
-  height: 100%;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.88);
   border-left: 1px solid var(--border-light);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
+  box-shadow: -22px 0 48px rgba(29, 29, 31, 0.1);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.inspector-enter-active,
+.inspector-leave-active {
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.inspector-enter-from,
+.inspector-leave-to {
+  transform: translateX(28px);
+  opacity: 0;
 }
 
 .inspector-head {
@@ -360,11 +407,32 @@ async function handleAudit(approve: boolean) {
 
 @media (max-width: 760px) {
   .reservation-inspector {
-    flex: 1 1 auto;
-    height: auto;
-    max-height: 55vh;
-    border-top: 1px solid var(--border-light);
-    border-left: 0;
+    width: min(340px, 88vw);
+    box-shadow: -18px 0 40px rgba(29, 29, 31, 0.22);
+  }
+}
+</style>
+
+<style>
+/* 全局样式：详情侧栏打开时，顶栏与工作台（标签栏/内容/状态栏）整体左移让位，
+   侧栏独占右侧从页面顶部到底部的整条区域；窄屏下侧栏改为浮层不挤压布局。 */
+.layout-header,
+.workbench-shell {
+  transition: padding-right 220ms ease;
+}
+
+body.reservation-inspector-open .layout-header {
+  padding-right: 366px;
+}
+
+body.reservation-inspector-open .workbench-shell {
+  padding-right: 340px;
+}
+
+@media (max-width: 760px) {
+  body.reservation-inspector-open .layout-header,
+  body.reservation-inspector-open .workbench-shell {
+    padding-right: 0;
   }
 }
 </style>
