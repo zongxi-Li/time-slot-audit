@@ -1,6 +1,6 @@
 // 文件职责：提供 grid 前端工具函数。
 // 接口：被 stores、views 和 components 调用，不直接访问后端。
-import { PX_PER_HOUR, BUSINESS_START_HOUR, toMinutes } from './datetime'
+import { PX_PER_HOUR, toMinutes } from './datetime'
 import type { Reservation } from '@/types'
 
 /** 看板上一个预约块完成定位后的全部信息 */
@@ -18,14 +18,16 @@ export interface LaidOutReservation {
 /**
  * 将某会议室同一天的预约布局到时间轴上：
  * 纵向按时间换算像素，横向对互相重叠的预约做简单的分栏（lane packing）。
+ * startHour 为看板可预约窗口的起始小时（管理员可调）。
  */
-export function layoutReservations(list: Reservation[]): LaidOutReservation[] {
+export function layoutReservations(list: Reservation[], startHour: number): LaidOutReservation[] {
   const sorted = [...list].sort(
     (a, b) => a.startTime.localeCompare(b.startTime) || a.endTime.localeCompare(b.endTime),
   )
 
   const items = sorted.map((r) => {
     const start = toMinutes(r.startTime)
+    // 结束时间用 "HH:mm" 小时 ≥24 的内部约定表示次日（见 shared/api toReservation）
     const end = Math.max(toMinutes(r.endTime), start + 30)
     return { reservation: r, start, end, lane: 0 }
   })
@@ -73,7 +75,7 @@ export function layoutReservations(list: Reservation[]): LaidOutReservation[] {
     }
     clusterItems.push({
       item,
-      top: ((item.start - BUSINESS_START_HOUR * 60) / 60) * PX_PER_HOUR,
+      top: ((item.start - startHour * 60) / 60) * PX_PER_HOUR,
       height: Math.max(((item.end - item.start) / 60) * PX_PER_HOUR - 3, 26),
     })
   }

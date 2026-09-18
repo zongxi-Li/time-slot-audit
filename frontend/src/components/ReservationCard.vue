@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LaidOutReservation } from '@/utils/grid'
+import { timeLabel } from '@/utils/datetime'
 import { useReservationStore } from '@/stores/reservation'
 
 const props = defineProps<{
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 const store = useReservationStore()
 const r = computed(() => props.item.reservation)
 const isMine = computed(() => r.value.userId === store.currentUser.id)
+const timeMeta = computed(() => `${timeLabel(r.value.startTime)} - ${timeLabel(r.value.endTime)}`)
 
 const cardStyle = computed(() => {
   const { top, height, lane, laneCount } = props.item
@@ -41,7 +43,7 @@ const showOwner = computed(() => props.item.height >= 58)
     class="res-card"
     :class="[`status-${r.status}`, { mine: isMine }]"
     :style="cardStyle"
-    :title="`${r.title} ${r.startTime}-${r.endTime} · ${r.userName}`"
+    :title="`${r.title} ${timeMeta} · ${r.userName}`"
     @click.stop="emit('open', r.id)"
   >
     <div class="res-title">
@@ -49,7 +51,7 @@ const showOwner = computed(() => props.item.height >= 58)
       <span class="res-title-text">{{ r.title }}</span>
       <span v-if="isMine" class="mine-tag">我</span>
     </div>
-    <div v-if="showMeta" class="res-meta">{{ r.startTime }} - {{ r.endTime }}</div>
+    <div v-if="showMeta" class="res-meta">{{ timeMeta }}</div>
     <div v-if="showOwner" class="res-meta">{{ r.userName }}</div>
   </div>
 </template>

@@ -51,6 +51,12 @@ export interface SystemTimeResponse {
   mode: SystemTimeMode
 }
 
+/** 全局可预约时段；分钟数相对预约日期 00:00，endMinute > 1440 表示延伸到次日 */
+export interface BookingWindowResponse {
+  startMinute: number
+  endMinute: number
+}
+
 export interface RoomResponse {
   id: number | string
   name: string

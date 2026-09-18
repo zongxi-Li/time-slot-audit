@@ -93,3 +93,15 @@ export interface ServiceStatus {
   latency: string
   note: string
 }
+
+/** 看板网格上拖拽框选出的时间段；endTime 为独占边界，可直接用作表单 endTime */
+export interface SlotSelection {
+  /** 日视图：框选所在会议室；周视图框选不指定会议室 */
+  roomId?: string
+  /** 框选所在日期 YYYY-MM-DD */
+  date: string
+  /** HH:mm */
+  startTime: string
+  /** HH:mm */
+  endTime: string
+}

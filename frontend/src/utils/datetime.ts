@@ -1,7 +1,30 @@
-/** 营业时段：08:00 - 19:00 */
+/** 营业时段兜底值：08:00 - 次日 08:00；实际以 bookingWindow store（后端配置）为准 */
 export const BUSINESS_START_HOUR = 8
-export const BUSINESS_END_HOUR = 19
+export const BUSINESS_END_HOUR = 32
 export const PX_PER_HOUR = 64
+
+/** 小时数（可 ≥24，表示次日）-> 展示标签，如 26 -> "次日 02:00" */
+export function hourLabel(hour: number, minute = 0): string {
+  const mm = String(minute).padStart(2, '0')
+  const base = `${String(hour % 24).padStart(2, '0')}:${mm}`
+  return hour >= 24 ? `次日 ${base}` : base
+}
+
+/** "HH:mm"（小时可 ≥24）-> 展示标签，如 "26:30" -> "次日 02:30" */
+export function timeLabel(time: string): string {
+  const [h, m] = time.split(':').map(Number)
+  if (Number.isNaN(h)) return time
+  return hourLabel(h, m || 0)
+}
+
+/** 组合日期与 "HH:mm"（小时可 ≥24 表示次日）为后端 ISO 时间串 */
+export function toIsoDateTime(date: string, time: string): string {
+  const hour = Number(time.slice(0, 2))
+  const dayShift = Math.floor(hour / 24)
+  const hh = String(hour % 24).padStart(2, '0')
+  const mm = time.slice(3, 5)
+  return `${dayShift ? addDays(date, dayShift) : date}T${hh}:${mm}:00`
+}
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0')

@@ -8,14 +8,16 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
 import { useSystemTimeStore } from '@/stores/systemTime'
+import { useBookingWindowStore } from '@/stores/bookingWindow'
 import { useMonitorStore } from '@/stores/monitor'
 import { ApiError } from '@/shared/api'
+import { hourLabel, timeLabel } from '@/utils/datetime'
 import type { MeetingRoom, Reservation, ReservationDraft } from '@/types'
 
 const visible = defineModel<boolean>({ default: false })
 
 const props = withDefaults(defineProps<{
-  /** 从看板点击空白格进入时的预填信息 */
+  /** 从看板框选/点击进入时的预填信息 */
   initial?: Partial<Pick<ReservationDraft, 'roomId' | 'date' | 'startTime' | 'endTime'>>
   /** 传入已有预约时为编辑（改期）模式，提交走 PUT /api/reservations/{id} */
   editing?: Reservation | null
@@ -30,10 +32,41 @@ const emit = defineEmits<{
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
 const systemTime = useSystemTimeStore()
+const bookingWindow = useBookingWindowStore()
 const monitor = useMonitorStore()
 
 /** 仅可预约“启用”状态的会议室（管理员停用的房间不出现在选项里） */
 const bookableRooms = computed(() => roomStore.rooms.filter((r) => r.status === 'AVAILABLE'))
+
+interface TimeOption {
+  value: string
+  label: string
+}
+
+function hourValue(h: number): string {
+  return `${String(h).padStart(2, '0')}:00`
+}
+
+/** 开始时间选项：窗口起点到当天 24 点前（次日晨间时段只能作为前一天预约的结束） */
+const startOptions = computed<TimeOption[]>(() => {
+  const list: TimeOption[] = []
+  for (let h = bookingWindow.startHour; h < Math.min(bookingWindow.endHour, 24); h++) {
+    const value = hourValue(h)
+    list.push({ value, label: hourLabel(h) })
+  }
+  return list
+})
+
+/** 结束时间选项：晚于已选开始，可到窗口终点（含次日） */
+const endOptions = computed<TimeOption[]>(() => {
+  const list: TimeOption[] = []
+  for (let h = bookingWindow.startHour + 1; h <= bookingWindow.endHour; h++) {
+    const value = hourValue(h)
+    if (form.startTime && value <= form.startTime) continue
+    list.push({ value, label: hourLabel(h) })
+  }
+  return list
+})
 
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
@@ -64,12 +97,18 @@ watch(visible, (open) => {
   conflictResult.value = null
   serverConflictMessage.value = ''
   createRequestId.value = props.editing ? null : crypto.randomUUID()
-  // 编辑模式预填现有预约；新建模式回退到看板预填信息或默认值。
+  // 编辑模式预填现有预约；新建模式回退到看板预填信息，再退到窗口起点+1小时。
+  // 看板可能框选到维护中/停用的会议室，这类房间不在可预约选项里，roomId 置空让用户自选。
+  const initialRoomId = props.initial?.roomId
+  const fallbackStart = hourValue(bookingWindow.startHour)
+  const fallbackEnd = hourValue(Math.min(bookingWindow.startHour + 1, bookingWindow.endHour))
   form.title = props.editing?.title ?? ''
-  form.roomId = props.editing?.roomId ?? props.initial?.roomId ?? ''
+  form.roomId =
+    props.editing?.roomId ??
+    (initialRoomId && bookableRooms.value.some((r) => r.id === initialRoomId) ? initialRoomId : '')
   form.date = props.editing?.date ?? props.initial?.date ?? systemTime.date
-  form.startTime = props.editing?.startTime ?? props.initial?.startTime ?? '10:00'
-  form.endTime = props.editing?.endTime ?? props.initial?.endTime ?? '11:00'
+  form.startTime = props.editing?.startTime ?? props.initial?.startTime ?? fallbackStart
+  form.endTime = props.editing?.endTime ?? props.initial?.endTime ?? fallbackEnd
   form.participantCount = props.editing?.participantCount ?? 4
   form.remark = props.editing?.remark ?? ''
 })
@@ -248,27 +287,35 @@ async function handleSubmit() {
       <el-form-item label="时间" required>
         <div class="time-row">
           <el-form-item prop="startTime" class="time-item">
-            <el-time-select
+            <el-select
               v-model="form.startTime"
-              start="08:00"
-              end="19:00"
-              step="00:30"
               placeholder="开始时间"
               style="width: 100%"
               @change="clearConflict"
-            />
+            >
+              <el-option
+                v-for="opt in startOptions"
+                :key="opt.value"
+                :value="opt.value"
+                :label="opt.label"
+              />
+            </el-select>
           </el-form-item>
           <span class="time-sep">-</span>
           <el-form-item prop="endTime" class="time-item">
-            <el-time-select
+            <el-select
               v-model="form.endTime"
-              :start="form.startTime || '08:00'"
-              end="19:00"
-              step="00:30"
               placeholder="结束时间"
               style="width: 100%"
               @change="clearConflict"
-            />
+            >
+              <el-option
+                v-for="opt in endOptions"
+                :key="opt.value"
+                :value="opt.value"
+                :label="opt.label"
+              />
+            </el-select>
           </el-form-item>
         </div>
       </el-form-item>
@@ -303,14 +350,14 @@ async function handleSubmit() {
       <p v-if="serverConflictMessage" class="conflict-msg">{{ serverConflictMessage }}</p>
       <p v-else class="conflict-msg">
         {{ conflictResult.roomName }} 会议室在
-        {{ conflictResult.conflicts[0]?.startTime }} -
-        {{ conflictResult.conflicts[0]?.endTime }} 已被占用，当前预约时间与「{{
+        {{ timeLabel(conflictResult.conflicts[0]?.startTime ?? '') }} -
+        {{ timeLabel(conflictResult.conflicts[0]?.endTime ?? '') }} 已被占用，当前预约时间与「{{
           conflictResult.conflicts[0]?.title
         }}」发生冲突。请选择其他时间或会议室。
       </p>
       <ul v-if="conflictResult.conflicts.length > 1" class="conflict-extra">
         <li v-for="c in conflictResult.conflicts.slice(1)" :key="c.id">
-          {{ c.startTime }} - {{ c.endTime }}：{{ c.title }}（{{ c.userName }}）
+          {{ timeLabel(c.startTime) }} - {{ timeLabel(c.endTime) }}：{{ c.title }}（{{ c.userName }}）
         </li>
       </ul>
       <div v-if="conflictResult.alternatives.length" class="conflict-suggest">

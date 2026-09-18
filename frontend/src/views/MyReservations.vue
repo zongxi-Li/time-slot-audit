@@ -10,7 +10,7 @@ import { useReservationStore } from '@/stores/reservation'
 import { useSystemTimeStore } from '@/stores/systemTime'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
-import { formatDateTime, parseDateStr } from '@/utils/datetime'
+import { formatDateTime, parseDateStr, timeLabel } from '@/utils/datetime'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { myViolationsApi } from '@/shared/api'
 import type { ViolationResponse } from '@/shared/api'
@@ -152,8 +152,8 @@ async function handleCancel(row: { id: string; title: string }) {
           <template #default="{ row }">{{ roomStore.roomName(row.roomId) }}</template>
         </el-table-column>
         <el-table-column prop="date" label="日期" width="120" sortable />
-        <el-table-column label="时间" width="130">
-          <template #default="{ row }">{{ row.startTime }} - {{ row.endTime }}</template>
+        <el-table-column label="时间" width="150">
+          <template #default="{ row }">{{ timeLabel(row.startTime) }} - {{ timeLabel(row.endTime) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">

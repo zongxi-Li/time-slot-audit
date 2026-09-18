@@ -3,20 +3,21 @@
   接口：通过 Pinia store 或 shared/api 调用后端；管理员页面使用 /api/admin/*。
 -->
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useMonitorStore } from '@/stores/monitor'
+import { useBookingWindowStore } from '@/stores/bookingWindow'
 import { adminCategoriesApi, adminRoomsApi, roomsApi } from '@/shared/api'
 import { ApiError } from '@/shared/api/types'
-import { formatDateTime } from '@/utils/datetime'
+import { formatDateTime, hourLabel } from '@/utils/datetime'
 import type { CategoryResponse, MaintenanceResponse, SaveFacilityRequest } from '@/shared/api/types'
 import type { MeetingRoom, RoomFlag } from '@/types'
 
 const roomStore = useMeetingRoomStore()
 const monitor = useMonitorStore()
+const bookingWindow = useBookingWindowStore()
 
-const WEEKDAY_LABELS = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const STATUS_TEXT: Record<RoomFlag, string> = { AVAILABLE: '启用中', MAINTENANCE: '维护中', DISABLED: '停用' }
 const STATUS_TAG: Record<RoomFlag, 'success' | 'warning' | 'info'> = {
   AVAILABLE: 'success',
@@ -32,6 +33,9 @@ onMounted(async () => {
   try {
     await roomStore.refreshRooms()
     categories.value = await adminCategoriesApi.list()
+    await bookingWindow.refresh()
+    windowForm.startHour = bookingWindow.startHour
+    windowForm.endHour = bookingWindow.endHour
   } catch (error) {
     ElMessage.error(errorMessage(error))
   } finally {
@@ -227,67 +231,49 @@ async function saveFacilities() {
   }
 }
 
-/* —— 开放时间管理 —— */
-interface OpenRuleDraft {
-  weekday: number
-  enabled: boolean
-  openTime: string
-  closeTime: string
-}
+/* —— 全局可预约时段（对所有会议室生效；结束可到次日） —— */
+const windowForm = reactive({ startHour: 8, endHour: 32 })
+const windowSaving = ref(false)
 
-const ruleDialogVisible = ref(false)
-const ruleRoom = ref<MeetingRoom | null>(null)
-const ruleSaving = ref(false)
-const ruleRows = ref<OpenRuleDraft[]>([])
+const windowStartOptions = computed(() => {
+  const list: { value: number; label: string }[] = []
+  for (let h = 0; h < 24; h++) list.push({ value: h, label: hourLabel(h) })
+  return list
+})
 
-async function openRules(room: MeetingRoom) {
-  ruleRoom.value = room
-  ruleDialogVisible.value = true
-  const defaults: OpenRuleDraft[] = WEEKDAY_LABELS.slice(1).map((_, index) => ({
-    weekday: index + 1,
-    enabled: false,
-    openTime: '08:00:00',
-    closeTime: '22:00:00',
-  }))
+const windowEndOptions = computed(() => {
+  const list: { value: number; label: string }[] = []
+  const maxEnd = Math.min(windowForm.startHour + 24, 48)
+  for (let h = windowForm.startHour + 1; h <= maxEnd; h++) list.push({ value: h, label: hourLabel(h) })
+  return list
+})
+
+// 起点变化后保证终点仍在 [起点+1, 起点+24] 内
+watch(() => windowForm.startHour, (start) => {
+  if (windowForm.endHour <= start) windowForm.endHour = start + 1
+  if (windowForm.endHour > start + 24) windowForm.endHour = start + 24
+})
+
+async function saveWindow() {
+  windowSaving.value = true
   try {
-    const detail = await roomsApi.detail(room.id)
-    for (const rule of detail.openRules) {
-      const row = defaults[rule.weekday - 1]
-      if (row) {
-        row.enabled = rule.enabled
-        row.openTime = rule.openTime
-        row.closeTime = rule.closeTime
-      }
-    }
-  } catch (error) {
-    ElMessage.error(errorMessage(error))
-  } finally {
-    ruleRows.value = defaults
-  }
-}
-
-async function saveRules() {
-  if (!ruleRoom.value) return
-  const enabledRows = ruleRows.value.filter((row) => row.enabled)
-  for (const row of enabledRows) {
-    if (row.closeTime <= row.openTime) {
-      ElMessage.error(`${WEEKDAY_LABELS[row.weekday]} 的关闭时间必须晚于开放时间`)
-      return
-    }
-  }
-  ruleSaving.value = true
-  try {
-    await adminRoomsApi.replaceOpenRules(
-      ruleRoom.value.id,
-      enabledRows.map((row) => ({ weekday: row.weekday, openTime: row.openTime, closeTime: row.closeTime, enabled: true })),
+    await bookingWindow.set(windowForm.startHour, windowForm.endHour)
+    logApi(
+      'PUT',
+      '/api/admin/booking-window',
+      `设置可预约时段 ${hourLabel(windowForm.startHour)} - ${hourLabel(windowForm.endHour)}`,
     )
-    logApi('PUT', `/api/admin/rooms/${ruleRoom.value.id}/open-rules`, `更新开放时间 ${ruleRoom.value.name}`)
-    ElMessage.success('开放时间已更新')
-    ruleDialogVisible.value = false
+    monitor.log(
+      '设置可预约时段',
+      `${hourLabel(windowForm.startHour)} 至 ${hourLabel(windowForm.endHour)}`,
+      '管理员',
+      'ADMIN',
+    )
+    ElMessage.success('可预约时段已更新，看板与预约校验即时生效')
   } catch (error) {
     ElMessage.error(errorMessage(error))
   } finally {
-    ruleSaving.value = false
+    windowSaving.value = false
   }
 }
 
@@ -370,6 +356,33 @@ async function finishMaintenance(plan: MaintenanceResponse) {
       <el-button type="primary" @click="openCreate">+ 新增会议室</el-button>
     </div>
 
+    <div class="panel window-panel">
+      <div class="window-info">
+        <h3 class="window-title">全局可预约时段</h3>
+        <p class="muted">对所有会议室生效；结束时间可选到次日，如 08:00 至 次日 08:00 即全天 24 小时可预约</p>
+      </div>
+      <div class="window-controls">
+        <el-select v-model="windowForm.startHour" style="width: 140px">
+          <el-option
+            v-for="opt in windowStartOptions"
+            :key="opt.value"
+            :value="opt.value"
+            :label="opt.label"
+          />
+        </el-select>
+        <span class="rule-sep">至</span>
+        <el-select v-model="windowForm.endHour" style="width: 140px">
+          <el-option
+            v-for="opt in windowEndOptions"
+            :key="opt.value"
+            :value="opt.value"
+            :label="opt.label"
+          />
+        </el-select>
+        <el-button type="primary" :loading="windowSaving" @click="saveWindow">保存</el-button>
+      </div>
+    </div>
+
     <div class="panel table-panel" v-loading="loading">
       <el-table :data="roomStore.rooms" style="width: 100%">
         <el-table-column prop="name" label="名称" width="100">
@@ -412,7 +425,6 @@ async function finishMaintenance(plan: MaintenanceResponse) {
               编辑
             </el-button>
             <el-button link type="primary" size="small" @click="openFacilities(row)">设施</el-button>
-            <el-button link type="primary" size="small" @click="openRules(row)">开放时间</el-button>
             <el-button link type="primary" size="small" @click="openMaintenance(row)">维护</el-button>
             <el-dropdown class="status-dropdown" @command="(cmd: RoomFlag) => handleStatus(row, cmd)">
               <el-button link size="small" :type="row.status === 'AVAILABLE' ? 'danger' : 'success'">
@@ -490,39 +502,6 @@ async function finishMaintenance(plan: MaintenanceResponse) {
       <template #footer>
         <el-button @click="facilityDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="facilitySaving" @click="saveFacilities">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="ruleDialogVisible"
-      :title="`每周开放时间：${ruleRoom?.name ?? ''}`"
-      width="480px"
-      :close-on-click-modal="false"
-    >
-      <p class="muted rule-hint">勾选后该日按设置的时间段开放预约；跨日开放暂不支持</p>
-      <div v-for="row in ruleRows" :key="row.weekday" class="rule-row">
-        <el-checkbox v-model="row.enabled">{{ WEEKDAY_LABELS[row.weekday] }}</el-checkbox>
-        <el-time-picker
-          v-model="row.openTime"
-          :disabled="!row.enabled"
-          value-format="HH:mm:ss"
-          format="HH:mm"
-          placeholder="开放"
-          style="width: 110px"
-        />
-        <span class="rule-sep">至</span>
-        <el-time-picker
-          v-model="row.closeTime"
-          :disabled="!row.enabled"
-          value-format="HH:mm:ss"
-          format="HH:mm"
-          placeholder="关闭"
-          style="width: 110px"
-        />
-      </div>
-      <template #footer>
-        <el-button @click="ruleDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="ruleSaving" @click="saveRules">保存</el-button>
       </template>
     </el-dialog>
 
@@ -631,19 +610,29 @@ async function finishMaintenance(plan: MaintenanceResponse) {
   margin-bottom: 10px;
 }
 
-.rule-hint {
-  margin: 0 0 10px;
+.window-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  flex-wrap: wrap;
 }
 
-.rule-row {
+.window-title {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.window-info .muted {
+  margin: 0;
+}
+
+.window-controls {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-}
-
-.rule-row .el-checkbox {
-  width: 64px;
 }
 
 .rule-sep {

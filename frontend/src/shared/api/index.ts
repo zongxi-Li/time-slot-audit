@@ -3,8 +3,10 @@
 import type { DisplayStatus, Reservation, MeetingRoom, CurrentUser, ReservationDraft } from '@/types'
 import { buildQuery, request } from './http'
 import { TOKEN_STORAGE_KEY } from './config'
+import { toIsoDateTime } from '@/utils/datetime'
 import type {
   AdminUserResponse,
+  BookingWindowResponse,
   CategoryResponse,
   CreateRepairTicketRequest,
   CreateUserPayload,
@@ -57,6 +59,11 @@ const displayStatusMap: Record<string, DisplayStatus> = {
 const toReservation = (reservation: ReservationResponse): Reservation => {
   const start = reservation.startTime.slice(0, 16)
   const end = reservation.endTime.slice(0, 16)
+  // 结束落在次日时，用 "HH:mm" 小时 +24 的内部约定表示（如次日 02:00 -> "26:00"），
+  // 看板布局与冲突比较都基于同一条时间轴。
+  const crossesDay = end.slice(0, 10) > start.slice(0, 10)
+  const endHours = crossesDay ? Number(end.slice(11, 13)) + 24 : Number(end.slice(11, 13))
+  const endTime = `${String(endHours).padStart(2, '0')}${end.slice(13)}`
   return {
     id: String(reservation.id),
     requestId: reservation.requestId,
@@ -66,7 +73,7 @@ const toReservation = (reservation: ReservationResponse): Reservation => {
     userName: reservation.userName,
     date: start.slice(0, 10),
     startTime: start.slice(11),
-    endTime: end.slice(11),
+    endTime,
     participantCount: reservation.participantCount,
     remark: reservation.remark ?? undefined,
     status: reservation.status,
@@ -109,6 +116,22 @@ export const systemTimeApi = {
   },
   reset() {
     return request<SystemTimeResponse>('/admin/system-time', { method: 'DELETE' })
+  },
+}
+
+/**
+ * 全局可预约时段：所有登录用户可读（看板时间轴依赖），
+ * 仅管理员可写（PUT 走 /api/admin 安全规则）。
+ */
+export const bookingWindowApi = {
+  current() {
+    return request<BookingWindowResponse>('/booking-window')
+  },
+  set(startMinute: number, endMinute: number) {
+    return request<BookingWindowResponse>('/admin/booking-window', {
+      method: 'PUT',
+      body: { startMinute, endMinute },
+    })
   },
 }
 
@@ -249,8 +272,9 @@ export const reservationsApi = {
       requestId,
       roomId: draft.roomId,
       title: draft.title,
-      startTime: `${draft.date}T${draft.startTime}:00`,
-      endTime: `${draft.date}T${draft.endTime}:00`,
+      // 结束时间小时可 ≥24（次日约定），由 toIsoDateTime 换算为真实 ISO 时间
+      startTime: toIsoDateTime(draft.date, draft.startTime),
+      endTime: toIsoDateTime(draft.date, draft.endTime),
       participantCount: draft.participantCount,
       remark: draft.remark,
     }
@@ -268,8 +292,8 @@ export const reservationsApi = {
       version,
       roomId: draft.roomId,
       title: draft.title,
-      startTime: `${draft.date}T${draft.startTime}:00`,
-      endTime: `${draft.date}T${draft.endTime}:00`,
+      startTime: toIsoDateTime(draft.date, draft.startTime),
+      endTime: toIsoDateTime(draft.date, draft.endTime),
       participantCount: draft.participantCount,
       remark: draft.remark,
     }

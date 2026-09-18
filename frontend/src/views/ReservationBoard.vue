@@ -7,6 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
+import { useBookingWindowStore } from '@/stores/bookingWindow'
 import {
   addDays,
   formatShort,
@@ -15,7 +16,7 @@ import {
   weekdayName,
 } from '@/utils/datetime'
 import { useSystemTimeStore } from '@/stores/systemTime'
-import type { ReservationDraft } from '@/types'
+import type { ReservationDraft, SlotSelection } from '@/types'
 import ReservationGrid from '@/components/ReservationGrid.vue'
 import ReservationWeekGrid from '@/components/ReservationWeekGrid.vue'
 import ReservationDialog from '@/components/ReservationDialog.vue'
@@ -24,6 +25,7 @@ import ReservationDetail from '@/components/ReservationDetail.vue'
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
 const systemTime = useSystemTimeStore()
+const bookingWindow = useBookingWindowStore()
 
 /* —— 看板状态 —— */
 const selectedDate = ref(systemTime.date)
@@ -36,6 +38,7 @@ const weekDays = computed(() => getWeekDays(selectedDate.value))
 const weekRangeLabel = computed(() => formatWeekRange(selectedDate.value))
 
 onMounted(async () => {
+  void bookingWindow.refresh().catch(() => undefined)
   await roomStore.refreshRooms()
   await store.refreshCalendar(selectedDate.value)
 })
@@ -74,17 +77,30 @@ function backToThisWeek() {
 const dialogVisible = ref(false)
 const dialogInitial = ref<Partial<ReservationDraft>>({})
 
+/** 网格上拖拽框选的时间段；点“新建预约”时作为表单预填 */
+const gridSelection = ref<SlotSelection | null>(null)
+
+// 切日期/视图/筛选后原框选不再指向可见区域，直接作废
+watch([selectedDate, viewMode, roomFilter, onlyFree], () => {
+  gridSelection.value = null
+})
+
+function onGridSelect(selection: SlotSelection | null) {
+  gridSelection.value = selection
+}
+
 function openCreate(initial: Partial<ReservationDraft> = {}) {
   dialogInitial.value = initial
   dialogVisible.value = true
 }
 
-function onCreateFromGrid(payload: { roomId: string; startTime: string; endTime: string }) {
-  openCreate({ ...payload, date: selectedDate.value })
-}
-
-function onCreateFromWeek(payload: { date: string; startTime: string; endTime: string }) {
-  openCreate({ ...payload })
+function onCreateClick() {
+  const sel = gridSelection.value
+  openCreate(
+    sel
+      ? { roomId: sel.roomId ?? '', date: sel.date, startTime: sel.startTime, endTime: sel.endTime }
+      : {},
+  )
 }
 
 /* —— 预约详情 —— */
@@ -120,7 +136,7 @@ function openDetail(id: string) {
           <el-checkbox v-if="viewMode === 'day'" v-model="onlyFree" class="free-check">
             仅显示空闲会议室
           </el-checkbox>
-          <el-button type="primary" @click="openCreate()">+ 新建预约</el-button>
+          <el-button type="primary" @click="onCreateClick">+ 新建预约</el-button>
         </div>
       </div>
 
@@ -170,22 +186,28 @@ function openDetail(id: string) {
           v-else-if="viewMode === 'day'"
           :rooms="filteredRooms"
           :date="selectedDate"
+          :selection="gridSelection"
           @open="openDetail"
-          @create="onCreateFromGrid"
+          @select="onGridSelect"
         />
         <ReservationWeekGrid
           v-else
           :rooms="filteredRooms"
           :week-days="weekDays"
+          :selection="gridSelection"
           @open="openDetail"
-          @create="onCreateFromWeek"
+          @select="onGridSelect"
         />
       </section>
 
       <ReservationDetail v-model="detailVisible" :reservation-id="detailId" mode="panel" />
     </div>
 
-    <ReservationDialog v-model="dialogVisible" :initial="dialogInitial" />
+    <ReservationDialog
+      v-model="dialogVisible"
+      :initial="dialogInitial"
+      @saved="gridSelection = null"
+    />
   </div>
 </template>
 

@@ -3,18 +3,20 @@
   接口：通过 props、emits 与父页面通信，必要时通过 store 间接访问 API。
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useReservationStore } from '@/stores/reservation'
 import { useSystemTimeStore } from '@/stores/systemTime'
+import { useBookingWindowStore } from '@/stores/bookingWindow'
 import {
-  BUSINESS_END_HOUR,
-  BUSINESS_START_HOUR,
   PX_PER_HOUR,
   formatShort,
+  hourLabel,
+  parseDateStr,
+  timeLabel,
   weekdayName,
 } from '@/utils/datetime'
 import { layoutReservations } from '@/utils/grid'
-import type { MeetingRoom } from '@/types'
+import type { MeetingRoom, SlotSelection } from '@/types'
 import ReservationCard from './ReservationCard.vue'
 
 const props = defineProps<{
@@ -22,16 +24,19 @@ const props = defineProps<{
   rooms: MeetingRoom[]
   /** 周视图要展示的 7 天（周一到周日） */
   weekDays: string[]
+  /** 当前框选的时间段（父组件持有） */
+  selection?: SlotSelection | null
 }>()
 
 const emit = defineEmits<{
   open: [reservationId: string]
-  /** 点击空白格子，带预填信息新建预约 */
-  create: [payload: { date: string; startTime: string; endTime: string }]
+  /** 拖拽框选变化；null 表示取消选择 */
+  select: [selection: SlotSelection | null]
 }>()
 
 const store = useReservationStore()
 const systemTime = useSystemTimeStore()
+const bookingWindow = useBookingWindowStore()
 
 const roomIds = computed(() => new Set(props.rooms.map((r) => r.id)))
 
@@ -40,26 +45,24 @@ function dayBlocks(date: string) {
     store.activeReservations.filter(
       (r) => r.date === date && roomIds.value.has(r.roomId),
     ),
+    bookingWindow.startHour,
   )
 }
 
 const hours = computed(() => {
   const list: number[] = []
-  for (let h = BUSINESS_START_HOUR; h < BUSINESS_END_HOUR; h++) list.push(h)
+  for (let h = bookingWindow.startHour; h < bookingWindow.endHour; h++) list.push(h)
   return list
 })
 
-const gridBodyHeight = (BUSINESS_END_HOUR - BUSINESS_START_HOUR) * PX_PER_HOUR
+const gridBodyHeight = computed(() => bookingWindow.hourCount * PX_PER_HOUR)
 
-/* —— “当前时间”红线：30 秒刷新一次 —— */
-const nowLineTop = computed(() => {
-  const now = systemTime.now
-  const minutes = now.getHours() * 60 + now.getMinutes()
-  const start = BUSINESS_START_HOUR * 60
-  const end = BUSINESS_END_HOUR * 60
-  if (minutes < start || minutes > end) return null
-  return ((minutes - start) / 60) * PX_PER_HOUR
-})
+/* —— “当前时间”红线：业务时刻落在该列可预约窗口内即显示 —— */
+function nowLineOffset(day: string): number | null {
+  const offsetMinute = (systemTime.now.getTime() - parseDateStr(day).getTime()) / 60000
+  if (offsetMinute < bookingWindow.startMinute || offsetMinute > bookingWindow.endMinute) return null
+  return ((offsetMinute - bookingWindow.startMinute) / 60) * PX_PER_HOUR
+}
 
 function isSystemToday(day: string) {
   return day === systemTime.date
@@ -69,20 +72,114 @@ function isToday(day: string) {
   return isSystemToday(day)
 }
 
-/* —— 点击空白处新建（日期取所点列） —— */
-function onColumnClick(e: MouseEvent, date: string) {
-  const target = e.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  const y = e.clientY - rect.top
-  const hour = Math.min(
-    BUSINESS_END_HOUR - 1,
-    BUSINESS_START_HOUR + Math.floor(y / PX_PER_HOUR),
-  )
-  emit('create', {
+/* —— 悬停高亮 + 左键拖拽框选连续时间段 —— */
+const hover = ref<{ date: string; slot: number } | null>(null)
+const dragDate = ref<string | null>(null)
+const dragAnchor = ref<number | null>(null)
+const dragging = ref(false)
+
+/** 框选边界的内部时间值（小时可 ≥24，如 "26:00"）；展示时再转 "次日" 标签 */
+function slotLabel(slot: number, edge: 'start' | 'end'): string {
+  return `${String(bookingWindow.startHour + slot + (edge === 'end' ? 1 : 0)).padStart(2, '0')}:00`
+}
+
+/** 指针相对列顶部的 y 坐标 -> 小时格下标（夹在可预约窗口内） */
+function slotFromEvent(e: PointerEvent, el: HTMLElement): number {
+  const y = e.clientY - el.getBoundingClientRect().top
+  return Math.min(bookingWindow.hourCount - 1, Math.max(0, Math.floor(y / PX_PER_HOUR)))
+}
+
+function emitSelection(date: string, from: number, to: number) {
+  const start = Math.min(from, to)
+  const end = Math.max(from, to)
+  emit('select', {
     date,
-    startTime: `${String(hour).padStart(2, '0')}:00`,
-    endTime: `${String(hour + 1).padStart(2, '0')}:00`,
+    startTime: slotLabel(start, 'start'),
+    endTime: slotLabel(end, 'end'),
   })
+}
+
+/** 当前框选在周视图上的呈现（框选不指定会议室）；无则 null */
+const selectionBox = computed(() => {
+  const sel = props.selection
+  if (!sel || sel.roomId) return null
+  const start = Number(sel.startTime.slice(0, 2)) - bookingWindow.startHour
+  const end = Number(sel.endTime.slice(0, 2)) - bookingWindow.startHour
+  return {
+    date: sel.date,
+    start,
+    end,
+    top: start * PX_PER_HOUR + 2,
+    height: Math.max(0, (end - start) * PX_PER_HOUR - 4),
+    label: `${timeLabel(sel.startTime)} - ${timeLabel(sel.endTime)}`,
+  }
+})
+
+function inSelection(date: string, slot: number): boolean {
+  const box = selectionBox.value
+  return !!box && box.date === date && slot >= box.start && slot < box.end
+}
+
+function onPointerDown(e: PointerEvent, date: string) {
+  if (e.button !== 0 || e.pointerType === 'touch') return
+  // 预约卡片自己处理点击打开详情，不作为框选起点
+  if ((e.target as HTMLElement).closest('.res-card')) return
+  e.preventDefault()
+  const slot = slotFromEvent(e, e.currentTarget as HTMLElement)
+  // 再点一次已选中的单格 -> 取消选择
+  const sel = props.selection
+  if (
+    sel && sel.date === date &&
+    sel.startTime === slotLabel(slot, 'start') && sel.endTime === slotLabel(slot, 'end')
+  ) {
+    emit('select', null)
+    return
+  }
+  dragDate.value = date
+  dragAnchor.value = slot
+  dragging.value = true
+  emitSelection(date, slot, slot)
+  try {
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  } catch {
+    // 指针已失效（如合成事件）时无需捕获，不影响框选
+  }
+}
+
+function onPointerMove(e: PointerEvent, date: string) {
+  const slot = slotFromEvent(e, e.currentTarget as HTMLElement)
+  if (dragging.value) {
+    // 框选锁定在按下时的那一天，跨列移动只改变时间范围
+    if (dragDate.value === date && dragAnchor.value !== null) {
+      emitSelection(date, dragAnchor.value, slot)
+    }
+    hover.value = { date, slot }
+    return
+  }
+  // 悬停在预约卡片上时不显示格子高亮
+  if ((e.target as HTMLElement).closest('.res-card')) {
+    if (hover.value?.date === date) hover.value = null
+    return
+  }
+  hover.value = { date, slot }
+}
+
+function onPointerLeave(date: string) {
+  if (dragging.value) return
+  if (hover.value?.date === date) hover.value = null
+}
+
+function onPointerUp(e: PointerEvent, date: string) {
+  if (!dragging.value) return
+  dragging.value = false
+  dragAnchor.value = null
+  dragDate.value = null
+  // 松开时指针已在列外（拖出后松手）则不再保留悬停高亮
+  const el = e.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  if (e.clientY < rect.top || e.clientY > rect.bottom) {
+    if (hover.value?.date === date) hover.value = null
+  }
 }
 </script>
 
@@ -113,7 +210,7 @@ function onColumnClick(e: MouseEvent, date: string) {
           class="time-label"
           :style="{ height: `${PX_PER_HOUR}px` }"
         >
-          {{ String(h).padStart(2, '0') }}:00
+          {{ hourLabel(h) }}
         </div>
       </div>
 
@@ -124,8 +221,23 @@ function onColumnClick(e: MouseEvent, date: string) {
         class="week-day-col"
         :class="{ 'is-today-col': isSystemToday(day) }"
         :style="{ height: `${gridBodyHeight}px` }"
-        @click="onColumnClick($event, day)"
+        @pointerdown="onPointerDown($event, day)"
+        @pointermove="onPointerMove($event, day)"
+        @pointerleave="onPointerLeave(day)"
+        @pointerup="onPointerUp($event, day)"
       >
+        <div
+          v-if="hover && hover.date === day && !inSelection(day, hover.slot)"
+          class="slot-hover"
+          :style="{ top: `${hover.slot * PX_PER_HOUR}px`, height: `${PX_PER_HOUR}px` }"
+        />
+        <div
+          v-if="selectionBox && selectionBox.date === day"
+          class="slot-selection"
+          :style="{ top: `${selectionBox.top}px`, height: `${selectionBox.height}px` }"
+        >
+          <span class="slot-selection-time">{{ selectionBox.label }}</span>
+        </div>
         <ReservationCard
           v-for="block in dayBlocks(day)"
           :key="block.reservation.id"
@@ -134,9 +246,9 @@ function onColumnClick(e: MouseEvent, date: string) {
           @open="emit('open', $event)"
         />
         <div
-          v-if="isSystemToday(day) && nowLineTop !== null"
+          v-if="isSystemToday(day) && nowLineOffset(day) !== null"
           class="now-line"
-          :style="{ top: `${nowLineTop}px` }"
+          :style="{ top: `${nowLineOffset(day)}px` }"
         />
       </div>
     </div>
@@ -222,7 +334,7 @@ function onColumnClick(e: MouseEvent, date: string) {
   --hour: 64px; /* 与 PX_PER_HOUR 保持一致 */
   position: relative;
   border-left: 1px solid var(--border-light);
-  cursor: pointer;
+  cursor: cell;
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0,
@@ -231,6 +343,43 @@ function onColumnClick(e: MouseEvent, date: string) {
     var(--border-light) var(--hour)
   );
   background-size: 100% var(--hour);
+}
+
+/* 鼠标划过的小时格 */
+.slot-hover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(0, 113, 227, 0.07);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 拖拽框选出的连续时间段 */
+.slot-selection {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--el-color-primary);
+  border-radius: 8px;
+  background: rgba(0, 113, 227, 0.12);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.slot-selection-time {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--el-color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 113, 227, 0.25);
 }
 
 /* 今日列：淡蓝底色突出 */
