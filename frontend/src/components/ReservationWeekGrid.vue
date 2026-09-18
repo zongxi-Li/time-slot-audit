@@ -3,14 +3,14 @@
   接口：通过 props、emits 与父页面通信，必要时通过 store 间接访问 API。
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import {
   BUSINESS_END_HOUR,
   BUSINESS_START_HOUR,
   PX_PER_HOUR,
   formatShort,
-  isToday,
   weekdayName,
 } from '@/utils/datetime'
 import { layoutReservations } from '@/utils/grid'
@@ -31,6 +31,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 
 const roomIds = computed(() => new Set(props.rooms.map((r) => r.id)))
 
@@ -51,22 +52,22 @@ const hours = computed(() => {
 const gridBodyHeight = (BUSINESS_END_HOUR - BUSINESS_START_HOUR) * PX_PER_HOUR
 
 /* —— “当前时间”红线：30 秒刷新一次 —— */
-const now = ref(new Date())
-let timer: number | undefined
-onMounted(() => {
-  timer = window.setInterval(() => {
-    now.value = new Date()
-  }, 30_000)
-})
-onBeforeUnmount(() => window.clearInterval(timer))
-
 const nowLineTop = computed(() => {
-  const minutes = now.value.getHours() * 60 + now.value.getMinutes()
+  const now = systemTime.now
+  const minutes = now.getHours() * 60 + now.getMinutes()
   const start = BUSINESS_START_HOUR * 60
   const end = BUSINESS_END_HOUR * 60
   if (minutes < start || minutes > end) return null
   return ((minutes - start) / 60) * PX_PER_HOUR
 })
+
+function isSystemToday(day: string) {
+  return day === systemTime.date
+}
+
+function isToday(day: string) {
+  return isSystemToday(day)
+}
 
 /* —— 点击空白处新建（日期取所点列） —— */
 function onColumnClick(e: MouseEvent, date: string) {
@@ -97,7 +98,7 @@ function onColumnClick(e: MouseEvent, date: string) {
         v-for="day in weekDays"
         :key="day"
         class="week-day-head"
-        :class="{ 'is-today': isToday(day) }"
+        :class="{ 'is-today': isSystemToday(day) }"
       >
         <span class="wh-name">{{ weekdayName(day) }}</span>
         <span class="wh-date">{{ formatShort(day) }}</span>
@@ -121,7 +122,7 @@ function onColumnClick(e: MouseEvent, date: string) {
         v-for="day in weekDays"
         :key="day"
         class="week-day-col"
-        :class="{ 'is-today-col': isToday(day) }"
+        :class="{ 'is-today-col': isSystemToday(day) }"
         :style="{ height: `${gridBodyHeight}px` }"
         @click="onColumnClick($event, day)"
       >
@@ -133,7 +134,7 @@ function onColumnClick(e: MouseEvent, date: string) {
           @open="emit('open', $event)"
         />
         <div
-          v-if="isToday(day) && nowLineTop !== null"
+          v-if="isSystemToday(day) && nowLineTop !== null"
           class="now-line"
           :style="{ top: `${nowLineTop}px` }"
         />

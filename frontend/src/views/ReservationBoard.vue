@@ -12,10 +12,9 @@ import {
   formatShort,
   formatWeekRange,
   getWeekDays,
-  isToday,
-  todayStr,
   weekdayName,
 } from '@/utils/datetime'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import type { ReservationDraft } from '@/types'
 import ReservationGrid from '@/components/ReservationGrid.vue'
 import ReservationWeekGrid from '@/components/ReservationWeekGrid.vue'
@@ -24,9 +23,10 @@ import ReservationDetail from '@/components/ReservationDetail.vue'
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 
 /* —— 看板状态 —— */
-const selectedDate = ref(todayStr())
+const selectedDate = ref(systemTime.date)
 const roomFilter = ref<string>('all')
 const onlyFree = ref(false)
 /** 日视图：会议室 × 时间；周视图：星期 × 时间（课程表样式） */
@@ -41,6 +41,14 @@ onMounted(async () => {
 })
 
 watch(selectedDate, (date) => void store.refreshCalendar(date))
+watch(() => systemTime.revision, () => {
+  selectedDate.value = systemTime.date
+  void store.refreshCalendar(systemTime.date)
+})
+
+function isToday(day: string) {
+  return day === systemTime.date
+}
 
 /** “空闲” = 该会议室当天没有任何有效预约 */
 const filteredRooms = computed(() => {
@@ -59,7 +67,7 @@ function shiftWeek(days: number) {
 }
 
 function backToThisWeek() {
-  selectedDate.value = todayStr()
+  selectedDate.value = systemTime.date
 }
 
 /* —— 新建预约 —— */
@@ -139,7 +147,7 @@ function openDetail(id: string) {
             :key="day"
             type="button"
             class="day-tab"
-            :class="{ selected: day === selectedDate, today: isToday(day) }"
+            :class="{ selected: day === selectedDate, today: day === systemTime.date }"
             @click="selectedDate = day"
           >
             <span class="day-tab-week">{{ weekdayName(day) }}</span>

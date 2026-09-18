@@ -8,6 +8,7 @@ import { Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { administrationApi } from '@/modules/administration/api'
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<{
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 const auth = useAuthStore()
 const monitor = useMonitorStore()
 
@@ -47,7 +49,7 @@ const isEnded = computed(() => {
   const end = parseDateStr(r.date)
   const [h, m] = r.endTime.split(':').map(Number)
   end.setHours(h, m, 0, 0)
-  return end.getTime() < Date.now()
+  return end.getTime() <= systemTime.now.getTime()
 })
 
 const canCancel = computed(

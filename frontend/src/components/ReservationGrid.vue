@@ -3,15 +3,16 @@
   接口：通过 props、emits 与父页面通信，必要时通过 store 间接访问 API。
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import {
   BUSINESS_END_HOUR,
   BUSINESS_START_HOUR,
   PX_PER_HOUR,
-  isToday,
 } from '@/utils/datetime'
 import { layoutReservations } from '@/utils/grid'
+import { roomStatusMeta } from '@/utils/roomStatus'
 import type { MeetingRoom } from '@/types'
 import ReservationCard from './ReservationCard.vue'
 
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 
 const hours = computed(() => {
   const list: number[] = []
@@ -43,24 +45,16 @@ function dayBlocks(roomId: string) {
 }
 
 /* —— “当前时间”红线：30 秒刷新一次 —— */
-const now = ref(new Date())
-let timer: number | undefined
-onMounted(() => {
-  timer = window.setInterval(() => {
-    now.value = new Date()
-  }, 30_000)
-})
-onBeforeUnmount(() => window.clearInterval(timer))
-
 const nowLineTop = computed(() => {
-  const minutes = now.value.getHours() * 60 + now.value.getMinutes()
+  const now = systemTime.now
+  const minutes = now.getHours() * 60 + now.getMinutes()
   const start = BUSINESS_START_HOUR * 60
   const end = BUSINESS_END_HOUR * 60
   if (minutes < start || minutes > end) return null
   return ((minutes - start) / 60) * PX_PER_HOUR
 })
 
-const showNowLine = computed(() => isToday(props.date) && nowLineTop.value !== null)
+const showNowLine = computed(() => props.date === systemTime.date && nowLineTop.value !== null)
 
 /* —— 点击空白处新建 —— */
 function onColumnClick(e: MouseEvent, roomId: string) {
@@ -84,9 +78,15 @@ function onColumnClick(e: MouseEvent, roomId: string) {
     >
       <!-- 表头：左上角 + 会议室 -->
       <div class="grid-corner">时间</div>
-      <div v-for="room in rooms" :key="room.id" class="grid-room-head">
+      <div
+        v-for="room in rooms"
+        :key="room.id"
+        class="grid-room-head"
+        :class="`room-flag--${roomStatusMeta[room.status].tone}`"
+      >
         <span class="room-name">{{ room.name }}</span>
         <span class="room-cap">{{ room.capacity }} 人</span>
+        <span class="room-flag">{{ roomStatusMeta[room.status].label }}</span>
       </div>
 
       <!-- 时间轴 -->
@@ -106,6 +106,7 @@ function onColumnClick(e: MouseEvent, roomId: string) {
         v-for="room in rooms"
         :key="room.id"
         class="grid-room-col"
+        :class="`room-column--${roomStatusMeta[room.status].tone}`"
         :style="{ height: `${gridBodyHeight}px` }"
         @click="onColumnClick($event, room.id)"
       >
@@ -173,6 +174,29 @@ function onColumnClick(e: MouseEvent, roomId: string) {
   line-height: 15px;
 }
 
+.room-flag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.room-flag--available .room-flag {
+  color: #087443;
+  background: #dcfae6;
+}
+
+.room-flag--maintenance .room-flag {
+  color: #9a6700;
+  background: #fff1c2;
+}
+
+.room-flag--disabled .room-flag {
+  color: #5f6368;
+  background: #e5e7eb;
+}
+
 .grid-time-col {
   border-right: 1px solid var(--border-color);
 }
@@ -203,6 +227,14 @@ function onColumnClick(e: MouseEvent, roomId: string) {
     var(--border-light) var(--hour)
   );
   background-size: 100% var(--hour);
+}
+
+.grid-room-col.room-column--maintenance {
+  background-color: rgba(245, 158, 11, 0.035);
+}
+
+.grid-room-col.room-column--disabled {
+  background-color: rgba(107, 114, 128, 0.045);
 }
 
 .now-line {
@@ -260,6 +292,10 @@ function onColumnClick(e: MouseEvent, roomId: string) {
 
 .room-cap {
   font-size: 11px;
+}
+
+.room-flag {
+  margin-top: 1px;
 }
 
 .grid-time-col {

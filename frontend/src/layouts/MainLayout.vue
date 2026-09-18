@@ -23,11 +23,14 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import NotificationBell from '@/modules/meeting/components/NotificationBell.vue'
+import SystemTimeControl from '@/components/SystemTimeControl.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const systemTime = useSystemTimeStore()
 
 const userMenus = [
   { path: '/board', label: '预约看板', icon: Calendar },
@@ -84,11 +87,13 @@ onMounted(async () => {
   mobileMediaQuery.addEventListener('change', handleMobileMediaChange)
 
   await auth.initialize()
+  systemTime.start()
   restoreWorkspaceTabs()
 })
 
 onBeforeUnmount(() => {
   mobileMediaQuery?.removeEventListener('change', handleMobileMediaChange)
+  systemTime.stop()
 })
 
 function findMenu(path: string) {
@@ -211,6 +216,7 @@ function onUserCommand(command: string) {
       </div>
 
       <div class="header-right">
+        <SystemTimeControl v-if="auth.isAdmin" />
         <NotificationBell />
         <el-dropdown trigger="click" @command="onUserCommand">
         <div class="user-chip">

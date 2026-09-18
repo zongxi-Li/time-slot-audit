@@ -7,6 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { formatDateTime, parseDateStr } from '@/utils/datetime'
@@ -19,6 +20,7 @@ import ReservationDialog from '@/components/ReservationDialog.vue'
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 const auth = useAuthStore()
 const monitor = useMonitorStore()
 
@@ -54,6 +56,8 @@ onMounted(async () => {
   await store.refreshMine()
 })
 
+watch(() => systemTime.revision, () => void store.refreshMine())
+
 const detailVisible = ref(false)
 const detailId = ref<string | null>(null)
 
@@ -72,7 +76,7 @@ function canEdit(r: Reservation): boolean {
   const start = parseDateStr(r.date)
   const [h, m] = r.startTime.split(':').map(Number)
   start.setHours(h, m, 0, 0)
-  return start.getTime() > Date.now()
+  return start.getTime() > systemTime.now.getTime()
 }
 
 function openEdit(id: string) {

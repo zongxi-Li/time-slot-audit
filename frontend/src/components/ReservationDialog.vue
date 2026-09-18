@@ -7,8 +7,8 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import { useMonitorStore } from '@/stores/monitor'
-import { todayStr } from '@/utils/datetime'
 import { ApiError } from '@/shared/api'
 import type { MeetingRoom, Reservation, ReservationDraft } from '@/types'
 
@@ -29,6 +29,7 @@ const emit = defineEmits<{
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 const monitor = useMonitorStore()
 
 /** 仅可预约“启用”状态的会议室（管理员停用的房间不出现在选项里） */
@@ -51,7 +52,7 @@ const serverConflictMessage = ref('')
 const form = reactive<ReservationDraft>({
   title: '',
   roomId: '',
-  date: todayStr(),
+  date: systemTime.date,
   startTime: '10:00',
   endTime: '11:00',
   participantCount: 4,
@@ -66,7 +67,7 @@ watch(visible, (open) => {
   // 编辑模式预填现有预约；新建模式回退到看板预填信息或默认值。
   form.title = props.editing?.title ?? ''
   form.roomId = props.editing?.roomId ?? props.initial?.roomId ?? ''
-  form.date = props.editing?.date ?? props.initial?.date ?? todayStr()
+  form.date = props.editing?.date ?? props.initial?.date ?? systemTime.date
   form.startTime = props.editing?.startTime ?? props.initial?.startTime ?? '10:00'
   form.endTime = props.editing?.endTime ?? props.initial?.endTime ?? '11:00'
   form.participantCount = props.editing?.participantCount ?? 4

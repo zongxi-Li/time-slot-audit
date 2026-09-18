@@ -43,6 +43,14 @@ export interface LoginResponse {
   user: UserResponse
 }
 
+export type SystemTimeMode = 'REALTIME' | 'FIXED'
+
+/** Unified business clock returned by the server. */
+export interface SystemTimeResponse {
+  currentTime: string
+  mode: SystemTimeMode
+}
+
 export interface RoomResponse {
   id: number | string
   name: string

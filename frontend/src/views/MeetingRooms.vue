@@ -3,46 +3,56 @@
   接口：通过 Pinia store 或 shared/api 调用后端；管理员页面使用 /api/admin/*。
 -->
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import { repairTicketsApi, roomsApi } from '@/shared/api'
 import { ApiError } from '@/shared/api/types'
 import type { FacilityResponse } from '@/shared/api/types'
-import { nowMinutes, toMinutes, todayStr } from '@/utils/datetime'
-import type { RoomStatus } from '@/types'
+import { toMinutes } from '@/utils/datetime'
+import { roomStatusMeta } from '@/utils/roomStatus'
+import type { MeetingRoom } from '@/types'
 
 const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 
 onMounted(async () => {
   await roomStore.refreshRooms()
-  await store.refreshCalendar(todayStr())
+  await store.refreshCalendar(systemTime.date)
 })
 
-interface RoomCard {
-  id: string
-  name: string
-  location: string
-  capacity: number
-  equipment: string[]
-  status: RoomStatus
+watch(() => systemTime.revision, () => void store.refreshCalendar(systemTime.date))
+
+interface RoomCard extends MeetingRoom {
+  displayStatus: 'available' | 'in-use' | 'maintenance' | 'disabled'
+  statusLabel: string
   todayCount: number
   nextSlot: string | null
 }
 
 const cards = computed<RoomCard[]>(() => {
-  const now = nowMinutes()
+  const current = systemTime.now
+  const now = current.getHours() * 60 + current.getMinutes()
   return roomStore.rooms.map((room) => {
-    const today = store.listByRoomAndDate(room.id, todayStr())
+    const today = store.listByRoomAndDate(room.id, systemTime.date)
     const inUse = today.some(
       (r) => now >= toMinutes(r.startTime) && now < toMinutes(r.endTime),
     )
     const next = today.find((r) => toMinutes(r.startTime) >= now)
+    const displayStatus = room.status === 'AVAILABLE'
+      ? (inUse ? 'in-use' : 'available')
+      : roomStatusMeta[room.status].tone
+    const statusLabel = room.status === 'AVAILABLE' && inUse
+      ? '使用中'
+      : roomStatusMeta[room.status].label
+
     return {
       ...room,
-      status: inUse ? 'in-use' : 'idle',
+      displayStatus,
+      statusLabel,
       todayCount: today.length,
       nextSlot: next ? `${next.startTime} - ${next.endTime} ${next.title}` : null,
     }
@@ -107,12 +117,12 @@ async function submitRepair() {
 
     <el-row :gutter="14">
       <el-col v-for="card in cards" :key="card.id" :xs="24" :sm="12" :md="8" :lg="8" class="room-col">
-        <div class="panel room-card">
+        <div class="panel room-card" :class="`room-card--${card.displayStatus}`">
           <div class="room-head">
             <div class="room-name">{{ card.name }}</div>
-            <span class="room-status" :class="card.status">
+            <span class="room-status" :class="card.displayStatus">
               <span class="status-dot" />
-              {{ card.status === 'idle' ? '空闲' : '使用中' }}
+              {{ card.statusLabel }}
             </span>
           </div>
 
@@ -222,10 +232,10 @@ async function submitRepair() {
   border-radius: 50%;
 }
 
-.room-status.idle {
+.room-status.available {
   color: #12855f;
 }
-.room-status.idle .status-dot {
+.room-status.available .status-dot {
   background: #17b26a;
 }
 
@@ -234,6 +244,20 @@ async function submitRepair() {
 }
 .room-status.in-use .status-dot {
   background: #f79009;
+}
+
+.room-status.maintenance {
+  color: #9a6700;
+}
+.room-status.maintenance .status-dot {
+  background: #d97706;
+}
+
+.room-status.disabled {
+  color: #6e6e73;
+}
+.room-status.disabled .status-dot {
+  background: #86868b;
 }
 
 .room-loc {
@@ -309,6 +333,16 @@ async function submitRepair() {
   border-color: rgba(0, 113, 227, 0.22);
   box-shadow: 0 18px 42px rgba(29, 29, 31, 0.09);
   transform: translateY(-4px);
+}
+
+.room-card--maintenance {
+  border-color: rgba(217, 119, 6, 0.2);
+  background: rgba(255, 251, 235, 0.86);
+}
+
+.room-card--disabled {
+  border-color: rgba(110, 110, 115, 0.18);
+  background: rgba(245, 245, 247, 0.9);
 }
 
 .room-name {

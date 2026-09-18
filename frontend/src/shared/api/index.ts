@@ -29,6 +29,7 @@ import type {
   SaveOpenRuleRequest,
   SaveRoomRequest,
   SaveCategoryRequest,
+  SystemTimeResponse,
   UserResponse,
   ViolationResponse,
 } from './types'
@@ -89,6 +90,25 @@ export const authApi = {
   },
   async me() {
     return toUser(await request<UserResponse>('/users/me'))
+  },
+}
+
+/**
+ * The business clock is read by every signed-in user. Only administrators can
+ * fix or reset it for test scenarios.
+ */
+export const systemTimeApi = {
+  current() {
+    return request<SystemTimeResponse>('/system-time')
+  },
+  set(currentTime: string) {
+    return request<SystemTimeResponse>('/admin/system-time', {
+      method: 'PUT',
+      body: { currentTime },
+    })
+  },
+  reset() {
+    return request<SystemTimeResponse>('/admin/system-time', { method: 'DELETE' })
   },
 }
 

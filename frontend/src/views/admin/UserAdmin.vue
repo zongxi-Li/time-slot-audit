@@ -3,12 +3,13 @@
   接口：通过 Pinia store 或 shared/api 调用后端；管理员页面使用 /api/admin/*。
 -->
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { useUserAdminStore } from '@/stores/userAdmin'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { formatDateTime } from '@/utils/datetime'
 import type { AdminUserResponse } from '@/shared/api'
@@ -17,6 +18,7 @@ import type { Role } from '@/types'
 const userAdmin = useUserAdminStore()
 const auth = useAuthStore()
 const monitor = useMonitorStore()
+const systemTime = useSystemTimeStore()
 
 /** 信用规则（与后端 CreditRules 保持一致）：60=预约门槛，40=自动限制阈值 */
 const MIN_BOOKING_CREDIT = 60
@@ -43,6 +45,7 @@ onMounted(() => {
   void refresh()
   void userAdmin.loadDepartments().catch(() => undefined)
 })
+watch(() => systemTime.revision, () => void refresh())
 
 function onError(e: unknown) {
   ElMessage.error(e instanceof Error ? e.message : '操作失败')
@@ -50,7 +53,7 @@ function onError(e: unknown) {
 
 /* —— 展示辅助 —— */
 function isRestricted(user: AdminUserResponse) {
-  return !!user.restrictedUntil && new Date(user.restrictedUntil).getTime() > Date.now()
+  return !!user.restrictedUntil && new Date(user.restrictedUntil).getTime() > systemTime.now.getTime()
 }
 
 function creditTag(score: number) {
@@ -560,7 +563,7 @@ function onRowCommand(command: string, user: AdminUserResponse) {
             type="datetime"
             placeholder="选择解除限制的时间"
             value-format="YYYY-MM-DDTHH:mm:ss"
-            :disabled-date="(d: Date) => d.getTime() < Date.now() - 86400000"
+            :disabled-date="(d: Date) => d.getTime() < systemTime.now.getTime() - 86400000"
             style="width: 100%"
           />
         </el-form-item>

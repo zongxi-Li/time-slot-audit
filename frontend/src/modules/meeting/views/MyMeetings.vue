@@ -3,11 +3,12 @@
   接口：导出本模块的页面、store、API 或类型。
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { meetingsApi } from '../api'
 import { formatDateTime } from '@/utils/datetime'
 import { RESERVATION_STATUS_TEXT } from '@/utils/reservationStatus'
+import { useSystemTimeStore } from '@/stores/systemTime'
 import type { MeetingExecutionView } from '../api'
 import AttendeeManager from '../components/AttendeeManager.vue'
 
@@ -17,13 +18,14 @@ const filterOptions: PhaseFilter[] = ['全部', '待开始', '进行中', '已�
 
 const loading = ref(false)
 const meetings = ref<MeetingExecutionView[]>([])
+const systemTime = useSystemTimeStore()
 
 /** 按预约时间推导展示阶段（展示状态不回写，遵守核心契约） */
 function phaseOf(m: MeetingExecutionView): PhaseFilter {
   if (m.reservationStatus === 'CANCELLED' || m.reservationStatus === 'REJECTED') return '已取消'
   const start = new Date(m.startTime).getTime()
   const end = new Date(m.endTime).getTime()
-  const now = Date.now()
+  const now = systemTime.now.getTime()
   if (now < start) return '待开始'
   if (now < end) return '进行中'
   return '已结束'
@@ -66,20 +68,21 @@ async function load() {
 }
 
 onMounted(() => void load())
+watch(() => systemTime.revision, () => void load())
 
 /** 与后端规则一致的客户端按钮预判；最终以后端校验为准 */
 function canCheckIn(m: MeetingExecutionView): boolean {
   if (m.reservationStatus !== 'CONFIRMED' || m.myAttendanceStatus !== 'EXPECTED') return false
   const start = new Date(m.startTime).getTime()
   const end = new Date(m.endTime).getTime()
-  const now = Date.now()
+  const now = systemTime.now.getTime()
   return now >= start - 15 * 60_000 && now < end
 }
 
 function canCheckOut(m: MeetingExecutionView): boolean {
   if (m.reservationStatus !== 'CONFIRMED' || m.myAttendanceStatus !== 'CHECKED_IN') return false
   const end = new Date(m.endTime).getTime()
-  return Date.now() <= end + 60 * 60_000
+  return systemTime.now.getTime() <= end + 60 * 60_000
 }
 
 function canManage(m: MeetingExecutionView): boolean {
