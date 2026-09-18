@@ -23,6 +23,9 @@ const r = computed(() => props.item.reservation)
 const isMine = computed(() => r.value.userId === store.currentUser.id)
 const timeMeta = computed(() => `${timeLabel(r.value.startTime)} - ${timeLabel(r.value.endTime)}`)
 
+/** 后端状态是大写枚举，CSS 类名统一转小写，避免大小写不匹配导致配色失效 */
+const statusClass = computed(() => `status-${(r.value.status ?? '').toLowerCase()}`)
+
 const cardStyle = computed(() => {
   const { top, height, lane, laneCount } = props.item
   const width = `calc(${(100 / laneCount).toFixed(2)}% - 6px)`
@@ -41,7 +44,7 @@ const showOwner = computed(() => props.item.height >= 58)
 <template>
   <div
     class="res-card"
-    :class="[`status-${r.status}`, { mine: isMine }]"
+    :class="[statusClass, { mine: isMine }]"
     :style="cardStyle"
     :title="`${r.title} ${timeMeta} · ${r.userName}`"
     @click.stop="emit('open', r.id)"
@@ -59,50 +62,76 @@ const showOwner = computed(() => props.item.height >= 58)
 <style scoped>
 .res-card {
   position: absolute;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border-left: 3px solid transparent;
+  padding: 6px 9px;
   overflow: hidden;
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
-  transition: box-shadow 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 3px 8px rgba(29, 29, 31, 0.055);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
 }
 
 .res-card:hover {
-  filter: brightness(0.97);
-  box-shadow: 0 2px 8px rgba(31, 35, 41, 0.12);
+  box-shadow: 0 9px 18px rgba(29, 29, 31, 0.14);
+  transform: translateY(-1px);
   z-index: 2;
 }
 
-/* 已预约：蓝色系 */
+/* 已确认（占用中）：实心蓝底 + 蓝描边，与空白格明显区分 */
 .res-card.status-confirmed {
-  background: #e9f0fe;
-  border-left-color: #3d7fff;
-}
-.res-card.status-confirmed .res-title-text {
-  color: #2456b3;
-}
-.res-card.status-confirmed .res-meta {
-  color: #6a83b8;
+  background: #d2e6ff;
+  border-color: rgba(0, 113, 227, 0.38);
 }
 
-/* 待审核：橙色系 */
+.res-card.status-confirmed .res-title-text {
+  color: #004da0;
+}
+
+.res-card.status-confirmed .res-meta {
+  color: #3f6ea6;
+}
+
+/* 待审核：琥珀底 + 琥珀描边 */
 .res-card.status-pending {
-  background: #fdf3e4;
-  border-left-color: #ee9a2e;
+  background: #ffe8c4;
+  border-color: rgba(202, 138, 25, 0.45);
 }
+
 .res-card.status-pending .res-title-text {
-  color: #9c5f10;
+  color: #8a5300;
 }
+
 .res-card.status-pending .res-meta {
-  color: #b78a4c;
+  color: #a37e3c;
+}
+
+/* 已取消 / 已驳回：置灰、虚线框、删除线，表示时段实际空闲 */
+.res-card.status-cancelled,
+.res-card.status-rejected {
+  background: rgba(29, 29, 31, 0.055);
+  border: 1px dashed rgba(29, 29, 31, 0.28);
+  opacity: 0.78;
+}
+
+.res-card.status-cancelled .res-title-text,
+.res-card.status-rejected .res-title-text {
+  color: #86868b;
+  text-decoration: line-through;
+}
+
+.res-card.status-cancelled .res-meta,
+.res-card.status-rejected .res-meta {
+  color: #a0a0a5;
 }
 
 /* 当前用户预约：外圈高亮 */
 .res-card.mine {
-  box-shadow: inset 0 0 0 1.5px rgba(61, 127, 255, 0.55);
+  box-shadow: inset 0 0 0 1.5px rgba(0, 113, 227, 0.5), 0 3px 8px rgba(29, 29, 31, 0.055);
 }
+
 .res-card.mine.status-pending {
-  box-shadow: inset 0 0 0 1.5px rgba(238, 154, 46, 0.6);
+  box-shadow: inset 0 0 0 1.5px rgba(214, 143, 29, 0.55), 0 3px 8px rgba(29, 29, 31, 0.055);
 }
 
 .res-title {
@@ -113,101 +142,40 @@ const showOwner = computed(() => props.item.height >= 58)
 }
 
 .res-title-text {
+  overflow: hidden;
   font-size: 12px;
   font-weight: 600;
   line-height: 17px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mine-tag {
-  flex-shrink: 0;
-  padding: 0 4px;
-  border-radius: 4px;
-  font-size: 10px;
-  line-height: 15px;
-  background: rgba(61, 127, 255, 0.16);
-  color: #2a5acc;
-  font-weight: 600;
-}
-
-.room-badge {
-  flex-shrink: 0;
-  padding: 0 4px;
-  border-radius: 4px;
-  font-size: 10px;
-  line-height: 15px;
-  background: rgba(255, 255, 255, 0.65);
-  color: inherit;
-  font-weight: 600;
-}
-
-.res-meta {
-  font-size: 11px;
-  line-height: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-</style>
-
-<style scoped>
-.res-card {
-  padding: 6px 9px;
-  border-left-width: 0;
-  border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(29, 29, 31, 0.055);
-  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
-}
-
-.res-card:hover {
-  filter: none;
-  box-shadow: 0 9px 18px rgba(29, 29, 31, 0.12);
-  transform: translateY(-1px);
-}
-
-.res-card.status-confirmed {
-  background: #e9f4ff;
-  border-left-color: transparent;
-}
-
-.res-card.status-confirmed .res-title-text {
-  color: #0062c4;
-}
-
-.res-card.status-confirmed .res-meta {
-  color: #5c8db9;
-}
-
-.res-card.status-pending {
-  background: #fff4df;
-  border-left-color: transparent;
-}
-
-.res-card.status-pending .res-title-text {
-  color: #a65f00;
-}
-
-.res-card.status-pending .res-meta {
-  color: #b58a4b;
-}
-
-.res-card.mine {
-  box-shadow: inset 0 0 0 2px rgba(0, 113, 227, 0.42), 0 3px 8px rgba(29, 29, 31, 0.055);
-}
-
-.res-card.mine.status-pending {
-  box-shadow: inset 0 0 0 2px rgba(238, 154, 46, 0.48), 0 3px 8px rgba(29, 29, 31, 0.055);
-}
-
-.res-title-text {
-  font-size: 12px;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .mine-tag,
 .room-badge {
+  flex-shrink: 0;
+  padding: 0 4px;
   border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+}
+
+.mine-tag {
+  background: rgba(255, 255, 255, 0.72);
+  color: #2a5acc;
+}
+
+.room-badge {
+  background: rgba(255, 255, 255, 0.65);
+  color: inherit;
+}
+
+.res-meta {
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 </style>
