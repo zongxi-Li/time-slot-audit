@@ -317,20 +317,21 @@ async function handleAudit(approve: boolean) {
 
 .reservation-inspector {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: var(--inspector-inset, 12px);
+  right: var(--inspector-inset, 12px);
+  bottom: var(--inspector-inset, 12px);
   z-index: 30;
   display: flex;
   flex-direction: column;
-  width: 340px;
+  width: var(--inspector-width, 340px);
   min-width: 0;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.88);
-  border-left: 1px solid var(--border-light);
-  box-shadow: -22px 0 48px rgba(29, 29, 31, 0.1);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  box-shadow: var(--shadow-float);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
 }
 
 .inspector-enter-active,
@@ -407,26 +408,34 @@ async function handleAudit(approve: boolean) {
 
 @media (max-width: 760px) {
   .reservation-inspector {
+    top: 10px;
+    right: 10px;
+    bottom: 10px;
     width: min(340px, 88vw);
-    box-shadow: -18px 0 40px rgba(29, 29, 31, 0.22);
   }
 }
 </style>
 
 <style>
-/* 全局样式：详情侧栏打开时，顶栏与工作台（标签栏/内容/状态栏）整体左移让位，
-   侧栏独占右侧从页面顶部到底部的整条区域；窄屏下侧栏改为浮层不挤压布局。 */
+/* 全局样式：详情侧栏为浮动卡片（圆角 + 投影，四周留缝悬于页面之上）。
+   打开时顶栏与工作台（标签栏/内容/状态栏）整体左移让位；
+   窄屏下不再挤压布局，改为浮层。 */
+:root {
+  --inspector-width: 340px;
+  --inspector-inset: 12px;
+}
+
 .layout-header,
 .workbench-shell {
   transition: padding-right 220ms ease;
 }
 
 body.reservation-inspector-open .layout-header {
-  padding-right: 366px;
+  padding-right: calc(var(--inspector-width) + var(--inspector-inset) * 2 + 26px);
 }
 
 body.reservation-inspector-open .workbench-shell {
-  padding-right: 340px;
+  padding-right: calc(var(--inspector-width) + var(--inspector-inset) * 2);
 }
 
 @media (max-width: 760px) {
