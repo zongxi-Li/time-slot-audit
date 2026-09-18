@@ -44,7 +44,7 @@ mysql -u<user> -p < sql/data.sql
 for f in sql/migrations/V1_*.sql; do mysql -u<user> -p meeting_room < "$f"; done
 ```
 
-PowerShell 可用：`Get-ChildItem sql/migrations/V1_*.sql | Sort-Object Name | ForEach-Object { Get-Content $_ -Raw | mysql -u<user> -p meeting_room }`。当前最新迁移为 `V1_8__reservation_optimistic_lock.sql`。
+PowerShell 可用：`Get-ChildItem sql/migrations/V1_*.sql | Sort-Object Name | ForEach-Object { Get-Content $_ -Raw | mysql -u<user> -p meeting_room }`。当前最新迁移为 `V1_9__system_time_config.sql`。
 
 种子账号仍使用测试密码 `123456`，数据库中保存的是 BCrypt 摘要：
 
