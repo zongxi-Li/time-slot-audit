@@ -276,6 +276,19 @@ CREATE TABLE approval_record (
 --    职责：只记录关键管理行为（审批/驳回、会议室增改、分类修改、强制取消等），
 --    不记录所有 HTTP 请求。只增不改，不设 updated_at。
 -- =============================================================================
+-- =============================================================================
+-- 13. system_time_config: singleton business clock configuration
+-- =============================================================================
+CREATE TABLE system_time_config (
+    id          TINYINT      NOT NULL COMMENT 'singleton row; always 1',
+    fixed_time  DATETIME     NULL     COMMENT 'NULL means real-time business clock',
+    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT chk_system_time_config_singleton CHECK (id = 1)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'business test clock configuration';
+
+INSERT INTO system_time_config (id, fixed_time) VALUES (1, NULL);
+
 CREATE TABLE operation_log (
     id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     user_id        BIGINT       NOT NULL                COMMENT '操作人用户ID',
