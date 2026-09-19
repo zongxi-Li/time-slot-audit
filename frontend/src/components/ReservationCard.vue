@@ -73,7 +73,7 @@ const showOwner = computed(() => props.item.height >= 58)
 }
 
 .res-card:hover {
-  box-shadow: 0 9px 18px rgba(29, 29, 31, 0.14);
+  box-shadow: 0 6px 14px rgba(29, 29, 31, 0.1);
   transform: translateY(-1px);
   z-index: 2;
 }

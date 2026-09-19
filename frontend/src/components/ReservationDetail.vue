@@ -330,7 +330,7 @@ async function handleAudit(approve: boolean) {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--border-color);
   border-radius: 18px;
-  box-shadow: var(--shadow-float);
+  box-shadow: var(--shadow-panel);
   -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
 }
