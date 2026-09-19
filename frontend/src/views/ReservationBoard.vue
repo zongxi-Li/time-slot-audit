@@ -117,7 +117,12 @@ function onCreateClick() {
 const detailVisible = ref(false)
 const detailId = ref<string | null>(null)
 
+/** 点击卡片打开详情侧栏；同一场预约再点一次则关闭 */
 function openDetail(id: string) {
+  if (detailVisible.value && detailId.value === id) {
+    detailVisible.value = false
+    return
+  }
   detailId.value = id
   detailVisible.value = true
 }

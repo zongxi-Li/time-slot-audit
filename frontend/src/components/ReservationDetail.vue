@@ -317,10 +317,11 @@ async function handleAudit(approve: boolean) {
 
 .reservation-inspector {
   position: fixed;
-  /* 顶部从布局顶栏（68px）之下开始，浮动卡片不与顶栏内容重叠 */
-  top: calc(68px + var(--inspector-inset, 12px));
+  /* 顶部避开布局顶栏（68px）+ 工作区标签条（42px），底部避开状态栏（23px），
+     四周留 inset 间隙，让浮动卡片与周围结构有明确分割 */
+  top: calc(var(--inspector-top, 110px) + var(--inspector-inset, 12px));
   right: var(--inspector-inset, 12px);
-  bottom: var(--inspector-inset, 12px);
+  bottom: calc(var(--inspector-bottom, 23px) + var(--inspector-inset, 12px));
   z-index: 30;
   display: flex;
   flex-direction: column;
@@ -409,8 +410,7 @@ async function handleAudit(approve: boolean) {
 
 @media (max-width: 760px) {
   .reservation-inspector {
-    right: 10px;
-    bottom: 10px;
+    --inspector-inset: 10px;
     width: min(340px, 88vw);
   }
 }
@@ -418,23 +418,27 @@ async function handleAudit(approve: boolean) {
 
 <style>
 /* 全局样式：详情侧栏为浮动卡片（圆角 + 投影，悬于工作台区域之上、顶栏之下）。
-   打开时工作台（标签栏/内容/状态栏）整体左移让位；
-   窄屏下不再挤压布局，改为浮层。 */
+   打开时 body 挂 reservation-inspector-open 类，主工作区右侧让出
+   「面板宽 + 双侧间隙」，内容压缩排布而不是被浮层盖住。 */
 :root {
   --inspector-width: 340px;
   --inspector-inset: 12px;
+  /* 与 MainLayout 布局常量保持一致：顶栏 68px + 标签条 42px；底部状态栏 23px */
+  --inspector-top: 110px;
+  --inspector-bottom: 23px;
 }
 
-.workbench-shell {
+.workbench-content {
   transition: padding-right 220ms ease;
 }
 
-body.reservation-inspector-open .workbench-shell {
-  padding-right: calc(var(--inspector-width) + var(--inspector-inset) * 2);
+body.reservation-inspector-open .workbench-content {
+  padding-right: calc(var(--inspector-width, 340px) + var(--inspector-inset, 12px) * 2);
 }
 
+/* ≤760px 小屏面板仍为浮层覆盖，不让主界面压缩（断点与 .reservation-inspector 一致） */
 @media (max-width: 760px) {
-  body.reservation-inspector-open .workbench-shell {
+  body.reservation-inspector-open .workbench-content {
     padding-right: 0;
   }
 }
