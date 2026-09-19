@@ -277,6 +277,105 @@ async function saveWindow() {
   }
 }
 
+/* —— 分类规则管理：容量范围 / 审批要求 / 单次最长时长 / 可提前预约天数 —— */
+const categoryDialogVisible = ref(false)
+const categoryEditingId = ref<number | string | null>(null)
+const categorySaving = ref(false)
+const categoryFormRef = ref()
+const categoryForm = reactive({
+  name: '',
+  minCapacity: 1,
+  maxCapacity: 8,
+  approvalRequired: false,
+  maxDurationMinutes: 1440,
+  advanceDays: 7,
+  description: '',
+})
+
+/** 分钟数转可读文案：整小时用“小时”，否则保留“分钟” */
+function formatDuration(minutes: number): string {
+  if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60} 小时`
+  return `${minutes} 分钟`
+}
+
+const categoryRules = {
+  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
+  maxDurationMinutes: [{ required: true, message: '请设置单次最长时长', trigger: 'change' }],
+  advanceDays: [{ required: true, message: '请设置可提前预约天数', trigger: 'change' }],
+}
+
+function openCategoryCreate() {
+  categoryEditingId.value = null
+  categoryForm.name = ''
+  categoryForm.minCapacity = 1
+  categoryForm.maxCapacity = 8
+  categoryForm.approvalRequired = false
+  categoryForm.maxDurationMinutes = 1440
+  categoryForm.advanceDays = 7
+  categoryForm.description = ''
+  categoryDialogVisible.value = true
+}
+
+function openCategoryEdit(category: CategoryResponse) {
+  categoryEditingId.value = category.id
+  categoryForm.name = category.name
+  categoryForm.minCapacity = category.minCapacity
+  categoryForm.maxCapacity = category.maxCapacity
+  categoryForm.approvalRequired = category.approvalRequired
+  categoryForm.maxDurationMinutes = category.maxDurationMinutes
+  categoryForm.advanceDays = category.advanceDays
+  categoryForm.description = category.description ?? ''
+  categoryDialogVisible.value = true
+}
+
+async function handleCategorySave() {
+  const valid = await categoryFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  if (categoryForm.minCapacity > categoryForm.maxCapacity) {
+    ElMessage.error('容量下限不能大于容量上限')
+    return
+  }
+  categorySaving.value = true
+  try {
+    const payload = {
+      name: categoryForm.name.trim(),
+      minCapacity: categoryForm.minCapacity,
+      maxCapacity: categoryForm.maxCapacity,
+      approvalRequired: categoryForm.approvalRequired,
+      maxDurationMinutes: categoryForm.maxDurationMinutes,
+      advanceDays: categoryForm.advanceDays,
+      description: categoryForm.description.trim() || null,
+    }
+    if (categoryEditingId.value === null) {
+      await adminCategoriesApi.create(payload)
+      logApi('POST', '/api/admin/room-categories', `新增分类 ${payload.name}`)
+      monitor.log(
+        '新增会议分类',
+        `${payload.name} · 单次最长 ${formatDuration(payload.maxDurationMinutes)}`,
+        '管理员',
+        'ADMIN',
+      )
+      ElMessage.success(`分类 ${payload.name} 已创建`)
+    } else {
+      await adminCategoriesApi.update(categoryEditingId.value, payload)
+      logApi('PUT', `/api/admin/room-categories/${categoryEditingId.value}`, `更新分类 ${payload.name}`)
+      monitor.log(
+        '编辑会议分类',
+        `${payload.name} · 单次最长 ${formatDuration(payload.maxDurationMinutes)}`,
+        '管理员',
+        'ADMIN',
+      )
+      ElMessage.success('分类规则已更新，看板与预约校验即时生效')
+    }
+    categories.value = await adminCategoriesApi.list()
+    categoryDialogVisible.value = false
+  } catch (error) {
+    ElMessage.error(errorMessage(error))
+  } finally {
+    categorySaving.value = false
+  }
+}
+
 /* —— 维护计划管理 —— */
 const maintenanceDialogVisible = ref(false)
 const maintenanceRoom = ref<MeetingRoom | null>(null)
@@ -383,6 +482,43 @@ async function finishMaintenance(plan: MaintenanceResponse) {
       </div>
     </div>
 
+    <div class="panel table-panel">
+      <div class="category-head">
+        <div>
+          <h3 class="window-title">会议室分类规则</h3>
+          <p class="muted">
+            决定各分类的容量范围、审批要求、单次最长时长与可提前预约天数；单次最长可设 1440 分钟（24 小时），一天之内任意时长均可预约
+          </p>
+        </div>
+        <el-button type="primary" plain @click="openCategoryCreate">+ 新增分类</el-button>
+      </div>
+      <el-table :data="categories" size="small" style="width: 100%">
+        <el-table-column prop="name" label="分类" width="120" />
+        <el-table-column label="容量范围" width="110">
+          <template #default="{ row }">{{ row.minCapacity }}~{{ row.maxCapacity }} 人</template>
+        </el-table-column>
+        <el-table-column label="审批" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.approvalRequired ? 'warning' : 'success'" size="small" effect="light">
+              {{ row.approvalRequired ? '需审批' : '免审批' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="单次最长时长" width="120">
+          <template #default="{ row }">{{ formatDuration(row.maxDurationMinutes) }}</template>
+        </el-table-column>
+        <el-table-column label="可提前预约" width="110">
+          <template #default="{ row }">{{ row.advanceDays }} 天</template>
+        </el-table-column>
+        <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
+        <el-table-column label="操作" width="80" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="openCategoryEdit(row)">编辑</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <div class="panel table-panel" v-loading="loading">
       <el-table :data="roomStore.rooms" style="width: 100%">
         <el-table-column prop="name" label="名称" width="100">
@@ -464,7 +600,7 @@ async function finishMaintenance(plan: MaintenanceResponse) {
           </el-select>
           <span v-if="selectedCategory" class="field-hint">
             容量范围 {{ selectedCategory.minCapacity }}~{{ selectedCategory.maxCapacity }} ·
-            最长 {{ selectedCategory.maxDurationMinutes }} 分钟
+            单次最长 {{ formatDuration(selectedCategory.maxDurationMinutes) }}
             <template v-if="selectedCategory.approvalRequired"> · 需审批</template>
           </span>
         </el-form-item>
@@ -482,6 +618,73 @@ async function finishMaintenance(plan: MaintenanceResponse) {
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="categoryDialogVisible"
+      :title="categoryEditingId === null ? '新增会议分类' : `编辑会议分类：${categoryForm.name}`"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="categoryFormRef"
+        :model="categoryForm"
+        :rules="categoryRules"
+        label-width="110px"
+        label-position="left"
+      >
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="categoryForm.name" placeholder="例如：中型会议室" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="容量范围" required>
+          <div class="capacity-range-row">
+            <el-input-number v-model="categoryForm.minCapacity" :min="1" :max="999" controls-position="right" />
+            <span class="rule-sep">至</span>
+            <el-input-number v-model="categoryForm.maxCapacity" :min="1" :max="999" controls-position="right" />
+            <span class="capacity-unit">人</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="审批要求">
+          <el-switch
+            v-model="categoryForm.approvalRequired"
+            active-text="需审批"
+            inactive-text="免审批"
+          />
+        </el-form-item>
+        <el-form-item label="单次最长时长" prop="maxDurationMinutes">
+          <div class="duration-row">
+            <el-input-number
+              v-model="categoryForm.maxDurationMinutes"
+              :min="30"
+              :max="1440"
+              :step="30"
+              controls-position="right"
+              style="width: 140px"
+            />
+            <span class="capacity-unit">分钟</span>
+          </div>
+          <span class="field-hint">一天之内任意时长均可预约；上限 1440 分钟即 24 小时</span>
+        </el-form-item>
+        <el-form-item label="可提前预约" prop="advanceDays">
+          <div class="duration-row">
+            <el-input-number
+              v-model="categoryForm.advanceDays"
+              :min="0"
+              :max="365"
+              controls-position="right"
+              style="width: 140px"
+            />
+            <span class="capacity-unit">天</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="说明">
+          <el-input v-model="categoryForm.description" type="textarea" :rows="2" maxlength="200" placeholder="选填" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="categoryDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="categorySaving" @click="handleCategorySave">保存</el-button>
       </template>
     </el-dialog>
 
@@ -559,6 +762,13 @@ async function finishMaintenance(plan: MaintenanceResponse) {
 </template>
 
 <style scoped>
+/* 页面内多张卡片纵向堆叠，统一留出呼吸间距 */
+.room-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .head-row {
   display: flex;
   align-items: flex-start;
@@ -608,6 +818,21 @@ async function finishMaintenance(plan: MaintenanceResponse) {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.category-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.capacity-range-row,
+.duration-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .window-panel {
