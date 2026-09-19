@@ -59,11 +59,12 @@ const hours = computed(() => {
 
 const gridBodyHeight = computed(() => bookingWindow.hourCount * PX_PER_HOUR)
 
-/* —— “当前时间”红线：业务时刻落在该列可预约窗口内即显示 —— */
-function nowLineOffset(day: string): number | null {
+/* —— 当前时段高亮：今天列中业务时刻所在的小时格（业务时刻落在可预约窗口内才显示） —— */
+function nowSlotTop(day: string): number | null {
   const offsetMinute = (systemTime.now.getTime() - parseDateStr(day).getTime()) / 60000
   if (offsetMinute < bookingWindow.startMinute || offsetMinute > bookingWindow.endMinute) return null
-  return ((offsetMinute - bookingWindow.startMinute) / 60) * PX_PER_HOUR
+  const slot = Math.min(bookingWindow.hourCount - 1, Math.floor((offsetMinute - bookingWindow.startMinute) / 60))
+  return slot * PX_PER_HOUR
 }
 
 function isSystemToday(day: string) {
@@ -282,6 +283,11 @@ function onPanPointerUp() {
           :style="{ top: `${hover.slot * PX_PER_HOUR}px`, height: `${PX_PER_HOUR}px` }"
         />
         <div
+          v-if="isSystemToday(day) && nowSlotTop(day) !== null"
+          class="slot-now"
+          :style="{ top: `${nowSlotTop(day)}px`, height: `${PX_PER_HOUR}px` }"
+        />
+        <div
           v-if="selectionBox && selectionBox.date === day"
           class="slot-selection"
           :style="{ top: `${selectionBox.top}px`, height: `${selectionBox.height}px` }"
@@ -294,11 +300,6 @@ function onPanPointerUp() {
           :item="block"
           :room-name="block.reservation.roomId"
           @open="emit('open', $event)"
-        />
-        <div
-          v-if="isSystemToday(day) && nowLineOffset(day) !== null"
-          class="now-line"
-          :style="{ top: `${nowLineOffset(day)}px` }"
         />
       </div>
     </div>
@@ -452,26 +453,16 @@ function onPanPointerUp() {
   background-color: #f7faff;
 }
 
-.now-line {
+/* 当前时段：业务时刻所在小时格的整格底色，压在卡片之下 */
+.slot-now {
   position: absolute;
   left: 0;
   right: 0;
-  height: 0;
-  border-top: 2px solid #f04438;
-  z-index: 1;
+  background: rgba(0, 113, 227, 0.08);
   pointer-events: none;
+  z-index: 0;
 }
 
-.now-line::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: -4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #f04438;
-}
 </style>
 
 <style scoped>
