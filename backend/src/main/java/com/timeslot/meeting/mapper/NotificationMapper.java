@@ -8,6 +8,8 @@ import com.timeslot.meeting.domain.Notification;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -27,6 +29,8 @@ public interface NotificationMapper {
             """)
     int insertIgnore(Notification notification);
 
+    /* is_read 驼峰映射后的属性名是 isRead，与实体的 read 对不上，MyBatis 会静默跳过导致 read 恒为 false，需显式映射 */
+    @Results(@Result(property = "read", column = "is_read"))
     @Select("""
             SELECT id, user_id, type, title, content, reservation_id, dedup_key,
                    is_read, read_at, created_at

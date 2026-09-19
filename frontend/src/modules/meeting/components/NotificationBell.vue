@@ -86,7 +86,9 @@ defineExpose({ refreshUnread })
     <el-button :icon="Bell" circle text @click="openDrawer" />
   </el-badge>
 
-  <el-drawer v-model="drawerVisible" title="个人通知" size="400px">
+  <!-- append-to-body：顶栏毛玻璃(backdrop-filter)会把 fixed 抽屉的定位基准变成 68px 的顶栏，
+       导致抽屉被压扁、通知看不见；传送到 body 下渲染才能正常全高展开 -->
+  <el-drawer v-model="drawerVisible" title="个人通知" size="400px" append-to-body>
     <template #header>
       <div class="drawer-head">
         <span>个人通知</span>
