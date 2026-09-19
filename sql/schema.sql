@@ -103,7 +103,7 @@ CREATE TABLE room_category (
     min_capacity         INT          NOT NULL                COMMENT '分类容量下限（人）',
     max_capacity         INT          NOT NULL                COMMENT '分类容量上限（人）',
     approval_required    TINYINT      NOT NULL DEFAULT 0      COMMENT '是否需要审批：1-是（提交后PENDING，管理员审批） 0-否（提交后直接CONFIRMED）',
-    max_duration_minutes INT          NOT NULL DEFAULT 240    COMMENT '单次预约最大时长（分钟），Service 校验',
+    max_duration_minutes INT          NOT NULL DEFAULT 1440   COMMENT '单次预约最大时长（分钟），Service 校验',
     advance_days         INT          NOT NULL DEFAULT 7      COMMENT '允许提前预约的最大天数（天），Service 校验',
     description          VARCHAR(500) NULL                    COMMENT '分类说明',
     created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
