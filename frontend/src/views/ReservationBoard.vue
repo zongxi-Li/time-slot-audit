@@ -10,9 +10,9 @@ import { useReservationStore } from '@/stores/reservation'
 import { useBookingWindowStore } from '@/stores/bookingWindow'
 import {
   addDays,
+  formatDateRange,
   formatShort,
-  formatWeekRange,
-  getWeekDays,
+  getRollingDays,
   weekdayName,
 } from '@/utils/datetime'
 import { useSystemTimeStore } from '@/stores/systemTime'
@@ -31,11 +31,14 @@ const bookingWindow = useBookingWindowStore()
 const selectedDate = ref(systemTime.date)
 const roomFilter = ref<string>('all')
 const onlyFree = ref(false)
-/** 日视图：会议室 × 时间；周视图：星期 × 时间（课程表样式） */
+/** 日视图：会议室 × 时间；周视图：日期 × 时间（以当前日期为中心的滚动窗口） */
 const viewMode = ref<'day' | 'week'>('day')
 
-const weekDays = computed(() => getWeekDays(selectedDate.value))
-const weekRangeLabel = computed(() => formatWeekRange(selectedDate.value))
+/** 日/周视图共用的展示窗口：当前日期前 4 天 ~ 后 4 天（共 9 天） */
+const visibleDays = computed(() => getRollingDays(selectedDate.value))
+const weekRangeLabel = computed(() =>
+  formatDateRange(visibleDays.value[0], visibleDays.value[visibleDays.value.length - 1]),
+)
 
 onMounted(async () => {
   void bookingWindow.refresh().catch(() => undefined)
@@ -43,10 +46,12 @@ onMounted(async () => {
   await store.refreshCalendar(selectedDate.value)
 })
 
-watch(selectedDate, (date) => void store.refreshCalendar(date))
+watch(selectedDate, (date) => {
+  // store 一次拉取整个滚动窗口，日/周视图共用，切日期只需一次刷新
+  void store.refreshCalendar(date)
+})
 watch(() => systemTime.revision, () => {
   selectedDate.value = systemTime.date
-  void store.refreshCalendar(systemTime.date)
 })
 
 function isToday(day: string) {
@@ -65,11 +70,16 @@ const filteredRooms = computed(() => {
   return rooms
 })
 
-function shiftWeek(days: number) {
+function shiftDays(days: number) {
   selectedDate.value = addDays(selectedDate.value, days)
 }
 
-function backToThisWeek() {
+/** 日/周视图右键拖动：平移日期 */
+function onBoardPan(days: number) {
+  shiftDays(days)
+}
+
+function backToToday() {
   selectedDate.value = systemTime.date
 }
 
@@ -147,10 +157,10 @@ function openDetail(id: string) {
             <el-radio-button value="week">周视图</el-radio-button>
           </el-radio-group>
           <el-button-group>
-            <el-button :icon="ArrowLeft" @click="shiftWeek(-7)">上一周</el-button>
-            <el-button @click="backToThisWeek">本周</el-button>
-            <el-button @click="shiftWeek(7)">
-              下一周
+            <el-button :icon="ArrowLeft" @click="shiftDays(-1)">前一天</el-button>
+            <el-button @click="backToToday">今天</el-button>
+            <el-button @click="shiftDays(1)">
+              后一天
               <el-icon class="el-icon--right"><ArrowRight /></el-icon>
             </el-button>
           </el-button-group>
@@ -159,7 +169,7 @@ function openDetail(id: string) {
 
         <div v-if="viewMode === 'day'" class="day-tabs">
           <button
-            v-for="day in weekDays"
+            v-for="day in visibleDays"
             :key="day"
             type="button"
             class="day-tab"
@@ -189,14 +199,16 @@ function openDetail(id: string) {
           :selection="gridSelection"
           @open="openDetail"
           @select="onGridSelect"
+          @pan="onBoardPan"
         />
         <ReservationWeekGrid
           v-else
           :rooms="filteredRooms"
-          :week-days="weekDays"
+          :days="visibleDays"
           :selection="gridSelection"
           @open="openDetail"
           @select="onGridSelect"
+          @pan="onBoardPan"
         />
       </section>
 
@@ -339,6 +351,8 @@ function openDetail(id: string) {
 }
 
 .grid-empty {
+  flex: 1;
+  min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;

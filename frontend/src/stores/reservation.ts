@@ -6,7 +6,7 @@ import { reservationsApi } from '@/shared/api'
 import { useAuthStore } from './auth'
 import { useMeetingRoomStore } from './meetingRoom'
 import { isTimeOverlap } from '@/utils/conflict'
-import { toDateStr } from '@/utils/datetime'
+import { addDays, BOARD_WINDOW_BEFORE, BOARD_WINDOW_AFTER } from '@/utils/datetime'
 import type {
   CurrentUser,
   MeetingRoom,
@@ -51,13 +51,19 @@ export const useReservationStore = defineStore('reservation', () => {
     else reservations.value.push(updated)
   }
 
+  /** 拉取以 date 为中心的滚动窗口（前 4 天 ~ 后 4 天）的日历数据，日/周视图共用 */
   async function refreshCalendar(date: string, roomId?: string) {
-    const start = `${date}T00:00:00`
-    const next = new Date(`${date}T00:00:00`)
-    next.setDate(next.getDate() + 1)
-    const end = `${toDateStr(next)}T00:00:00`
-    const incoming = await reservationsApi.calendar(start, end, roomId)
-    const preserved = reservations.value.filter((r) => r.date !== date || (roomId && r.roomId !== roomId))
+    const first = addDays(date, -BOARD_WINDOW_BEFORE)
+    const last = addDays(date, BOARD_WINDOW_AFTER)
+    const afterLast = addDays(last, 1)
+    const incoming = await reservationsApi.calendar(
+      `${first}T00:00:00`,
+      `${afterLast}T00:00:00`,
+      roomId,
+    )
+    const preserved = reservations.value.filter(
+      (r) => r.date < first || r.date > last || (roomId && r.roomId !== roomId),
+    )
     reservations.value = [...preserved, ...incoming]
     return incoming
   }

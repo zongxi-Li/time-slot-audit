@@ -51,12 +51,17 @@ export function addDays(dateStr: string, days: number): string {
   return toDateStr(d)
 }
 
-/** 包含 dateStr 所在周的周一到周日（共 7 天） */
-export function getWeekDays(dateStr: string): string[] {
-  const d = parseDateStr(dateStr)
-  const weekday = (d.getDay() + 6) % 7 // 周一=0
-  const monday = addDays(dateStr, -weekday)
-  return Array.from({ length: 7 }, (_, i) => addDays(monday, i))
+/** 看板滚动窗口：以当前日期为中心，前 4 天 ~ 后 4 天（共 9 天） */
+export const BOARD_WINDOW_BEFORE = 4
+export const BOARD_WINDOW_AFTER = 4
+
+/** 以 dateStr 为中心，取前 before 天 ~ 后 after 天（当前日期居中） */
+export function getRollingDays(
+  dateStr: string,
+  before = BOARD_WINDOW_BEFORE,
+  after = BOARD_WINDOW_AFTER,
+): string[] {
+  return Array.from({ length: before + after + 1 }, (_, i) => addDays(dateStr, i - before))
 }
 
 const WEEKDAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
@@ -75,11 +80,10 @@ export function formatShort(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
-/** 周范围标题，如 "2026年9月7日 - 9月13日"，自动处理跨月/跨年 */
-export function formatWeekRange(dateStr: string): string {
-  const days = getWeekDays(dateStr)
-  const first = parseDateStr(days[0])
-  const last = parseDateStr(days[6])
+/** 日期范围标题，如 "2026年9月15日 - 9月23日"，自动处理跨月/跨年 */
+export function formatDateRange(startStr: string, endStr: string): string {
+  const first = parseDateStr(startStr)
+  const last = parseDateStr(endStr)
   const startYear = first.getFullYear()
   const startMonth = first.getMonth() + 1
   const endYear = last.getFullYear()

@@ -31,6 +31,8 @@ const emit = defineEmits<{
   open: [reservationId: string]
   /** 拖拽框选变化；null 表示取消选择 */
   select: [selection: SlotSelection | null]
+  /** 右键拖动平移日期；正数往后看，负数往前看 */
+  pan: [days: number]
 }>()
 
 const store = useReservationStore()
@@ -168,13 +170,58 @@ function onPointerUp(e: PointerEvent, roomId: string) {
     if (hover.value?.roomId === roomId) hover.value = null
   }
 }
+
+/* —— 右键拖动：无极横向平移日期（像素级跟手，每拖满 280px 换一天） —— */
+const DAY_PAN_STEP = 280
+
+const panning = ref(false)
+const panOffset = ref(0)
+let panLastX = 0
+
+function onPanPointerDown(e: PointerEvent) {
+  if (e.button !== 2 || e.pointerType === 'touch') return
+  const grid = e.currentTarget as HTMLElement
+  panning.value = true
+  panLastX = e.clientX
+  try {
+    grid.setPointerCapture(e.pointerId)
+  } catch {
+    // 合成事件无真实 pointerId 时无需捕获
+  }
+}
+
+function onPanPointerMove(e: PointerEvent) {
+  if (!panning.value) return
+  panOffset.value += e.clientX - panLastX
+  panLastX = e.clientX
+  // 网格实时跟手；累计拖满一天阈值就切换日期并回收等量位移
+  while (Math.abs(panOffset.value) >= DAY_PAN_STEP) {
+    const sign = Math.sign(panOffset.value)
+    panOffset.value -= sign * DAY_PAN_STEP
+    emit('pan', -sign)
+  }
+}
+
+function onPanPointerUp() {
+  panning.value = false
+  panOffset.value = 0 // 松手后由过渡动画滑回对齐位
+}
 </script>
 
 <template>
   <div class="grid-wrap thin-scroll">
     <div
       class="board-grid"
-      :style="{ gridTemplateColumns: `72px repeat(${rooms.length}, minmax(150px, 1fr))` }"
+      :class="{ 'is-panning': panning }"
+      :style="{
+        gridTemplateColumns: `72px repeat(${rooms.length}, minmax(150px, 1fr))`,
+        transform: `translateX(${panOffset}px)`,
+      }"
+      @pointerdown="onPanPointerDown"
+      @pointermove="onPanPointerMove"
+      @pointerup="onPanPointerUp"
+      @pointercancel="onPanPointerUp"
+      @contextmenu.prevent
     >
       <!-- 表头：左上角 + 会议室 -->
       <div class="grid-corner">时间</div>
@@ -243,6 +290,8 @@ function onPointerUp(e: PointerEvent, roomId: string) {
 
 <style scoped>
 .grid-wrap {
+  flex: 1; /* 父级 .grid-panel 是 flex 容器，没有它网格会缩成内容宽度，右侧留白 */
+  min-width: 0;
   height: 100%;
   overflow: auto;
 }
@@ -250,6 +299,17 @@ function onPointerUp(e: PointerEvent, roomId: string) {
 .board-grid {
   display: grid;
   min-width: 820px;
+  transition: transform 200ms ease; /* 松手回弹到对齐位 */
+}
+
+.board-grid.is-panning {
+  transition: none; /* 拖动中 1:1 跟手，不加过渡 */
+  cursor: grabbing;
+  user-select: none;
+}
+
+.board-grid.is-panning .grid-room-col {
+  cursor: grabbing;
 }
 
 .grid-corner,
@@ -313,6 +373,8 @@ function onPointerUp(e: PointerEvent, roomId: string) {
 }
 
 .grid-time-col {
+  position: relative; /* 配合 z-index：向左拖时会议室列从时间轴下方滑过 */
+  z-index: 2;
   border-right: 1px solid var(--border-color);
 }
 

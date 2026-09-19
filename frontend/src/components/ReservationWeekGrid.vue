@@ -22,8 +22,8 @@ import ReservationCard from './ReservationCard.vue'
 const props = defineProps<{
   /** 已经过筛选的会议室（决定周视图里显示哪些会议室的预约） */
   rooms: MeetingRoom[]
-  /** 周视图要展示的 7 天（周一到周日） */
-  weekDays: string[]
+  /** 滚动窗口要展示的日期：当前日期前 4 天 ~ 后 4 天（共 9 天，今天居中） */
+  days: string[]
   /** 当前框选的时间段（父组件持有） */
   selection?: SlotSelection | null
 }>()
@@ -32,6 +32,8 @@ const emit = defineEmits<{
   open: [reservationId: string]
   /** 拖拽框选变化；null 表示取消选择 */
   select: [selection: SlotSelection | null]
+  /** 右键拖动平移日期窗口；正数往后看，负数往前看 */
+  pan: [days: number]
 }>()
 
 const store = useReservationStore()
@@ -181,18 +183,66 @@ function onPointerUp(e: PointerEvent, date: string) {
     if (hover.value?.date === date) hover.value = null
   }
 }
+
+/* —— 右键拖动：无极横向平移日期窗口（像素级跟手，拖过一列换一天） —— */
+const panning = ref(false)
+const panOffset = ref(0)
+let panLastX = 0
+let panStepWidth = 160
+
+function onPanPointerDown(e: PointerEvent) {
+  if (e.button !== 2 || e.pointerType === 'touch') return
+  const grid = e.currentTarget as HTMLElement
+  panning.value = true
+  panLastX = e.clientX
+  // 一列的宽度 = 换一天的位移阈值
+  const head = grid.querySelector<HTMLDivElement>('.week-day-head')
+  panStepWidth = head ? head.getBoundingClientRect().width : 160
+  try {
+    // 捕获在网格根节点上：窗口平移导致列重渲染后拖动不中断
+    grid.setPointerCapture(e.pointerId)
+  } catch {
+    // 合成事件无真实 pointerId 时无需捕获
+  }
+}
+
+function onPanPointerMove(e: PointerEvent) {
+  if (!panning.value) return
+  panOffset.value += e.clientX - panLastX
+  panLastX = e.clientX
+  // 网格实时跟手；累计拖过一列就平移一天并回收等量位移，衔接无缝
+  while (Math.abs(panOffset.value) >= panStepWidth) {
+    const sign = Math.sign(panOffset.value)
+    panOffset.value -= sign * panStepWidth
+    emit('pan', -sign)
+  }
+}
+
+function onPanPointerUp() {
+  panning.value = false
+  panOffset.value = 0 // 松手后由过渡动画滑回列对齐位
+}
 </script>
 
 <template>
   <div class="week-wrap thin-scroll">
     <div
       class="week-grid"
-      :style="{ gridTemplateColumns: `64px repeat(${weekDays.length}, minmax(122px, 1fr))` }"
+      :class="{ 'is-panning': panning }"
+      :style="{
+        gridTemplateColumns: `64px repeat(${days.length}, minmax(122px, 1fr))`,
+        transform: `translateX(${panOffset}px)`,
+      }"
+      @pointerdown="onPanPointerDown"
+      @pointermove="onPanPointerMove"
+      @pointerup="onPanPointerUp"
+      @pointercancel="onPanPointerUp"
+      @contextmenu.prevent
     >
       <!-- 表头 -->
       <div class="week-corner">时间</div>
       <div
-        v-for="day in weekDays"
+        v-for="day in days"
         :key="day"
         class="week-day-head"
         :class="{ 'is-today': isSystemToday(day) }"
@@ -214,9 +264,9 @@ function onPointerUp(e: PointerEvent, date: string) {
         </div>
       </div>
 
-      <!-- 七天列 -->
+      <!-- 滚动窗口的每一天一列 -->
       <div
-        v-for="day in weekDays"
+        v-for="day in days"
         :key="day"
         class="week-day-col"
         :class="{ 'is-today-col': isSystemToday(day) }"
@@ -257,13 +307,26 @@ function onPointerUp(e: PointerEvent, date: string) {
 
 <style scoped>
 .week-wrap {
+  flex: 1; /* 父级 .grid-panel 是 flex 容器，没有它网格会缩成内容宽度，右侧留白 */
+  min-width: 0;
   height: 100%;
   overflow: auto;
 }
 
 .week-grid {
   display: grid;
-  min-width: 980px;
+  min-width: 1162px; /* 64px 时间轴 + 9 天 × 122px 最小列宽 */
+  transition: transform 200ms ease; /* 松手回弹到列对齐位 */
+}
+
+.week-grid.is-panning {
+  transition: none; /* 拖动中 1:1 跟手，不加过渡 */
+  cursor: grabbing;
+  user-select: none;
+}
+
+.week-grid.is-panning .week-day-col {
+  cursor: grabbing;
 }
 
 .week-corner,
@@ -317,6 +380,8 @@ function onPointerUp(e: PointerEvent, date: string) {
 }
 
 .week-time-col {
+  position: relative; /* 配合 z-index：向左拖时日期列从时间轴下方滑过 */
+  z-index: 2;
   border-right: 1px solid var(--border-color);
 }
 
