@@ -6,6 +6,7 @@ package com.timeslot.administration.controller;
 
 import com.timeslot.administration.service.AdministrationService;
 import com.timeslot.administration.mapper.AdministrationMapper;
+import com.timeslot.common.bookingwindow.BookingWindowMapper;
 import com.timeslot.common.security.JwtService;
 import com.timeslot.identity.mapper.DepartmentMapper;
 import com.timeslot.identity.mapper.UserMapper;
@@ -47,6 +48,7 @@ class AdministrationControllerSecurityTest {
     @MockBean ReservationMapper reservationMapper;
     @MockBean ResourceMapper resourceMapper;
     @MockBean SystemTimeMapper systemTimeMapper;
+    @MockBean BookingWindowMapper bookingWindowMapper;
 
     @Test
     @WithMockUser(roles = "USER")
