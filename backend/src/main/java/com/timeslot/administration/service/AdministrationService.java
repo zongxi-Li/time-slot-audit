@@ -11,6 +11,7 @@ import com.timeslot.administration.dto.AuditLogResponse;
 import com.timeslot.administration.dto.OperationsDashboardResponse;
 import com.timeslot.administration.spi.ReservationLifecyclePort;
 import com.timeslot.administration.mapper.AdministrationMapper;
+import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
@@ -37,15 +38,18 @@ public class AdministrationService {
     private final AdministrationMapper mapper;
     private final CurrentUserProvider currentUserProvider;
     private final ObjectProvider<ReservationLifecyclePort> lifecycleProvider;
+    private final ReservationNotificationPort notificationPort;
     private final Clock clock;
 
     public AdministrationService(AdministrationMapper mapper,
                                  CurrentUserProvider currentUserProvider,
                                  ObjectProvider<ReservationLifecyclePort> lifecycleProvider,
+                                 ReservationNotificationPort notificationPort,
                                  Clock clock) {
         this.mapper = mapper;
         this.currentUserProvider = currentUserProvider;
         this.lifecycleProvider = lifecycleProvider;
+        this.notificationPort = notificationPort;
         this.clock = clock;
     }
 
@@ -73,6 +77,7 @@ public class AdministrationService {
         mapper.insertApprovalRecord(id, operator.userId(), ApprovalAction.APPROVE.name(), null);
         mapper.insertOperationLog(operator.userId(), "APPROVE_RESERVATION", "RESERVATION", id,
                 "审批通过预约 " + reservation.reservationNo() + "（" + reservation.title() + "）", ipAddress);
+        notificationPort.notifyApproved(reservation.userId(), id, reservation.title());
         return reservation(id);
     }
 
@@ -87,6 +92,7 @@ public class AdministrationService {
         mapper.insertOperationLog(operator.userId(), "REJECT_RESERVATION", "RESERVATION", id,
                 "驳回预约 " + reservation.reservationNo() + "（" + reservation.title() + "），原因：" + normalizedReason,
                 ipAddress);
+        notificationPort.notifyRejected(reservation.userId(), id, reservation.title(), normalizedReason);
         return reservation(id);
     }
 
@@ -100,6 +106,7 @@ public class AdministrationService {
         mapper.insertOperationLog(operator.userId(), "FORCE_CANCEL_RESERVATION", "RESERVATION", id,
                 "强制取消预约 " + reservation.reservationNo() + "（" + reservation.title() + "），原因：" + normalizedReason,
                 ipAddress);
+        notificationPort.notifyCancelled(reservation.userId(), id, reservation.title());
         return reservation(id);
     }
 

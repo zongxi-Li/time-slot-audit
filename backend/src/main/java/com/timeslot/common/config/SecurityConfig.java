@@ -30,12 +30,14 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) -> {
                             response.setStatus(401);
-                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
+                            response.setCharacterEncoding("UTF-8");
                             response.getWriter().write("{\"code\":\"UNAUTHORIZED\",\"message\":\"请先登录\",\"data\":null}");
                         })
                         .accessDeniedHandler((request, response, exception) -> {
                             response.setStatus(403);
-                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
+                            response.setCharacterEncoding("UTF-8");
                             response.getWriter().write("{\"code\":\"FORBIDDEN\",\"message\":\"无权限执行该操作\",\"data\":null}");
                         }))
                 .authorizeHttpRequests(auth -> auth

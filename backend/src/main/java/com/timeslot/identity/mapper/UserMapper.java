@@ -58,6 +58,12 @@ public interface UserMapper {
             """)
     int countByUsername(@Param("username") String username);
 
+    /** 按角色查询活跃（status=1）用户 ID，用于把通知广播给某一角色的全部成员。 */
+    @Select("""
+            SELECT id FROM sys_user WHERE role = #{role} AND status = 1
+            """)
+    List<Long> findIdsByRole(@Param("role") String role);
+
     @Insert("""
             INSERT INTO sys_user (username, password, real_name, email, phone, role, status,
                                   department_id, credit_score, restricted_until)

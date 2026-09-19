@@ -9,6 +9,7 @@ import com.timeslot.administration.dto.AdminReservationRow;
 import com.timeslot.administration.mapper.AdministrationMapper;
 import com.timeslot.administration.spi.ReservationLifecyclePort;
 import com.timeslot.common.api.ErrorCode;
+import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
 import com.timeslot.common.security.CurrentUserProvider;
@@ -41,13 +42,15 @@ class AdministrationServiceTest {
     @Mock CurrentUserProvider currentUserProvider;
     @Mock ObjectProvider<ReservationLifecyclePort> lifecycleProvider;
     @Mock ReservationLifecyclePort lifecycle;
+    @Mock ReservationNotificationPort notificationPort;
 
     private AdministrationService service;
     private AdminReservationRow pending;
 
     @BeforeEach
     void setUp() {
-        service = new AdministrationService(mapper, currentUserProvider, lifecycleProvider, Clock.systemDefaultZone());
+        service = new AdministrationService(mapper, currentUserProvider, lifecycleProvider, notificationPort,
+                Clock.systemDefaultZone());
         pending = reservation("PENDING");
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(1L, "admin", "ADMIN"));
         when(lifecycleProvider.getIfAvailable()).thenReturn(lifecycle);
@@ -77,6 +80,7 @@ class AdministrationServiceTest {
         verify(mapper).insertApprovalRecord(42L, 1L, "REJECT", "场地维护");
         verify(mapper).insertOperationLog(1L, "REJECT_RESERVATION", "RESERVATION", 42L,
                 "驳回预约 RSV42（评审会），原因：场地维护", "10.0.0.1");
+        verify(notificationPort).notifyRejected(2L, 42L, "评审会", "场地维护");
     }
 
     @Test

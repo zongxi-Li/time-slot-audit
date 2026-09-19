@@ -18,6 +18,7 @@ import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
+import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.resource.dto.BookableRoomProfile;
 import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +58,7 @@ class ReservationServiceTest {
     @Mock BookingQualificationService bookingQualificationService;
     @Mock CurrentUserProvider currentUserProvider;
     @Mock BookingWindowService bookingWindowService;
+    @Mock ReservationNotificationPort notificationPort;
 
     private ReservationService service;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-11T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -69,7 +71,7 @@ class ReservationServiceTest {
     @BeforeEach
     void setUp() {
         service = new ReservationService(reservationMapper, resourceBookingQueryService, bookingQualificationService,
-                currentUserProvider, bookingWindowService, clock);
+                currentUserProvider, bookingWindowService, notificationPort, clock);
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(2L, "zhangsan", "USER"));
         when(bookingQualificationService.check(2L)).thenReturn(BookingQualification.allow(2L, 100));
         when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
@@ -103,6 +105,8 @@ class ReservationServiceTest {
                 "AVAILABLE", true, 240, 14));
 
         assertEquals("PENDING", service.createReservation(request()).status());
+        verify(notificationPort).notifyCreated(eq(2L), any(), any(), any(), any(), eq(ReservationStatus.PENDING));
+        verify(notificationPort).notifyPendingApproval(any(), any(), any(), any());
     }
 
     @Test

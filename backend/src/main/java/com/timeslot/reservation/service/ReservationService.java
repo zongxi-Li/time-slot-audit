@@ -22,6 +22,7 @@ import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
+import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.resource.dto.BookableRoomProfile;
 import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.springframework.dao.DuplicateKeyException;
@@ -43,17 +44,19 @@ public class ReservationService {
     private final BookingQualificationService bookingQualificationService;
     private final CurrentUserProvider currentUserProvider;
     private final BookingWindowService bookingWindowService;
+    private final ReservationNotificationPort notificationPort;
     private final Clock clock;
 
     public ReservationService(ReservationMapper reservationMapper, ResourceBookingQueryService resourceBookingQueryService,
                               BookingQualificationService bookingQualificationService,
                               CurrentUserProvider currentUserProvider, BookingWindowService bookingWindowService,
-                              Clock clock) {
+                              ReservationNotificationPort notificationPort, Clock clock) {
         this.reservationMapper = reservationMapper;
         this.resourceBookingQueryService = resourceBookingQueryService;
         this.bookingQualificationService = bookingQualificationService;
         this.currentUserProvider = currentUserProvider;
         this.bookingWindowService = bookingWindowService;
+        this.notificationPort = notificationPort;
         this.clock = clock;
     }
 
@@ -101,7 +104,18 @@ public class ReservationService {
             if (duplicate != null) return ReservationResponse.from(duplicate, clock);
             throw duplicateKeyException;
         }
+        // 出站通知：本人收到“创建成功”，受控分类还需广播管理员“待审批”。
+        notifyReservationLifecycle(reservation);
         return ReservationResponse.from(reservation, clock);
+    }
+
+    private void notifyReservationLifecycle(Reservation reservation) {
+        notificationPort.notifyCreated(reservation.getUserId(), reservation.getId(), reservation.getTitle(),
+                reservation.getRoomName(), reservation.getStartTime(), reservation.getStatus());
+        if (reservation.getStatus() == ReservationStatus.PENDING) {
+            notificationPort.notifyPendingApproval(reservation.getId(), reservation.getTitle(),
+                    reservation.getRoomName(), reservation.getStartTime());
+        }
     }
 
     /**
@@ -180,6 +194,7 @@ public class ReservationService {
         requireAffectedRow(affectedRows);
         reservation.setStatus(targetStatus);
         reservation.setVersion(reservation.getVersion() + 1);
+        notificationPort.notifyCancelled(reservation.getUserId(), reservation.getId(), reservation.getTitle());
         return ReservationResponse.from(reservation, clock);
     }
 

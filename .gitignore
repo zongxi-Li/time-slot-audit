@@ -16,3 +16,6 @@ __pycache__/
 .idea/
 .vscode/
 backend-run.log
+
+# WorkBuddy 项目数据（非源码）
+.workbuddy/

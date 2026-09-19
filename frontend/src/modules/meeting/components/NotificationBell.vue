@@ -21,6 +21,11 @@ const typeText: Record<string, string> = {
   ATTENDEE_REMOVED: '移出会议',
   MEETING_REMINDER: '开始提醒',
   NO_SHOW_MARKED: '缺席记录',
+  RESERVATION_CREATED: '预约创建',
+  RESERVATION_PENDING_APPROVAL: '待审批',
+  RESERVATION_APPROVED: '审批通过',
+  RESERVATION_REJECTED: '审批驳回',
+  RESERVATION_CANCELLED: '预约取消',
 }
 
 async function refreshUnread() {

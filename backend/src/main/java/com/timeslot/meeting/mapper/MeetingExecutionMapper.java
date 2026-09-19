@@ -11,6 +11,8 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -97,15 +99,36 @@ public interface MeetingExecutionMapper {
     @Select("SELECT COUNT(*) FROM reservation_attendee WHERE reservation_id = #{reservationId}")
     int countByReservationId(Long reservationId);
 
+    /**
+     * “我的会议” = 我作为创建人(owner)的预约 ∪ 我作为参与人(attendee)的预约。
+     * owner 的预约即使还没有 reservation_attendee 行（创建后尚未触达执行流程），
+     * 也应出现在列表中，故用 LEFT JOIN + UNION 兜底；角色/出勤以实际 attendee 行为准，
+     * 无行时按 ORGANIZER/EXPECTED 兜底。
+     */
+    @Results({
+            @Result(property = "myRole", column = "attendee_role"),
+            @Result(property = "myStatus", column = "attendance_status")
+    })
     @Select("""
-            SELECT a.reservation_id, r.reservation_no, r.title, r.room_id, mr.room_name,
+            SELECT r.id AS reservation_id, r.reservation_no, r.title, r.room_id, mr.room_name,
                    r.status AS reservation_status, r.start_time, r.end_time,
-                   a.attendee_role, a.attendance_status, a.check_in_at, a.check_out_at
+                   COALESCE(a.attendee_role, 'ORGANIZER') AS attendee_role,
+                   COALESCE(a.attendance_status, 'EXPECTED') AS attendance_status,
+                   a.check_in_at, a.check_out_at
+            FROM reservation r
+            JOIN meeting_room mr ON mr.id = r.room_id
+            LEFT JOIN reservation_attendee a ON a.reservation_id = r.id AND a.user_id = #{userId}
+            WHERE r.user_id = #{userId}
+            UNION
+            SELECT r.id AS reservation_id, r.reservation_no, r.title, r.room_id, mr.room_name,
+                   r.status AS reservation_status, r.start_time, r.end_time,
+                   a.attendee_role, a.attendance_status,
+                   a.check_in_at, a.check_out_at
             FROM reservation_attendee a
             JOIN reservation r ON r.id = a.reservation_id
             JOIN meeting_room mr ON mr.id = r.room_id
             WHERE a.user_id = #{userId}
-            ORDER BY r.start_time DESC
+            ORDER BY start_time DESC
             """)
     List<MeetingExecution> findMyMeetings(Long userId);
 
