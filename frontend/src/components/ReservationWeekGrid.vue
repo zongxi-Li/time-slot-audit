@@ -42,6 +42,13 @@ const bookingWindow = useBookingWindowStore()
 
 const roomIds = computed(() => new Set(props.rooms.map((r) => r.id)))
 
+/** 卡片徽标显示会议室名而不是数据库 ID；映射不到时退回原始 ID */
+const roomNameById = computed(() => new Map(props.rooms.map((r) => [r.id, r.name])))
+
+function roomNameOf(roomId: string): string {
+  return roomNameById.value.get(roomId) ?? roomId
+}
+
 function dayBlocks(date: string) {
   return layoutReservations(
     store.activeReservations.filter(
@@ -298,7 +305,7 @@ function onPanPointerUp() {
           v-for="block in dayBlocks(day)"
           :key="block.reservation.id"
           :item="block"
-          :room-name="block.reservation.roomId"
+          :room-name="roomNameOf(block.reservation.roomId)"
           @open="emit('open', $event)"
         />
       </div>
