@@ -196,9 +196,11 @@ public class RoomAdminService {
     }
 
     private void requireCapacityInRange(ResourceMapper.CategoryRow category, Integer capacity) {
-        if (capacity < category.getMinCapacity() || capacity > category.getMaxCapacity()) {
+        Integer min = category.getMinCapacity();
+        Integer max = category.getMaxCapacity();
+        if (min != null && max != null && (capacity < min || capacity > max)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
-                    "会议室容量必须在分类容量范围 [" + category.getMinCapacity() + ", " + category.getMaxCapacity() + "] 内");
+                    "会议室容量必须在分类容量范围 [" + min + ", " + max + "] 内");
         }
     }
 

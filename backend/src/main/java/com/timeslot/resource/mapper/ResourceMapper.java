@@ -81,7 +81,8 @@ public interface ResourceMapper {
     int updateRoomStatus(@Param("id") Long id, @Param("status") int status);
 
     @Select("""
-            SELECT id, category_name, approval_required, max_duration_minutes, advance_days
+            SELECT id, category_name, min_capacity, max_capacity, approval_required,
+                   max_duration_minutes, advance_days, description
             FROM room_category
             WHERE id = #{categoryId}
             """)
