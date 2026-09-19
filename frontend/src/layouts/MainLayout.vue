@@ -3,7 +3,7 @@
   接口：供对应工具链加载。
 -->
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch, type Component } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Calendar,
@@ -63,6 +63,19 @@ const isSidebarCollapsed = ref(readBooleanPreference(SIDEBAR_COLLAPSED_KEY))
 const isMobile = ref(false)
 const isMobileSidebarOpen = ref(false)
 const workspaceTabs = ref<WorkspaceTab[]>([])
+const tabListRef = ref<HTMLElement | null>(null)
+
+// 标签多到横向溢出时，切换后把激活标签滚进可视区
+watch(
+  () => route.path,
+  async () => {
+    await nextTick()
+    tabListRef.value
+      ?.querySelector('.workbench-tab.is-active')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  },
+  { immediate: true },
+)
 let mobileMediaQuery: MediaQueryList | null = null
 
 function readBooleanPreference(key: string) {
@@ -300,7 +313,7 @@ function onUserCommand(command: string) {
       <el-main class="layout-main">
         <div class="workbench-shell">
           <div class="workbench-tabs" role="tablist" aria-label="工作区标签">
-            <div class="workbench-tab-list">
+            <div ref="tabListRef" class="workbench-tab-list thin-scroll">
               <div
                 v-for="tab in workspaceTabs"
                 :key="tab.path"
@@ -327,7 +340,6 @@ function onUserCommand(command: string) {
                 </button>
               </div>
             </div>
-            <div class="workbench-tab-spacer" />
             <span class="workbench-context">TIME / SLOT WORKSPACE</span>
           </div>
 
@@ -632,13 +644,9 @@ function onUserCommand(command: string) {
 
 .workbench-tab-list {
   display: flex;
+  flex: 1 1 auto; /* 占满标签行剩余宽度，少时标签得以拉伸 */
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.workbench-tab-list::-webkit-scrollbar {
-  display: none;
 }
 
 .workbench-tab {
@@ -646,9 +654,9 @@ function onUserCommand(command: string) {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 auto;
-  min-width: 142px;
-  max-width: 220px;
+  flex: 1 1 0%; /* 等宽分摊行宽：少时拉长到上限，多时压到下限后出滚动条 */
+  min-width: 164px; /* 保证最长的“用户与信用管理”不省略 */
+  max-width: 260px;
   padding: 0 8px 0 17px;
   color: var(--text-muted);
   border-right: 1px solid var(--border-light);
@@ -719,11 +727,6 @@ function onUserCommand(command: string) {
 .workbench-tab-close .el-icon {
   color: currentColor;
   font-size: 13px;
-}
-
-.workbench-tab-spacer {
-  flex: 1;
-  min-width: 0;
 }
 
 .workbench-context {
