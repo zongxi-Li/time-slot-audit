@@ -15,6 +15,7 @@ import com.timeslot.meeting.mapper.MeetingExecutionMapper;
 import com.timeslot.meeting.mapper.NotificationMapper;
 import com.timeslot.reservation.mapper.ReservationMapper;
 import com.timeslot.resource.mapper.ResourceMapper;
+import com.timeslot.resource.mapper.RoomQueryMapper;
 import com.timeslot.common.time.SystemTimeMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -47,6 +48,7 @@ class AdministrationControllerSecurityTest {
     @MockBean NotificationMapper notificationMapper;
     @MockBean ReservationMapper reservationMapper;
     @MockBean ResourceMapper resourceMapper;
+    @MockBean RoomQueryMapper roomQueryMapper;
     @MockBean SystemTimeMapper systemTimeMapper;
     @MockBean BookingWindowMapper bookingWindowMapper;
 

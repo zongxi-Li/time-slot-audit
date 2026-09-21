@@ -5,26 +5,91 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
 import { useSystemTimeStore } from '@/stores/systemTime'
 import { repairTicketsApi, roomsApi } from '@/shared/api'
+import { roomQueryApi, type RoomFilterParams } from '@/shared/api/roomQuery'
 import { ApiError } from '@/shared/api/types'
 import type { FacilityResponse } from '@/shared/api/types'
 import { toMinutes } from '@/utils/datetime'
 import { roomStatusMeta } from '@/utils/roomStatus'
 import type { MeetingRoom } from '@/types'
 
-const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
 const systemTime = useSystemTimeStore()
 
+/* —— 条件筛选与时段空闲查询：走 /rooms 与 /rooms/available 真实接口 —— */
+const rooms = ref<MeetingRoom[]>([])
+const roomsLoading = ref(false)
+const filterForm = reactive({
+  location: '',
+  minCapacity: null as number | null,
+  facility: '',
+})
+const slotQuery = reactive({
+  date: '',
+  startTime: '',
+  endTime: '',
+  active: false,
+})
+
 onMounted(async () => {
-  await roomStore.refreshRooms()
+  slotQuery.date = systemTime.date
+  await fetchRooms()
   await store.refreshCalendar(systemTime.date)
 })
 
 watch(() => systemTime.revision, () => void store.refreshCalendar(systemTime.date))
+
+function filterParams(): RoomFilterParams {
+  return {
+    location: filterForm.location.trim() || undefined,
+    minCapacity: filterForm.minCapacity ?? undefined,
+    facility: filterForm.facility.trim() || undefined,
+  }
+}
+
+/** 按当前查询模式取数：空闲查询激活时叠加日期时段，否则仅按筛选条件。 */
+async function fetchRooms() {
+  roomsLoading.value = true
+  try {
+    rooms.value = slotQuery.active
+      ? await roomQueryApi.available(slotQuery.date, slotQuery.startTime, slotQuery.endTime, filterParams())
+      : await roomQueryApi.list(filterParams())
+  } catch (error) {
+    ElMessage.error(error instanceof ApiError ? error.message : '查询会议室失败')
+  } finally {
+    roomsLoading.value = false
+  }
+}
+
+async function queryAvailable() {
+  if (!slotQuery.date || !slotQuery.startTime || !slotQuery.endTime) {
+    ElMessage.warning('请先选择查询日期与起止时间')
+    return
+  }
+  slotQuery.active = true
+  await fetchRooms()
+}
+
+async function clearSlotQuery() {
+  slotQuery.active = false
+  await fetchRooms()
+}
+
+async function resetFilters() {
+  filterForm.location = ''
+  filterForm.minCapacity = null
+  filterForm.facility = ''
+  slotQuery.active = false
+  await fetchRooms()
+}
+
+const availabilitySummary = computed(() => {
+  if (!slotQuery.active) return ''
+  const crossesDay = slotQuery.endTime <= slotQuery.startTime
+  return `${slotQuery.date} ${slotQuery.startTime} ~ ${slotQuery.endTime}${crossesDay ? '（次日结束）' : ''}，共 ${rooms.value.length} 间空闲`
+})
 
 interface RoomCard extends MeetingRoom {
   displayStatus: 'available' | 'in-use' | 'maintenance' | 'disabled'
@@ -36,7 +101,7 @@ interface RoomCard extends MeetingRoom {
 const cards = computed<RoomCard[]>(() => {
   const current = systemTime.now
   const now = current.getHours() * 60 + current.getMinutes()
-  return roomStore.rooms.map((room) => {
+  return rooms.value.map((room) => {
     const today = store.listByRoomAndDate(room.id, systemTime.date)
     const inUse = today.some(
       (r) => now >= toMinutes(r.startTime) && now < toMinutes(r.endTime),
@@ -113,9 +178,90 @@ async function submitRepair() {
   <div class="page rooms-page">
     <span class="page-eyebrow">Rooms / Live status</span>
     <h2 class="page-title">会议室</h2>
-    <p class="page-subtitle">查看会议室容量、设备与当前使用状态（状态根据当前时间实时计算）</p>
+    <p class="page-subtitle">按位置、容量与设备筛选会议室，并可查询指定日期时段内的空闲会议室</p>
 
-    <el-row :gutter="14">
+    <div class="panel filter-panel">
+      <el-form inline label-width="72px" class="filter-form" @submit.prevent>
+        <el-form-item label="位置">
+          <el-input
+            v-model="filterForm.location"
+            placeholder="位置关键字，如 3F"
+            clearable
+            style="width: 150px"
+            @keyup.enter="fetchRooms"
+            @clear="fetchRooms"
+          />
+        </el-form-item>
+        <el-form-item label="最小容量">
+          <el-input-number
+            v-model="filterForm.minCapacity"
+            :min="1"
+            placeholder="人数"
+            controls-position="right"
+            style="width: 130px"
+          />
+        </el-form-item>
+        <el-form-item label="设备">
+          <el-input
+            v-model="filterForm.facility"
+            placeholder="设施关键字，如 投影"
+            clearable
+            style="width: 150px"
+            @keyup.enter="fetchRooms"
+            @clear="fetchRooms"
+          />
+        </el-form-item>
+        <el-form-item label="空闲时段">
+          <el-date-picker
+            v-model="slotQuery.date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="日期"
+            style="width: 130px"
+          />
+          <el-time-select
+            v-model="slotQuery.startTime"
+            start="00:00"
+            end="23:30"
+            step="00:30"
+            placeholder="开始"
+            style="width: 104px; margin-left: 8px"
+          />
+          <el-time-select
+            v-model="slotQuery.endTime"
+            start="00:00"
+            end="23:30"
+            step="00:30"
+            placeholder="结束"
+            style="width: 104px; margin-left: 8px"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="roomsLoading" @click="fetchRooms">查询</el-button>
+          <el-button :loading="roomsLoading" @click="queryAvailable">查空闲</el-button>
+          <el-button text @click="resetFilters">重置</el-button>
+        </el-form-item>
+      </el-form>
+      <div class="filter-hint">
+        结束时间不晚于开始时间按次日结束计算（跨天）；“查空闲”仅返回该时段无预约且处于可预约状态的会议室。
+      </div>
+      <el-alert
+        v-if="slotQuery.active"
+        type="success"
+        :closable="false"
+        show-icon
+        class="slot-banner"
+      >
+        <template #title>
+          空闲查询：{{ availabilitySummary }}
+          <el-button link type="primary" @click="clearSlotQuery">清除时段过滤</el-button>
+        </template>
+      </el-alert>
+    </div>
+
+    <el-empty v-if="!cards.length && !roomsLoading" description="没有符合条件的会议室" :image-size="90" />
+
+    <el-row v-show="cards.length" :gutter="14">
       <el-col v-for="card in cards" :key="card.id" :xs="24" :sm="12" :md="8" :lg="8" class="room-col">
         <div class="panel room-card" :class="`room-card--${card.displayStatus}`">
           <div class="room-head">
@@ -198,6 +344,21 @@ async function submitRepair() {
 </template>
 
 <style scoped>
+.filter-panel {
+  margin-bottom: 16px;
+  padding: 16px 18px 4px;
+}
+
+.filter-hint {
+  margin: -8px 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.slot-banner {
+  margin-bottom: 12px;
+}
+
 .room-col {
   margin-bottom: 14px;
 }
