@@ -125,6 +125,15 @@ const cards = computed<RoomCard[]>(() => {
   })
 })
 
+/* —— 展示模式：卡片网格或任务书表述的"列表" —— */
+const viewMode = ref<'card' | 'list'>('card')
+const STATUS_TAG_TYPE: Record<RoomCard['displayStatus'], 'success' | 'warning' | 'info'> = {
+  available: 'success',
+  'in-use': 'warning',
+  maintenance: 'warning',
+  disabled: 'info',
+}
+
 /* —— 设施报修 —— */
 const repairVisible = ref(false)
 const repairSaving = ref(false)
@@ -205,9 +214,9 @@ async function submitRepair() {
         </div>
         <div class="field">
           <span class="field-label">设备</span>
-          <el-input
+            <el-input
             v-model="filterForm.facility"
-            placeholder="设施关键字，如 投影"
+            placeholder="设施关键字，如 投影/白板"
             clearable
             :prefix-icon="Monitor"
             @keyup.enter="fetchRooms"
@@ -265,6 +274,13 @@ async function submitRepair() {
       </div>
     </div>
 
+    <div class="view-toolbar">
+      <el-radio-group v-model="viewMode" size="small">
+        <el-radio-button value="card">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+
     <div v-if="!cards.length && !roomsLoading" class="panel empty-panel">
       <div class="empty-icon">
         <el-icon :size="26"><Calendar /></el-icon>
@@ -276,7 +292,7 @@ async function submitRepair() {
       <el-button plain type="primary" :icon="RefreshLeft" @click="resetFilters">重置筛选</el-button>
     </div>
 
-    <el-row v-show="cards.length" v-loading="roomsLoading" :gutter="14">
+    <el-row v-if="viewMode === 'card'" v-show="cards.length" v-loading="roomsLoading" :gutter="14">
       <el-col v-for="card in cards" :key="card.id" :xs="24" :sm="12" :md="8" :lg="8" class="room-col">
         <div class="panel room-card" :class="`room-card--${card.displayStatus}`">
           <div class="room-head">
@@ -318,6 +334,49 @@ async function submitRepair() {
         </div>
       </el-col>
     </el-row>
+
+    <div v-if="viewMode === 'list'" v-show="cards.length" v-loading="roomsLoading" class="panel list-panel">
+      <el-table :data="cards" style="width: 100%">
+        <el-table-column prop="name" label="会议室" width="110" fixed="left" />
+        <el-table-column prop="location" label="位置" min-width="150" show-overflow-tooltip />
+        <el-table-column label="容量" width="80">
+          <template #default="{ row }">{{ row.capacity }} 人</template>
+        </el-table-column>
+        <el-table-column label="设备" min-width="230">
+          <template #default="{ row }">
+            <el-tag
+              v-for="eq in row.equipment"
+              :key="eq"
+              size="small"
+              type="info"
+              effect="plain"
+              class="eq-tag"
+            >
+              {{ eq }}
+            </el-tag>
+            <span v-if="row.equipment.length === 0" class="list-muted">无</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="96">
+          <template #default="{ row }">
+            <el-tag :type="STATUS_TAG_TYPE[row.displayStatus as RoomCard['displayStatus']]" size="small" effect="light">
+              {{ row.statusLabel }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="今日预约" width="90" align="center">
+          <template #default="{ row }">{{ row.todayCount }} 场</template>
+        </el-table-column>
+        <el-table-column label="下一场" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.nextSlot ?? '今日无后续预约' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="openRepair(row)">设施报修</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <el-dialog
       v-model="repairVisible"
@@ -523,6 +582,26 @@ async function submitRepair() {
 .empty-desc {
   margin-bottom: 14px;
   font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* —— 展示模式切换与列表视图 —— */
+.view-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.list-panel {
+  padding: 8px 14px 12px;
+}
+
+.list-room-name {
+  font-weight: 600;
+}
+
+.list-muted {
+  font-size: 12px;
   color: var(--text-muted);
 }
 
