@@ -39,6 +39,12 @@ const router = createRouter({
           component: () => import('@/views/MeetingRooms.vue'),
           meta: { title: '会议室' },
         },
+        {
+          path: 'manual',
+          name: 'manual',
+          component: () => import('@/views/ManualView.vue'),
+          meta: { title: '说明书' },
+        },
 
         /* —— 管理员（需要 admin 角色，守卫中校验） —— */
         {

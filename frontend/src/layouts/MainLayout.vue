@@ -20,12 +20,14 @@ import {
   Tools,
   User,
   AlarmClock,
+  Reading,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemTimeStore } from '@/stores/systemTime'
 import NotificationBell from '@/modules/meeting/components/NotificationBell.vue'
 import SystemTimeControl from '@/components/SystemTimeControl.vue'
+import timeSlotLogo from '../../assets/timeSlot.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,6 +39,7 @@ const userMenus = [
   { path: '/my', label: '我的预约', icon: Tickets },
   { path: '/meetings', label: '我的会议', icon: AlarmClock },
   { path: '/rooms', label: '会议室', icon: OfficeBuilding },
+  { path: '/manual', label: '说明书', icon: Reading },
 ]
 
 const adminMenus = [
@@ -221,7 +224,7 @@ function onUserCommand(command: string) {
         >
           <el-icon><Menu /></el-icon>
         </button>
-        <div class="brand-logo">智</div>
+        <img class="brand-logo" :src="timeSlotLogo" alt="TimeSlot logo" />
         <div class="brand-copy">
           <span class="brand-name">智会会议室预约系统</span>
           <span class="brand-kicker">TIME / SLOT WORKSPACE</span>
@@ -404,18 +407,12 @@ function onUserCommand(command: string) {
 }
 
 .brand-logo {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  border-radius: 11px;
-  color: #fff;
-  background: linear-gradient(145deg, #1687f5, #0066cc);
-  box-shadow: 0 6px 14px rgba(0, 113, 227, 0.23);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.08em;
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(0, 113, 227, 0.18));
 }
 
 .brand-copy {

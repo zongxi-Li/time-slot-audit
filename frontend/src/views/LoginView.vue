@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ApiError } from '@/shared/api'
 import { useAuthStore } from '@/stores/auth'
+import timeSlotLogo from '../../assets/timeSlot.png'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -36,7 +37,7 @@ async function submit() {
 
     <main class="login-shell">
       <section class="login-intro" aria-label="TimeSlot 产品介绍">
-        <div class="intro-mark">智</div>
+        <img class="intro-mark" :src="timeSlotLogo" alt="TimeSlot logo" />
         <span class="intro-kicker">TIME / SLOT WORKSPACE</span>
         <h1>把时间留给真正重要的事。</h1>
         <p>清晰查看空闲时间，轻松找到适合每个人的会议室。</p>
@@ -103,10 +104,10 @@ async function submit() {
 }
 
 .login-orb--large {
-  width: 580px;
-  height: 580px;
-  right: -180px;
-  top: -230px;
+  width: 760px;
+  height: 760px;
+  right: -310px;
+  top: -340px;
   box-shadow: 0 0 0 44px rgba(0, 113, 227, 0.025), 0 0 0 90px rgba(0, 113, 227, 0.018);
 }
 
@@ -122,28 +123,23 @@ async function submit() {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(240px, 0.9fr) minmax(340px, 420px);
+  grid-template-columns: minmax(420px, 1fr) minmax(440px, 520px);
   align-items: center;
-  gap: clamp(48px, 8vw, 132px);
-  width: min(100%, 1000px);
+  gap: clamp(72px, 8vw, 140px);
+  width: min(100%, 1200px);
 }
 
 .login-intro {
-  padding: 24px 0;
+  padding: 32px 0;
 }
 
 .intro-mark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 34px;
-  place-items: center;
-  border-radius: 15px;
-  color: #fff;
-  background: linear-gradient(145deg, #1687f5, #0066cc);
-  box-shadow: 0 10px 22px rgba(0, 113, 227, 0.22);
-  font-size: 20px;
-  font-weight: 700;
+  display: block;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 18px rgba(0, 113, 227, 0.18));
 }
 
 .intro-kicker,
@@ -155,9 +151,9 @@ async function submit() {
 }
 
 .login-intro h1 {
-  max-width: 440px;
-  margin: 18px 0 16px;
-  font-size: clamp(38px, 5vw, 64px);
+  max-width: 540px;
+  margin: 22px 0 20px;
+  font-size: clamp(44px, 5vw, 76px);
   font-weight: 700;
   letter-spacing: -0.07em;
   line-height: 1.05;
@@ -165,18 +161,18 @@ async function submit() {
 }
 
 .login-intro p {
-  max-width: 330px;
+  max-width: 410px;
   margin: 0;
   color: var(--text-secondary);
-  font-size: 16px;
-  line-height: 26px;
+  font-size: 18px;
+  line-height: 30px;
   text-wrap: pretty;
 }
 
 .intro-rule {
-  width: 64px;
+  width: 80px;
   height: 1px;
-  margin: 44px 0 16px;
+  margin: 56px 0 22px;
   background: rgba(29, 29, 31, 0.18);
 }
 
@@ -187,19 +183,20 @@ async function submit() {
 }
 
 .login-card {
-  padding: 34px;
+  padding: 48px;
+  border-radius: 28px;
   background: rgba(255, 255, 255, 0.78);
   border-color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 30px 80px rgba(29, 29, 31, 0.1), 0 4px 18px rgba(29, 29, 31, 0.04);
+  box-shadow: 0 36px 92px rgba(29, 29, 31, 0.11), 0 6px 22px rgba(29, 29, 31, 0.045);
 }
 
 .login-card-head {
-  margin-bottom: 28px;
+  margin-bottom: 34px;
 }
 
 .login-card h2 {
-  margin: 11px 0 6px;
-  font-size: 26px;
+  margin: 14px 0 8px;
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.045em;
 }
@@ -207,25 +204,30 @@ async function submit() {
 .login-card-head p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .login-card :deep(.el-form-item) {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .login-card :deep(.el-form-item__label) {
-  padding-bottom: 8px;
+  padding-bottom: 10px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
+}
+
+.login-card :deep(.el-input__wrapper) {
+  min-height: 48px;
+  border-radius: 14px;
 }
 
 .login-button {
   width: 100%;
-  height: 44px;
-  margin-top: 8px;
-  border-radius: 13px;
+  height: 56px;
+  margin-top: 12px;
+  border-radius: 15px;
 }
 
 .login-hint {
@@ -233,10 +235,10 @@ async function submit() {
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-top: 24px;
+  margin-top: 32px;
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 18px;
+  font-size: 12px;
+  line-height: 20px;
 }
 
 .login-hint code {
@@ -245,7 +247,7 @@ async function submit() {
   color: var(--text-secondary);
   background: rgba(29, 29, 31, 0.055);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .hint-separator {

@@ -1,41 +1,107 @@
-# 后端模块说明
+# TimeSlot 后端
 
-`backend/` 是 TimeSlot 的 Spring Boot 后端，负责认证、会议室资源、预约、会议执行和管理员功能。技术栈为 Java 21、Spring Boot 3.3、Spring Security、JWT、MyBatis 和 MySQL。
+backend/ 是 TimeSlot 的 Spring Boot 模块化单体后端，负责认证、预约、资源、会议执行和管理员运营能力。后端不使用 JPA/Hibernate，持久化链路是：
 
-## 请求链路
+~~~text
+HTTP Request
+  → Controller
+  → Domain Service
+  → MyBatis Mapper
+  → MySQL
+~~~
 
-```text
-HTTP 请求 → Controller → Service → Mapper → MySQL
-                         ↓
-                   跨域查询 Service
-```
+## 技术栈
 
-- `common/`：统一响应、异常、JWT 认证和安全配置。
-- `identity/`：登录、用户、部门、信用分、违规记录和预约资格。
-- `resource/`：会议室、分类、设施、开放时间、维护和报修。
-- `reservation/`：创建、查询、修改、取消预约以及时间冲突检查。
-- `meeting/`：参会人、签到签退、会议执行状态和通知。
-- `administration/`：预约审批、强制取消、审计日志和运营统计。
+- Java 21
+- Spring Boot 3.3.5
+- Spring Web / Validation / Security
+- MyBatis Spring Boot 3.0.3
+- MySQL Connector/J
+- JWT 0.12.6
+- Maven
 
-每个业务域通常包含 `controller/`、`service/`、`domain/`、`dto/` 和 `mapper/`：Controller 暴露接口，Service 编排业务规则，Domain 表示业务对象，DTO 负责接口数据，Mapper 使用 MyBatis 执行 SQL。
+## 领域模块
 
-## 主要接口
+| 模块 | 职责 | 代表入口 |
+|:---|:---|:---|
+| common | 统一响应、异常、安全、业务时钟和预约窗口 | common/api、common/security、common/time |
+| identity | 登录、用户、部门、资格、信用和违规 | AuthController、UserController、UserAdminController |
+| resource | 会议室、分类、设施、开放规则、维护和报修 | RoomController、RoomAdminController |
+| reservation | 预约查询、创建、修改、取消、生命周期和冲突检查 | ReservationController、ReservationService |
+| meeting | 参会人、签到签退、出勤、提醒和通知 | MeetingExecutionController、NotificationController |
+| administration | 审批、强制取消、审计日志、CSV 和统计 | AdministrationController |
 
-| 领域 | 主要接口前缀 | 作用 |
-|---|---|---|
-| identity | `/api/auth`、`/api/users`、`/api/admin/users` | 登录、当前用户和用户管理 |
-| resource | `/api/rooms`、`/api/admin/rooms` | 查询和管理会议室资源 |
-| reservation | `/api/reservations` | 日历、我的预约、创建、修改和取消 |
-| meeting | `/api/meetings`、`/api/notifications` | 会议执行、参会人和通知 |
-| administration | `/api/admin/reservations`、`/api/admin/audit-logs`、`/api/admin/statistics` | 审批、审计和统计 |
+## API 入口
 
-## 阅读入口
+| API 前缀 | 说明 |
+|:---|:---|
+| /api/auth、/api/users | 登录、当前用户和预约资格 |
+| /api/rooms | 用户查询会议室和提交报修 |
+| /api/reservations | 日历、我的预约、创建、修改、详情和取消 |
+| /api/meetings | 我的会议、参会人、签到、签退和出勤 |
+| /api/notifications | 通知列表、未读数和已读操作 |
+| /api/admin/users、/api/admin/departments | 用户、部门和信用治理 |
+| /api/admin/rooms、/api/admin/room-categories | 会议室、分类、设施、开放规则和维护 |
+| /api/admin/repair-tickets | 报修工单处理 |
+| /api/admin/reservations | 审批和强制取消 |
+| /api/admin/audit-logs、/api/admin/statistics | 审计和运营分析 |
+| /api/system-time、/api/booking-window | 业务时钟和预约窗口 |
 
-预约核心调用链：reservation/controller/ReservationController.java → reservation/service/ReservationService.java → reservation/mapper/ReservationMapper.java。
+完整请求字段和错误码见 [接口契约](../docs/开发文档/api-contract-v0.2.md)。
 
-## 配置与测试
+## 关键业务边界
 
-- `src/main/resources/application.yml`：端口、MySQL 和 JWT 配置。
-- `src/test/`：单元测试和数据库并发集成测试。
-- 运行：`mvn spring-boot:run`。
-- 测试：`mvn test`。
+- reservation 是预约事实的拥有者；meeting 通过查询服务读取预约，不直接修改预约状态。
+- 创建预约时先锁定对应 meeting_room 行，再执行冲突检查和插入。
+- 冲突只考虑 PENDING、CONFIRMED，区间使用 [start, end)。
+- 管理员审批通过、驳回和强制取消通过生命周期服务完成，并写入审计记录。
+- 通知通过 ReservationNotificationPort 等接口由业务动作触发，通知表使用去重键避免调度重复写入。
+- 系统时间用于业务规则和演示测试；JWT 过期仍基于墙上时钟。
+
+## 配置
+
+配置文件：src/main/resources/application.yml。
+
+| 环境变量 | 用途 | 默认/说明 |
+|:---|:---|:---|
+| DB_URL | MySQL JDBC 地址 | 默认连接 meeting_room |
+| DB_USERNAME | 数据库用户 | root |
+| DB_PASSWORD | 数据库密码 | 空值，建议通过 .env.local 提供 |
+| JWT_SECRET | JWT 签名密钥 | 必须显式提供足够长度的本地密钥 |
+| SERVER_PORT | 服务端口 | 8080；端口冲突时与前端代理一起改为 8081 |
+| JWT_EXPIRATION_SECONDS | JWT 有效期 | 86400 |
+
+## 运行与验证
+
+从仓库根目录推荐运行：
+
+~~~powershell
+.\start-dev.cmd
+~~~
+
+手动运行后端：
+
+~~~powershell
+cd backend
+mvn spring-boot:run
+~~~
+
+运行测试：
+
+~~~powershell
+mvn test
+~~~
+
+## 源码阅读顺序
+
+预约主链路：
+
+~~~text
+reservation/controller/ReservationController.java
+  → reservation/service/ReservationService.java
+  → reservation/service/ReservationLifecycleService.java
+  → reservation/mapper/ReservationMapper.java
+  → sql/schema.sql + sql/migrations/
+~~~
+
+领域包边界和跨域调用规则见 [com.timeslot 领域边界](src/main/java/com/timeslot/README.md)。

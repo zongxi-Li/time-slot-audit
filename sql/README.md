@@ -1,23 +1,58 @@
-# 数据库模块说明
+# TimeSlot 数据库脚本
 
-`sql/` 保存会议室预约系统的 MySQL 数据库脚本，数据库名称为 `meeting_room`。
+sql/ 保存 meeting_room 数据库的 MySQL 8.x 初始化脚本和增量迁移。数据库采用 InnoDB、utf8mb4、snake_case、BIGINT 主键和 DATETIME；状态机取值由应用层维护，数据库保存字符串事实。
 
-- `schema.sql`：完整数据库结构，包含用户、部门、会议室、设施、开放规则、预约、审批、日志、维护和报修表。
-- `data.sql`：本地演示和测试所需的初始数据。
-- `migrations/`：已有数据库的增量升级脚本，按 `V1_1` 到 `V1_9` 顺序执行。
+## 文件职责
 
-## 关键关系
+| 文件 | 用途 | 注意事项 |
+|:---|:---|:---|
+| schema.sql | 从零重建完整表结构 | 会删除并重建业务表，不能用于保留数据的数据库 |
+| data.sql | 本地演示/测试种子 | 会清空并重建演示数据，密码为 BCrypt 摘要对应的 123456 |
+| migrations/V1_*.sql | 存量数据库增量升级 | 按文件名顺序执行，当前到 V1_10__booking_window_config.sql |
 
-```text
-sys_user → reservation ← meeting_room ← room_category
-    ↓                         ↓
-user_violation          approval_record / operation_log
-                              ↓
-                 meeting execution / notification
-```
+## 表关系
 
-预约创建由后端锁定 `meeting_room` 行后检查时间冲突。冲突条件是半开区间 `[start, end)` 重叠，即新预约开始时间早于旧预约结束时间，且新预约结束时间晚于旧预约开始时间。
+~~~text
+department ──< sys_user ──< user_violation
+                         └──< reservation ──< approval_record
+meeting_room ──< reservation
+     ├──< room_facility
+     ├──< room_open_rule
+     ├──< room_maintenance
+     └──< facility_repair_ticket
 
-## 使用方式
+reservation ──< reservation_attendee ──< notification
+reservation ──< operation_log
+~~~
 
-首次初始化执行 `schema.sql` 和 `data.sql`；已有旧库时按版本顺序执行 `migrations/`。数据库账号和密码只放在项目根目录的 `.env.local` 或环境变量中，不要提交到 Git。
+实际表结构以 schema.sql 和对应迁移为准；执行前请检查当前数据库版本，避免把 reset-style 脚本用于生产或已存在业务数据的数据库。
+
+## 初始化新数据库
+
+~~~powershell
+mysql --default-character-set=utf8mb4 -u<user> -p < sql/schema.sql
+mysql --default-character-set=utf8mb4 -u<user> -p meeting_room < sql/data.sql
+~~~
+
+schema.sql 会创建 meeting_room 数据库。若 MySQL 用户没有创建数据库权限，请先由管理员创建数据库并授予权限。
+
+## 升级已有数据库
+
+不要对已有数据库重新执行 data.sql。按版本顺序执行迁移：
+
+~~~powershell
+Get-ChildItem sql/migrations/V1_*.sql |
+  Sort-Object Name |
+  ForEach-Object { Get-Content $_ -Raw | mysql --default-character-set=utf8mb4 -u<user> -p meeting_room }
+~~~
+
+迁移当前覆盖：团队基线、预约强化、身份治理、资源管理、会议执行、管理运营、状态检查、乐观锁、系统时间和预约窗口。
+
+## 关键数据库约定
+
+- 预约创建由后端锁定 meeting_room 行，再查询冲突并写入。
+- 有效冲突状态是 PENDING 和 CONFIRMED。
+- 时间区间为半开区间 [start, end)，相邻预约可以首尾相接。
+- requestId 和唯一约束支撑创建幂等；version 支撑预约修改的乐观锁。
+- 业务时间配置保存在 system_time_config；JWT 安全时间不由该表控制。
+- 数据库账号、密码和 JWT 密钥只放在 .env.local 或环境变量中。
