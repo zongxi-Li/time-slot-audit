@@ -5,6 +5,7 @@ export { formatDateTime } from '@/utils/datetime'
 export type {
   AttendeeView,
   AttendanceView,
+  MeetingExecutionRecordView,
   MeetingExecutionView,
   NotificationView,
 } from './api'

@@ -19,6 +19,20 @@ DELETE /api/meetings/{reservationId}/attendees/{userId}
 POST   /api/meetings/{reservationId}/check-in
 POST   /api/meetings/{reservationId}/check-out
 GET    /api/meetings/{reservationId}/attendance
+GET    /api/meetings/{reservationId}/execution
+PUT    /api/meetings/{reservationId}/execution
+
+`PUT /api/meetings/{reservationId}/execution` 由预约组织者或管理员登记会议级实际使用结果：
+
+```json
+{
+  "actualStartTime": "2026-09-21T10:05:00",
+  "actualEndTime": "2026-09-21T11:10:00",
+  "actualAttendeeCount": 8
+}
+```
+
+该记录与预约一对一保存，预约表中的开始/结束时间仍表示计划时间；重复提交会修正同一条实际使用记录。
 GET    /api/notifications?unreadOnly=
 GET    /api/notifications/unread-count
 POST   /api/notifications/{id}/read

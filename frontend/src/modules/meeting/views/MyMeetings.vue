@@ -11,6 +11,7 @@ import { RESERVATION_STATUS_TEXT } from '@/utils/reservationStatus'
 import { useSystemTimeStore } from '@/stores/systemTime'
 import type { MeetingExecutionView } from '../api'
 import AttendeeManager from '../components/AttendeeManager.vue'
+import ExecutionRecordDialog from '../components/ExecutionRecordDialog.vue'
 
 type PhaseFilter = '全部' | '待开始' | '进行中' | '已结束' | '已取消'
 const phaseFilter = ref<PhaseFilter>('全部')
@@ -113,12 +114,24 @@ const managerVisible = ref(false)
 const managerId = ref<number | null>(null)
 const managerTitle = ref('')
 const managerCanManage = ref(false)
+const executionRecordVisible = ref(false)
+const executionTarget = ref<MeetingExecutionView | null>(null)
 
 function openManager(m: MeetingExecutionView) {
   managerId.value = m.reservationId
   managerTitle.value = m.title
   managerCanManage.value = canManage(m)
   managerVisible.value = true
+}
+
+function canRecordExecution(m: MeetingExecutionView): boolean {
+  return canManage(m) && m.reservationStatus === 'CONFIRMED'
+    && systemTime.now.getTime() >= new Date(m.endTime).getTime()
+}
+
+function openExecutionRecord(m: MeetingExecutionView) {
+  executionTarget.value = m
+  executionRecordVisible.value = true
 }
 </script>
 
@@ -159,6 +172,15 @@ function openManager(m: MeetingExecutionView) {
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="实际使用记录" min-width="190">
+          <template #default="{ row }">
+            <template v-if="row.actualStartTime && row.actualEndTime">
+              <div>{{ formatDateTime(row.actualStartTime) }} - {{ row.actualEndTime.slice(11, 16) }}</div>
+              <div class="muted-text">实际参会 {{ row.actualAttendeeCount ?? 0 }} 人</div>
+            </template>
+            <span v-else class="muted-text">未登记</span>
+          </template>
+        </el-table-column>
         <el-table-column label="阶段" width="90">
           <template #default="{ row }">
             <el-tag :type="phaseTagType[phaseOf(row)]" size="small" effect="light">
@@ -168,6 +190,15 @@ function openManager(m: MeetingExecutionView) {
         </el-table-column>
         <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
+            <el-button
+              v-if="canRecordExecution(row)"
+              link
+              type="success"
+              size="small"
+              @click="openExecutionRecord(row)"
+            >
+              {{ row.actualStartTime ? '修改使用记录' : '登记使用记录' }}
+            </el-button>
             <el-button
               v-if="canCheckIn(row)"
               type="success"
@@ -214,6 +245,16 @@ function openManager(m: MeetingExecutionView) {
       :can-manage="managerCanManage"
       @changed="load"
     />
+    <ExecutionRecordDialog
+      v-if="executionTarget"
+      v-model="executionRecordVisible"
+      :reservation-id="executionTarget.reservationId"
+      :reservation-title="executionTarget.title"
+      :actual-start-time="executionTarget.actualStartTime"
+      :actual-end-time="executionTarget.actualEndTime"
+      :actual-attendee-count="executionTarget.actualAttendeeCount"
+      @saved="load"
+    />
   </div>
 </template>
 
@@ -227,5 +268,10 @@ function openManager(m: MeetingExecutionView) {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 14px;
+}
+
+.muted-text {
+  color: var(--text-muted, #8b96a5);
+  font-size: 12px;
 }
 </style>

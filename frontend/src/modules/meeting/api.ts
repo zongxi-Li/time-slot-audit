@@ -42,6 +42,19 @@ export interface MeetingExecutionView {
   myAttendanceStatus: 'EXPECTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHOW'
   checkInAt: string | null
   checkOutAt: string | null
+  actualStartTime: string | null
+  actualEndTime: string | null
+  actualAttendeeCount: number | null
+}
+
+export interface MeetingExecutionRecordView {
+  reservationId: number
+  actualStartTime: string
+  actualEndTime: string
+  actualAttendeeCount: number
+  recordedBy: number
+  createdAt: string
+  updatedAt: string
 }
 
 /** 个人通知（与后端 NotificationView 对齐） */
@@ -80,6 +93,16 @@ export const meetingsApi = {
   },
   async attendance(reservationId: number | string) {
     return request<AttendanceView>(`/meetings/${reservationId}/attendance`)
+  },
+  async saveExecution(reservationId: number | string, payload: {
+    actualStartTime: string
+    actualEndTime: string
+    actualAttendeeCount: number
+  }) {
+    return request<MeetingExecutionRecordView>(`/meetings/${reservationId}/execution`, {
+      method: 'PUT',
+      body: payload,
+    })
   },
 }
 
