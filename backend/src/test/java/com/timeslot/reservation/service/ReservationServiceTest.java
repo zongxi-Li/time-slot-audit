@@ -37,6 +37,7 @@ import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -77,7 +78,7 @@ class ReservationServiceTest {
         when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
         when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(room);
         when(bookingWindowService.get()).thenReturn(DEFAULT_WINDOW);
-        when(reservationMapper.countConflicts(anyLong(), any(), any())).thenReturn(0);
+        when(reservationMapper.findFirstConflict(anyLong(), any(), any(), any())).thenReturn(null);
         // 默认桩：expected-state UPDATE 命中 1 行；模拟并发失配的测试自行改为 0。
         when(reservationMapper.updateScheduleAndStatus(any(), anyString(), anyInt())).thenReturn(1);
         when(reservationMapper.cancelExpected(anyLong(), anyString(), anyString(), any())).thenReturn(1);
@@ -96,7 +97,7 @@ class ReservationServiceTest {
         verify(reservationMapper).insert(any(Reservation.class));
         InOrder order = inOrder(resourceBookingQueryService, reservationMapper);
         order.verify(resourceBookingQueryService).lockBookableRoom(1L);
-        order.verify(reservationMapper).countConflicts(anyLong(), any(), any());
+        order.verify(reservationMapper).findFirstConflict(anyLong(), any(), any(), any());
     }
 
     @Test
@@ -111,12 +112,31 @@ class ReservationServiceTest {
 
     @Test
     void conflictReturnsConflictCodeAndDoesNotInsert() {
-        when(reservationMapper.countConflicts(anyLong(), any(), any())).thenReturn(1);
+        when(reservationMapper.findFirstConflict(anyLong(), any(), any(), any())).thenReturn(conflictingReservation());
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(request()));
 
         assertEquals(ErrorCode.RESERVATION_TIME_CONFLICT, exception.getCode());
+        // 任务书要求：冲突提示必须说明冲突会议主题与占用时段。
+        assertTrue(exception.getMessage().contains("季度复盘会"));
+        assertTrue(exception.getMessage().contains("2026-09-12 10:30"));
+        assertTrue(exception.getMessage().contains("2026-09-12 11:30"));
         verify(reservationMapper, never()).insert(any());
+    }
+
+    /** 与新建请求（10:00..11:00）后段重叠的冲突单，用于验证提示内容。 */
+    private Reservation conflictingReservation() {
+        Reservation conflict = new Reservation();
+        conflict.setId(99L);
+        conflict.setRoomId(1L);
+        conflict.setUserId(3L);
+        conflict.setRoomName("A301");
+        conflict.setUserName("李四");
+        conflict.setTitle("季度复盘会");
+        conflict.setStartTime(LocalDateTime.of(2026, 9, 12, 10, 30));
+        conflict.setEndTime(LocalDateTime.of(2026, 9, 12, 11, 30));
+        conflict.setStatus(ReservationStatus.CONFIRMED);
+        return conflict;
     }
 
     @Test
@@ -265,7 +285,7 @@ class ReservationServiceTest {
 
         assertEquals(43L, service.createReservation(request()).id());
         verify(resourceBookingQueryService).lockBookableRoom(1L);
-        verify(reservationMapper, never()).countConflicts(anyLong(), any(), any());
+        verify(reservationMapper, never()).findFirstConflict(anyLong(), any(), any(), any());
         verify(reservationMapper, never()).insert(any());
     }
 
@@ -340,7 +360,7 @@ class ReservationServiceTest {
         assertEquals(LocalDateTime.of(2026, 9, 12, 16, 0), response.startTime());
         assertEquals("CONFIRMED", response.status());
         verify(resourceBookingQueryService).lockBookableRoom(1L);
-        verify(reservationMapper).countConflictsExcluding(1L,
+        verify(reservationMapper).findFirstConflict(1L,
                 LocalDateTime.of(2026, 9, 12, 16, 0), LocalDateTime.of(2026, 9, 12, 17, 0), 7L);
         // 改期字段与重算后的状态必须同一条 UPDATE 原子写入。
         verify(reservationMapper).updateScheduleAndStatus(reservation, "CONFIRMED", 0);
@@ -413,11 +433,12 @@ class ReservationServiceTest {
     @Test
     void rescheduleConflictIsRejectedWithoutUpdate() {
         when(reservationMapper.findByIdForUpdate(7L)).thenReturn(ownedReservation(2L));
-        when(reservationMapper.countConflictsExcluding(anyLong(), any(), any(), anyLong())).thenReturn(1);
+        when(reservationMapper.findFirstConflict(anyLong(), any(), any(), anyLong())).thenReturn(conflictingReservation());
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.update(7L, updateRequest()));
 
         assertEquals(ErrorCode.RESERVATION_TIME_CONFLICT, exception.getCode());
+        assertTrue(exception.getMessage().contains("季度复盘会"));
         verify(reservationMapper, never()).updateScheduleAndStatus(any(), anyString(), anyInt());
     }
 

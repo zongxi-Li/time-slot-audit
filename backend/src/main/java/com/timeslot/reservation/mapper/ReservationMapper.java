@@ -51,28 +51,29 @@ public interface ReservationMapper {
             """)
     Reservation findByIdForUpdate(Long id);
 
+    /**
+     * 查询与给定时段重叠的第一条有效预约（PENDING/CONFIRMED）。半开区间判定：
+     * start_time < endTime AND end_time > startTime，结束等于开始不算冲突。
+     * 冲突提示必须说明冲突会议主题与占用时段，因此查出整行而非 COUNT；
+     * {@code excludeId} 供改期排除自身，创建路径传 NULL。
+     */
     @Select("""
-            SELECT COUNT(*)
-            FROM reservation
-            WHERE room_id = #{roomId}
-              AND status IN ('PENDING', 'CONFIRMED')
-              AND start_time < #{endTime}
-              AND end_time > #{startTime}
+            SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
+                   mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
+                   r.participant_count, r.status, r.remark, r.version
+            FROM reservation r
+            JOIN meeting_room mr ON mr.id = r.room_id
+            JOIN sys_user u ON u.id = r.user_id
+            WHERE r.room_id = #{roomId}
+              AND r.status IN ('PENDING', 'CONFIRMED')
+              AND r.start_time < #{endTime}
+              AND r.end_time > #{startTime}
+              AND (#{excludeId} IS NULL OR r.id != #{excludeId})
+            ORDER BY r.start_time
+            LIMIT 1
             """)
-    int countConflicts(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
-                       @Param("endTime") LocalDateTime endTime);
-
-    @Select("""
-            SELECT COUNT(*)
-            FROM reservation
-            WHERE room_id = #{roomId}
-              AND status IN ('PENDING', 'CONFIRMED')
-              AND id != #{excludeId}
-              AND start_time < #{endTime}
-              AND end_time > #{startTime}
-            """)
-    int countConflictsExcluding(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
-                                @Param("endTime") LocalDateTime endTime, @Param("excludeId") Long excludeId);
+    Reservation findFirstConflict(@Param("roomId") Long roomId, @Param("startTime") LocalDateTime startTime,
+                                  @Param("endTime") LocalDateTime endTime, @Param("excludeId") Long excludeId);
 
     /**
      * 改期必须把预约字段和重算后的状态在同一个 UPDATE 中原子持久化；

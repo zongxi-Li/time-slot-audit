@@ -39,6 +39,10 @@ import java.util.UUID;
 
 @Service
 public class ReservationService {
+    /** 冲突提示中的占用时段展示格式；带完整日期以覆盖跨天预约。 */
+    private static final java.time.format.DateTimeFormatter CONFLICT_SLOT_FORMATTER =
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     private final ReservationMapper reservationMapper;
     private final ResourceBookingQueryService resourceBookingQueryService;
     private final BookingQualificationService bookingQualificationService;
@@ -278,11 +282,14 @@ public class ReservationService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
                     "预约时间不在开放的可预约时段内（" + window.startLabel() + " 至 " + window.endLabel() + "）");
         }
-        int conflicts = excludeReservationId == null
-                ? reservationMapper.countConflicts(room.roomId(), interval.start(), interval.end())
-                : reservationMapper.countConflictsExcluding(room.roomId(), interval.start(), interval.end(), excludeReservationId);
-        if (conflicts > 0) {
-            throw new BusinessException(ErrorCode.RESERVATION_TIME_CONFLICT, "该时段已被其他用户占用");
+        // 冲突必须说明冲突会议主题与占用时段，因此查出第一条冲突单而不是只计数。
+        Reservation conflict = reservationMapper.findFirstConflict(room.roomId(), interval.start(),
+                interval.end(), excludeReservationId);
+        if (conflict != null) {
+            throw new BusinessException(ErrorCode.RESERVATION_TIME_CONFLICT,
+                    "预约时间冲突：与已有预约「" + conflict.getTitle() + "」时间重叠（对方占用 "
+                            + CONFLICT_SLOT_FORMATTER.format(conflict.getStartTime()) + " 至 "
+                            + CONFLICT_SLOT_FORMATTER.format(conflict.getEndTime()) + "）");
         }
     }
 }
