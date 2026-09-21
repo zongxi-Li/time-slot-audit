@@ -5,7 +5,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LaidOutReservation } from '@/utils/grid'
-import { parseDateStr, timeLabel } from '@/utils/datetime'
+import { timeLabel } from '@/utils/datetime'
+import { reservationTimePhase } from '@/utils/reservationStatus'
 import { useReservationStore } from '@/stores/reservation'
 import { useSystemTimeStore } from '@/stores/systemTime'
 
@@ -28,28 +29,10 @@ const timeMeta = computed(() => `${timeLabel(r.value.startTime)} - ${timeLabel(r
 /** 后端状态是大写枚举，CSS 类名统一转小写，避免大小写不匹配导致配色失效 */
 const statusClass = computed(() => `status-${(r.value.status ?? '').toLowerCase()}`)
 
-/** 预约某天的某时刻；结束小时可 ≥24（次日约定），setHours 自动进位到次日 */
-function momentOf(time: string): Date {
-  const d = parseDateStr(r.value.date)
-  const [h, m] = time.split(':').map(Number)
-  d.setHours(h, m, 0, 0)
-  return d
-}
-
-/**
- * 时间推导态（状态机没有 COMPLETED，结束与否由业务时钟判定）：
- * 已结束 = 有效预约且已过结束时刻；进行中 = 已确认且当前落在时段内。
- */
-const isEnded = computed(() => {
-  if (r.value.status !== 'CONFIRMED' && r.value.status !== 'PENDING') return false
-  return momentOf(r.value.endTime).getTime() <= systemTime.now.getTime()
-})
-
-const isOngoing = computed(() => {
-  if (r.value.status !== 'CONFIRMED') return false
-  const now = systemTime.now.getTime()
-  return momentOf(r.value.startTime).getTime() <= now && now < momentOf(r.value.endTime).getTime()
-})
+/** 时间推导态（状态机没有 COMPLETED，结束与否由业务时钟判定） */
+const timePhase = computed(() => reservationTimePhase(r.value, systemTime.now))
+const isEnded = computed(() => timePhase.value === 'ended')
+const isOngoing = computed(() => timePhase.value === 'ongoing')
 
 const cardStyle = computed(() => {
   const { top, height, lane, laneCount } = props.item

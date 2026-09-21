@@ -12,8 +12,14 @@ import { useSystemTimeStore } from '@/stores/systemTime'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { administrationApi } from '@/modules/administration/api'
-import { parseDateStr } from '@/utils/datetime'
-import { RESERVATION_STATUS_TAG, RESERVATION_STATUS_TEXT } from '@/utils/reservationStatus'
+import {
+  RESERVATION_PHASE_TAG,
+  RESERVATION_PHASE_TEXT,
+  RESERVATION_STATUS_TAG,
+  RESERVATION_STATUS_TEXT,
+  reservationMoment,
+  reservationTimePhase,
+} from '@/utils/reservationStatus'
 
 const visible = defineModel<boolean>({ default: false })
 
@@ -42,25 +48,18 @@ const isMine = computed(
   () => reservation.value?.userId === auth.currentUser.id,
 )
 
-/** 预约某天的某个时刻（与后端业务时钟 systemTime 对齐） */
-function reservationMoment(time: string): Date {
-  const r = reservation.value!
-  const d = parseDateStr(r.date)
-  const [h, m] = time.split(':').map(Number)
-  d.setHours(h, m, 0, 0)
-  return d
-}
-
 /** 已结束（结束时间不晚于当前时间）的预约不允许再取消 */
 const isEnded = computed(() => {
   if (!reservation.value) return false
-  return reservationMoment(reservation.value.endTime).getTime() <= systemTime.now.getTime()
+  return reservationMoment(reservation.value.date, reservation.value.endTime).getTime()
+    <= systemTime.now.getTime()
 })
 
 /** 已开始（开始时间不晚于当前时间）的预约不允许再审批，与后端 requireBeforeStart 一致 */
 const isStarted = computed(() => {
   if (!reservation.value) return false
-  return reservationMoment(reservation.value.startTime).getTime() <= systemTime.now.getTime()
+  return reservationMoment(reservation.value.date, reservation.value.startTime).getTime()
+    <= systemTime.now.getTime()
 })
 
 const canCancel = computed(
@@ -75,6 +74,11 @@ const canAudit = computed(
 /** 待审核但已开始：审批按钮消失时给出解释，避免像“点击没反应” */
 const pendingStarted = computed(
   () => auth.isAdmin && reservation.value?.status === 'PENDING' && isStarted.value,
+)
+
+/** 详情标签的时间推导态：进行中/已结束优先于数据库状态展示 */
+const timePhase = computed(() =>
+  reservation.value ? reservationTimePhase(reservation.value, systemTime.now) : null,
 )
 
 /* panel 模式：侧栏为固定定位的整条右栏，打开时让页面布局为其让位（见文件底部全局样式） */
@@ -205,8 +209,12 @@ async function handleAudit(approve: boolean) {
     <template v-if="reservation">
       <div class="detail-head">
         <div class="detail-title">{{ reservation.title }}</div>
-        <el-tag :type="RESERVATION_STATUS_TAG[reservation.status]" size="small" effect="light">
-          {{ RESERVATION_STATUS_TEXT[reservation.status] }}
+        <el-tag
+          :type="timePhase ? RESERVATION_PHASE_TAG[timePhase] : RESERVATION_STATUS_TAG[reservation.status]"
+          size="small"
+          effect="light"
+        >
+          {{ timePhase ? RESERVATION_PHASE_TEXT[timePhase] : RESERVATION_STATUS_TEXT[reservation.status] }}
         </el-tag>
       </div>
 
@@ -270,8 +278,12 @@ async function handleAudit(approve: boolean) {
       <template v-if="reservation">
         <div class="detail-head">
           <div class="detail-title">预约信息</div>
-          <el-tag :type="RESERVATION_STATUS_TAG[reservation.status]" size="small" effect="light">
-            {{ RESERVATION_STATUS_TEXT[reservation.status] }}
+          <el-tag
+            :type="timePhase ? RESERVATION_PHASE_TAG[timePhase] : RESERVATION_STATUS_TAG[reservation.status]"
+            size="small"
+            effect="light"
+          >
+            {{ timePhase ? RESERVATION_PHASE_TEXT[timePhase] : RESERVATION_STATUS_TEXT[reservation.status] }}
           </el-tag>
         </div>
 
