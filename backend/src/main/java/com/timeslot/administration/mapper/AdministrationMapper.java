@@ -136,4 +136,63 @@ public interface AdministrationMapper {
             """)
     List<PeakHourResponse> findPeakHours(@Param("start") LocalDateTime start,
                                          @Param("end") LocalDateTime end);
+
+    /**
+     * 全量会议室（含零使用）在统计周期内的已确认使用明细；使用率/日均时长的
+     * 除数（开放总时长、天数）由服务层结合全局可预约窗口计算。
+     */
+    @Select("""
+            SELECT mr.id AS room_id, mr.room_name,
+                   COUNT(r.id) AS confirmed_count,
+                   ROUND(COALESCE(SUM(TIMESTAMPDIFF(MINUTE,
+                       GREATEST(r.start_time, #{start}), LEAST(r.end_time, #{end}))), 0) / 60.0, 2) AS used_hours
+            FROM meeting_room mr
+            LEFT JOIN reservation r
+                   ON r.room_id = mr.id
+                  AND r.status = 'CONFIRMED'
+                  AND r.start_time < #{end}
+                  AND r.end_time > #{start}
+            GROUP BY mr.id, mr.room_name
+            ORDER BY used_hours DESC, mr.id
+            """)
+    List<RoomUsageStatRow> findRoomUsageStats(@Param("start") LocalDateTime start,
+                                              @Param("end") LocalDateTime end);
+
+    /** 统计周期内已确认会议的应到人次（出勤表全部行）。 */
+    @Select("""
+            SELECT COUNT(*)
+            FROM reservation_attendee a
+            JOIN reservation r ON r.id = a.reservation_id
+            WHERE r.status = 'CONFIRMED'
+              AND r.start_time < #{end} AND r.end_time > #{start}
+            """)
+    long countAttendees(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    /** 统计周期内已确认会议的爽约人次（NO_SHOW）。 */
+    @Select("""
+            SELECT COUNT(*)
+            FROM reservation_attendee a
+            JOIN reservation r ON r.id = a.reservation_id
+            WHERE a.attendance_status = 'NO_SHOW'
+              AND r.status = 'CONFIRMED'
+              AND r.start_time < #{end} AND r.end_time > #{start}
+            """)
+    long countNoShowAttendees(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    /** 使用率明细查询的行结构（服务层再换算为带比率的响应 DTO）。 */
+    class RoomUsageStatRow {
+        private Long roomId;
+        private String roomName;
+        private Long confirmedCount;
+        private java.math.BigDecimal usedHours;
+
+        public Long getRoomId() { return roomId; }
+        public void setRoomId(Long roomId) { this.roomId = roomId; }
+        public String getRoomName() { return roomName; }
+        public void setRoomName(String roomName) { this.roomName = roomName; }
+        public Long getConfirmedCount() { return confirmedCount; }
+        public void setConfirmedCount(Long confirmedCount) { this.confirmedCount = confirmedCount; }
+        public java.math.BigDecimal getUsedHours() { return usedHours; }
+        public void setUsedHours(java.math.BigDecimal usedHours) { this.usedHours = usedHours; }
+    }
 }

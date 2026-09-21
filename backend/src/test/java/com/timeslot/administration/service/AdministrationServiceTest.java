@@ -9,6 +9,8 @@ import com.timeslot.administration.dto.AdminReservationRow;
 import com.timeslot.administration.mapper.AdministrationMapper;
 import com.timeslot.administration.spi.ReservationLifecyclePort;
 import com.timeslot.common.api.ErrorCode;
+import com.timeslot.common.bookingwindow.BookingWindowResponse;
+import com.timeslot.common.bookingwindow.BookingWindowService;
 import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.common.security.AuthenticatedUser;
@@ -43,6 +45,7 @@ class AdministrationServiceTest {
     @Mock ObjectProvider<ReservationLifecyclePort> lifecycleProvider;
     @Mock ReservationLifecyclePort lifecycle;
     @Mock ReservationNotificationPort notificationPort;
+    @Mock BookingWindowService bookingWindowService;
 
     private AdministrationService service;
     private AdminReservationRow pending;
@@ -50,7 +53,8 @@ class AdministrationServiceTest {
     @BeforeEach
     void setUp() {
         service = new AdministrationService(mapper, currentUserProvider, lifecycleProvider, notificationPort,
-                Clock.systemDefaultZone());
+                bookingWindowService, Clock.systemDefaultZone());
+        when(bookingWindowService.get()).thenReturn(new BookingWindowResponse(480, 1920));
         pending = reservation("PENDING");
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(1L, "admin", "ADMIN"));
         when(lifecycleProvider.getIfAvailable()).thenReturn(lifecycle);
@@ -116,6 +120,39 @@ class AdministrationServiceTest {
         service.auditLogs(1L, " reservation ", null, null, 99999);
 
         verify(mapper).findAuditLogs(1L, "RESERVATION", null, null, 5000);
+    }
+
+    /** 任务书点名三项聚合：使用率、日均会议时长、爽约率的换算口径。 */
+    @Test
+    void dashboardComputesUtilizationAvgDailyHoursAndNoShowRate() {
+        LocalDateTime start = LocalDateTime.of(2026, 9, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, 9, 21, 0, 0);
+        when(mapper.countReservations(start, end)).thenReturn(10L);
+        when(mapper.countCancelledReservations(start, end)).thenReturn(2L);
+        AdministrationMapper.RoomUsageStatRow used = new AdministrationMapper.RoomUsageStatRow();
+        used.setRoomId(1L);
+        used.setRoomName("A301");
+        used.setConfirmedCount(5L);
+        used.setUsedHours(new java.math.BigDecimal("14.00"));
+        AdministrationMapper.RoomUsageStatRow idle = new AdministrationMapper.RoomUsageStatRow();
+        idle.setRoomId(2L);
+        idle.setRoomName("A302");
+        idle.setConfirmedCount(0L);
+        idle.setUsedHours(java.math.BigDecimal.ZERO);
+        when(mapper.findRoomUsageStats(start, end)).thenReturn(List.of(used, idle));
+        when(mapper.countAttendees(start, end)).thenReturn(40L);
+        when(mapper.countNoShowAttendees(start, end)).thenReturn(10L);
+
+        var dashboard = service.dashboard(start, end, 5);
+
+        // 20 天 × 每日开放 24h（窗口 480..1920 即 1440 分钟）= 480h 开放时长：A301 使用率 2.92%、日均 0.70h
+        assertEquals(20L, dashboard.statDays());
+        assertEquals(2, dashboard.roomUtilizations().size());
+        assertEquals(new java.math.BigDecimal("2.92"), dashboard.roomUtilizations().get(0).utilizationRate());
+        assertEquals(new java.math.BigDecimal("0.70"), dashboard.roomUtilizations().get(0).avgDailyHours());
+        assertEquals(new java.math.BigDecimal("0.00"), dashboard.roomUtilizations().get(1).utilizationRate());
+        assertEquals(new java.math.BigDecimal("0.70"), dashboard.avgDailyMeetingHours());
+        assertEquals(new java.math.BigDecimal("25.00"), dashboard.noShowRate());
     }
 
     private AdminReservationRow reservation(String status) {

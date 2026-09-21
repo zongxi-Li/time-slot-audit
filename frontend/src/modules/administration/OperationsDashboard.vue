@@ -14,6 +14,8 @@ const range = ref<[Date, Date] | null>(null)
 
 const maxRoomHours = computed(() => Math.max(...(dashboard.value?.popularRooms.map((item) => Number(item.usedHours)) ?? [1]), 1))
 const maxPeakCount = computed(() => Math.max(...(dashboard.value?.peakHours.map((item) => item.bookingCount) ?? [1]), 1))
+const maxUtilization = computed(() =>
+  Math.max(...(dashboard.value?.roomUtilizations.map((item) => Number(item.utilizationRate)) ?? [1]), 1))
 
 async function load() {
   loading.value = true
@@ -47,9 +49,11 @@ onMounted(load)
     <template v-if="dashboard">
       <div class="metric-grid">
         <article class="panel metric"><span>预约总数</span><strong>{{ dashboard.totalReservations }}</strong></article>
-        <article class="panel metric"><span>取消预约</span><strong>{{ dashboard.cancelledReservations }}</strong></article>
         <article class="panel metric"><span>取消率</span><strong>{{ dashboard.cancellationRate }}%</strong></article>
-        <article class="panel metric"><span>统计会议室</span><strong>{{ dashboard.popularRooms.length }}</strong></article>
+        <article class="panel metric"><span>日均会议时长</span><strong>{{ dashboard.avgDailyMeetingHours }}h</strong></article>
+        <article class="panel metric"><span>爽约率</span><strong>{{ dashboard.noShowRate }}%</strong></article>
+        <article class="panel metric"><span>统计天数</span><strong>{{ dashboard.statDays }}</strong></article>
+        <article class="panel metric"><span>统计会议室</span><strong>{{ dashboard.roomUtilizations.length }}</strong></article>
       </div>
 
       <div class="chart-grid">
@@ -81,22 +85,41 @@ onMounted(load)
           <el-empty v-else description="区间内暂无已确认预约" :image-size="72" />
         </section>
       </div>
+
+      <section class="panel chart-card utilization-card">
+        <h3>各会议室使用率</h3>
+        <p>已确认会议时长 ÷（统计天数 × 每日开放时长），附带日均会议时长与场次</p>
+        <div v-if="dashboard.roomUtilizations.length" class="bars">
+          <div v-for="room in dashboard.roomUtilizations" :key="room.roomId" class="bar-row bar-row--wide">
+            <span class="bar-label">{{ room.roomName }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" :style="{ width: `${Number(room.utilizationRate) / maxUtilization * 100}%` }" />
+            </div>
+            <strong>{{ room.utilizationRate }}%</strong>
+            <small class="bar-meta">{{ room.avgDailyHours }}h/天 · {{ room.confirmedCount }} 场 · {{ room.usedHours }}h</small>
+          </div>
+        </div>
+        <el-empty v-else description="暂无会议室数据" :image-size="72" />
+      </section>
     </template>
   </div>
 </template>
 
 <style scoped>
 .range-toolbar { display: flex; gap: 10px; margin-bottom: 18px; }
-.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .metric { padding: 20px; }
 .metric span { display: block; color: var(--text-muted); font-size: 12px; }
 .metric strong { display: block; margin-top: 6px; font-size: 30px; }
-.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
 .chart-card { min-height: 310px; padding: 22px; }
+.utilization-card { min-height: 0; }
 .chart-card h3 { margin: 0 0 5px; }
 .chart-card > p { margin: 0 0 24px; color: var(--text-muted); font-size: 12px; }
 .bars { display: grid; gap: 16px; }
 .bar-row { display: grid; grid-template-columns: 80px 1fr 55px; align-items: center; gap: 10px; }
+.bar-row--wide { grid-template-columns: 90px 1fr 64px 210px; }
+.bar-meta { color: var(--text-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-track { height: 10px; overflow: hidden; background: #edf1f5; border-radius: 99px; }
 .bar-fill { height: 100%; min-width: 3px; background: linear-gradient(90deg, #0071e3, #5ac8fa); border-radius: inherit; }

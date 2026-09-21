@@ -51,6 +51,16 @@ export interface PeakHour {
   bookingCount: number
 }
 
+/** 会议室使用率明细：使用率 = 已确认使用时长 ÷（统计天数 × 每日开放时长） */
+export interface RoomUtilization {
+  roomId: number
+  roomName: string
+  confirmedCount: number
+  usedHours: number
+  avgDailyHours: number
+  utilizationRate: number
+}
+
 export interface OperationsDashboard {
   start: string
   end: string
@@ -59,4 +69,11 @@ export interface OperationsDashboard {
   cancellationRate: number
   popularRooms: RoomUsage[]
   peakHours: PeakHour[]
+  /** 统计周期整日数 */
+  statDays: number
+  /** 已确认会议总时长 ÷ 统计天数 */
+  avgDailyMeetingHours: number
+  /** 爽约率：NO_SHOW 人次 ÷ 应到人次 × 100 */
+  noShowRate: number
+  roomUtilizations: RoomUtilization[]
 }

@@ -9,8 +9,11 @@ import com.timeslot.administration.dto.AdminReservationResponse;
 import com.timeslot.administration.dto.AdminReservationRow;
 import com.timeslot.administration.dto.AuditLogResponse;
 import com.timeslot.administration.dto.OperationsDashboardResponse;
+import com.timeslot.administration.dto.RoomUtilizationResponse;
 import com.timeslot.administration.spi.ReservationLifecyclePort;
 import com.timeslot.administration.mapper.AdministrationMapper;
+import com.timeslot.common.bookingwindow.BookingWindowResponse;
+import com.timeslot.common.bookingwindow.BookingWindowService;
 import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
@@ -25,6 +28,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -39,17 +43,20 @@ public class AdministrationService {
     private final CurrentUserProvider currentUserProvider;
     private final ObjectProvider<ReservationLifecyclePort> lifecycleProvider;
     private final ReservationNotificationPort notificationPort;
+    private final BookingWindowService bookingWindowService;
     private final Clock clock;
 
     public AdministrationService(AdministrationMapper mapper,
                                  CurrentUserProvider currentUserProvider,
                                  ObjectProvider<ReservationLifecyclePort> lifecycleProvider,
                                  ReservationNotificationPort notificationPort,
+                                 BookingWindowService bookingWindowService,
                                  Clock clock) {
         this.mapper = mapper;
         this.currentUserProvider = currentUserProvider;
         this.lifecycleProvider = lifecycleProvider;
         this.notificationPort = notificationPort;
+        this.bookingWindowService = bookingWindowService;
         this.clock = clock;
     }
 
@@ -127,8 +134,30 @@ public class AdministrationService {
         BigDecimal rate = total == 0 ? BigDecimal.ZERO : BigDecimal.valueOf(cancelled)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+
+        // 任务书点名三项：各会议室使用率、日均会议时长、爽约率，均为 SQL 聚合 + 服务层换算。
+        long statDays = Math.max(1, Duration.between(safeStart, safeEnd).toDays());
+        BookingWindowResponse window = bookingWindowService.get();
+        BigDecimal openHoursTotal = BigDecimal.valueOf(window.endMinute() - window.startMinute())
+                .multiply(BigDecimal.valueOf(statDays))
+                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        List<RoomUtilizationResponse> utilizations = mapper.findRoomUsageStats(safeStart, safeEnd).stream()
+                .map(row -> RoomUtilizationResponse.of(row.getRoomId(), row.getRoomName(),
+                        row.getConfirmedCount(), row.getUsedHours(), openHoursTotal, statDays))
+                .toList();
+        BigDecimal totalUsedHours = utilizations.stream()
+                .map(RoomUtilizationResponse::usedHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal avgDailyMeetingHours = totalUsedHours.divide(BigDecimal.valueOf(statDays), 2, RoundingMode.HALF_UP);
+        long attendees = mapper.countAttendees(safeStart, safeEnd);
+        long noShows = mapper.countNoShowAttendees(safeStart, safeEnd);
+        BigDecimal noShowRate = attendees == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(noShows).multiply(BigDecimal.valueOf(100))
+                        .divide(BigDecimal.valueOf(attendees), 2, RoundingMode.HALF_UP);
+
         return new OperationsDashboardResponse(safeStart, safeEnd, total, cancelled, rate,
-                mapper.findPopularRooms(safeStart, safeEnd, safeTop), mapper.findPeakHours(safeStart, safeEnd));
+                mapper.findPopularRooms(safeStart, safeEnd, safeTop), mapper.findPeakHours(safeStart, safeEnd),
+                statDays, avgDailyMeetingHours, noShowRate, utilizations);
     }
 
     public byte[] exportAuditLogs(Long operatorId, String businessType,
