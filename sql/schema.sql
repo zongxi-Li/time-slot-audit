@@ -2,9 +2,9 @@
 -- 会议室预约与时间冲突检查系统 —— 数据库建表脚本
 -- -----------------------------------------------------------------------------
 -- 目标数据库 : MySQL 8.x
--- 版本       : v1.5（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 + V1_4 资源管理
---              2026-09-15 + V1_5 会议执行 2026-09-21）
---              本文件始终表示从零初始化后的最新完整结构，已含全部 16 张表，
+-- 版本       : v1.11（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 + V1_4 资源管理
+--              V1_5 会议执行 2026-09-21 + V1_11 实际使用记录 2026-09-21）
+--              本文件始终表示从零初始化后的最新完整结构，已含全部 17 张表，
 --              从零初始化只需 schema.sql + data.sql；存量库升级请按序执行
 --              sql/migrations/ 下的增量脚本（见 docs/development/database-evolution.md）
 -- 设计约定   : InnoDB / utf8mb4 / snake_case / BIGINT 主键 / DATETIME 时间
@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS user_violation;
 DROP TABLE IF EXISTS operation_log;
 DROP TABLE IF EXISTS notification;
 DROP TABLE IF EXISTS reservation_attendee;
+DROP TABLE IF EXISTS meeting_execution;
 DROP TABLE IF EXISTS approval_record;
 DROP TABLE IF EXISTS reservation;
 DROP TABLE IF EXISTS facility_repair_ticket;
@@ -276,7 +277,29 @@ CREATE TABLE approval_record (
 ) ENGINE = InnoDB COMMENT = '审批记录表（审批行为历史）';
 
 -- =============================================================================
--- 12. reservation_attendee 预约参与人与执行出勤表（v1.5 会议执行）
+-- 12. meeting_execution 会议实际使用记录（v1.11）
+--    职责：保存一场预约的实际开始时间、实际结束时间和实际参会人数。
+--    reservation.start_time/end_time 仍是计划时间，本表只记录执行结果；
+--    一条预约最多一条记录，重复登记表示修正结果，不产生重复历史行。
+-- =============================================================================
+CREATE TABLE meeting_execution (
+    reservation_id        BIGINT NOT NULL                COMMENT '预约ID（一对一）',
+    actual_start_time     DATETIME NOT NULL              COMMENT '实际开始时间',
+    actual_end_time       DATETIME NOT NULL              COMMENT '实际结束时间',
+    actual_attendee_count INT      NOT NULL              COMMENT '实际参会人数，可为0',
+    recorded_by           BIGINT NOT NULL                COMMENT '登记人用户ID（组织者或管理员）',
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次登记时间',
+    updated_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修正时间',
+    PRIMARY KEY (reservation_id),
+    KEY idx_execution_recorded_by (recorded_by),
+    CONSTRAINT chk_execution_period CHECK (actual_end_time > actual_start_time),
+    CONSTRAINT chk_execution_attendee_count CHECK (actual_attendee_count >= 0),
+    CONSTRAINT fk_execution_reservation FOREIGN KEY (reservation_id) REFERENCES reservation (id),
+    CONSTRAINT fk_execution_recorded_by FOREIGN KEY (recorded_by) REFERENCES sys_user (id)
+) ENGINE = InnoDB COMMENT = '会议实际使用记录（meeting 域）';
+
+-- =============================================================================
+-- 13. reservation_attendee 预约参与人与执行出勤表（v1.5 会议执行）
 --    职责：只记录预约执行阶段的事实（谁参与、是否签到/签退、是否缺席）；
 --    禁止本表触发 reservation.status 的任何更新（所有权归预约域）。
 --    出勤状态机（应用层维护）：EXPECTED -> CHECKED_IN -> CHECKED_OUT；
@@ -304,7 +327,7 @@ CREATE TABLE reservation_attendee (
 ) ENGINE = InnoDB COMMENT = '预约参与人与执行出勤表（meeting 域）';
 
 -- =============================================================================
--- 13. notification 个人通知表（v1.5 会议执行）
+-- 14. notification 个人通知表（v1.5 会议执行）
 --    职责：meeting 域业务内通知（被加入/移出会议、会议开始提醒、No-Show 结果）。
 --    幂等：uk_notification_dedup(user_id, dedup_key) + INSERT IGNORE，
 --    调度类通知使用确定性 dedup_key，重复执行不产生重复通知。
@@ -328,7 +351,7 @@ CREATE TABLE notification (
 ) ENGINE = InnoDB COMMENT = '个人通知表（meeting 域）';
 
 -- =============================================================================
--- 14. operation_log 操作日志表
+-- 15. operation_log 操作日志表
 --    职责：只记录关键管理行为（审批/驳回、会议室增改、分类修改、强制取消等），
 --    不记录所有 HTTP 请求。只增不改，不设 updated_at。
 -- =============================================================================
@@ -348,7 +371,7 @@ CREATE TABLE operation_log (
 ) ENGINE = InnoDB COMMENT = '操作日志表（关键管理行为）';
 
 -- =============================================================================
--- 15. system_time_config: singleton business clock configuration
+-- 16. system_time_config: singleton business clock configuration
 -- =============================================================================
 CREATE TABLE system_time_config (
     id          TINYINT      NOT NULL COMMENT 'singleton row; always 1',
@@ -361,7 +384,7 @@ CREATE TABLE system_time_config (
 INSERT INTO system_time_config (id, fixed_time) VALUES (1, NULL);
 
 -- =============================================================================
--- 16. booking_window_config: singleton admin-controlled bookable time window
+-- 17. booking_window_config: singleton admin-controlled bookable time window
 -- =============================================================================
 CREATE TABLE booking_window_config (
     id           TINYINT      NOT NULL COMMENT 'singleton row; always 1',
