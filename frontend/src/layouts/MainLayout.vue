@@ -26,6 +26,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemTimeStore } from '@/stores/systemTime'
 import NotificationBell from '@/modules/meeting/components/NotificationBell.vue'
+import RejectionBanner from '@/modules/meeting/components/RejectionBanner.vue'
 import SystemTimeControl from '@/components/SystemTimeControl.vue'
 import timeSlotLogo from '../../assets/timeSlot.png'
 
@@ -260,6 +261,9 @@ function onUserCommand(command: string) {
       </el-dropdown>
       </div>
     </el-header>
+
+    <!-- 登录后存在未读驳回通知时，在顶栏下方展示醒目横幅（可关闭，关闭即标记已读） -->
+    <RejectionBanner />
 
     <el-container class="layout-body">
       <button
