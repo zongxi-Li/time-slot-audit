@@ -4,10 +4,11 @@
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Aim, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
 import { useReservationStore } from '@/stores/reservation'
 import { useBookingWindowStore } from '@/stores/bookingWindow'
+import { useWeekColumnsStore } from '@/stores/weekColumns'
 import {
   addDays,
   formatDateRange,
@@ -26,6 +27,7 @@ const roomStore = useMeetingRoomStore()
 const store = useReservationStore()
 const systemTime = useSystemTimeStore()
 const bookingWindow = useBookingWindowStore()
+const weekColumns = useWeekColumnsStore()
 
 /* —— 看板状态 —— */
 const selectedDate = ref(systemTime.date)
@@ -170,6 +172,15 @@ function openDetail(id: string) {
             </el-button>
           </el-button-group>
           <span class="week-range">{{ weekRangeLabel }}</span>
+          <el-button
+            v-if="viewMode === 'week'"
+            :icon="Aim"
+            :disabled="!weekColumns.hasCustom"
+            title="拖动表头右缘可调整列宽；点击恢复各列等分布局"
+            @click="weekColumns.resetAll()"
+          >
+            列宽归位
+          </el-button>
         </div>
 
         <div v-if="viewMode === 'day'" class="day-tabs">

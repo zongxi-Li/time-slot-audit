@@ -16,6 +16,7 @@ import {
   weekdayName,
 } from '@/utils/datetime'
 import { layoutReservations } from '@/utils/grid'
+import { useWeekColumnsStore } from '@/stores/weekColumns'
 import type { MeetingRoom, SlotSelection } from '@/types'
 import ReservationCard from './ReservationCard.vue'
 
@@ -230,15 +231,75 @@ function onPanPointerUp() {
   panning.value = false
   panOffset.value = 0 // 松手后由过渡动画滑回列对齐位
 }
+
+/* —— 列宽拖拽：表头右缘手柄，Excel 式逐列调宽 —— */
+const weekColumns = useWeekColumnsStore()
+
+/** 已拖过的列固定 px，其余列保持等分弹性宽度，网格始终铺满面板 */
+const columnTemplate = computed(() => {
+  const cols = props.days.map((_, index) => {
+    const width = weekColumns.widths[index] ?? null
+    return width !== null ? `${width}px` : 'minmax(122px, 1fr)'
+  })
+  return `64px ${cols.join(' ')}`
+})
+
+/** 全部列固定后网格收拢为实际总宽，避免右侧留一截无列的空白 */
+const gridMinWidth = computed(() => {
+  const widths = weekColumns.widths
+  if (!props.days.every((_, index) => (widths[index] ?? null) !== null)) return 1162
+  return 64 + widths.reduce<number>((sum, w) => sum + (w ?? 0), 0)
+})
+
+const resizingIndex = ref(-1)
+let resizeStartX = 0
+let resizeStartWidth = 0
+
+function onGripPointerDown(e: PointerEvent, index: number) {
+  if (e.button !== 0 || e.pointerType === 'touch') return
+  e.preventDefault()
+  e.stopPropagation()
+  const head = (e.currentTarget as HTMLElement).closest('.week-day-head') as HTMLElement
+  resizeStartX = e.clientX
+  resizeStartWidth = head.getBoundingClientRect().width
+  resizingIndex.value = index
+  try {
+    // 捕获在手柄上：拖出表头后仍持续跟手，也不会误触下方列的框选
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  } catch {
+    // 合成事件无真实 pointerId 时无需捕获
+  }
+}
+
+function onGripPointerMove(e: PointerEvent) {
+  if (resizingIndex.value < 0) return
+  if (e.buttons === 0) {
+    // 指针已抬起但 up 事件丢失（如捕获失败）时退出拖动，防止悬停误调列宽
+    resizingIndex.value = -1
+    return
+  }
+  // 只在真正拖动时写入自定义宽度：单纯点按手柄不改变布局
+  weekColumns.setWidth(resizingIndex.value, resizeStartWidth + (e.clientX - resizeStartX))
+}
+
+function onGripPointerUp() {
+  resizingIndex.value = -1
+}
+
+/** 双击手柄：只复位被双击的那一列 */
+function onGripDblClick(index: number) {
+  weekColumns.resetColumn(index)
+}
 </script>
 
 <template>
   <div class="week-wrap thin-scroll">
     <div
       class="week-grid"
-      :class="{ 'is-panning': panning }"
+      :class="{ 'is-panning': panning, 'is-resizing': resizingIndex >= 0 }"
       :style="{
-        gridTemplateColumns: `64px repeat(${days.length}, minmax(122px, 1fr))`,
+        gridTemplateColumns: columnTemplate,
+        minWidth: `${gridMinWidth}px`,
         transform: `translateX(${panOffset}px)`,
       }"
       @pointerdown="onPanPointerDown"
@@ -250,7 +311,7 @@ function onPanPointerUp() {
       <!-- 表头 -->
       <div class="week-corner">时间</div>
       <div
-        v-for="day in days"
+        v-for="(day, index) in days"
         :key="day"
         class="week-day-head"
         :class="{ 'is-today': isSystemToday(day) }"
@@ -258,6 +319,17 @@ function onPanPointerUp() {
         <span class="wh-name">{{ weekdayName(day) }}</span>
         <span class="wh-date">{{ formatShort(day) }}</span>
         <span v-if="isToday(day)" class="wh-today">今天</span>
+        <!-- 列宽拖拽手柄：骑在本列表头右缘，拖动调宽、双击复位 -->
+        <span
+          class="col-grip"
+          :class="{ 'is-active': resizingIndex === index }"
+          title="拖动调整列宽，双击复位"
+          @pointerdown="onGripPointerDown($event, index)"
+          @pointermove="onGripPointerMove"
+          @pointerup="onGripPointerUp"
+          @pointercancel="onGripPointerUp"
+          @dblclick="onGripDblClick(index)"
+        />
       </div>
 
       <!-- 时间轴 -->
@@ -331,6 +403,41 @@ function onPanPointerUp() {
   transition: none; /* 拖动中 1:1 跟手，不加过渡 */
   cursor: grabbing;
   user-select: none;
+}
+
+.week-grid.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* 列宽拖拽手柄：本列表头右缘 12px 的隐形热区 */
+.col-grip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 5;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+/* 悬停/拖动时亮起的竖条，贴在列边界内侧 */
+.col-grip::after {
+  content: '';
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  right: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 150ms ease;
+}
+
+.col-grip:hover::after,
+.col-grip.is-active::after {
+  background: var(--el-color-primary);
+  box-shadow: 0 0 6px rgba(0, 113, 227, 0.55);
 }
 
 .week-grid.is-panning .week-day-col {
