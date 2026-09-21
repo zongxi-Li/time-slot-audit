@@ -5,8 +5,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LaidOutReservation } from '@/utils/grid'
-import { timeLabel } from '@/utils/datetime'
+import { parseDateStr, timeLabel } from '@/utils/datetime'
 import { useReservationStore } from '@/stores/reservation'
+import { useSystemTimeStore } from '@/stores/systemTime'
 
 const props = defineProps<{
   item: LaidOutReservation
@@ -19,12 +20,36 @@ const emit = defineEmits<{
 }>()
 
 const store = useReservationStore()
+const systemTime = useSystemTimeStore()
 const r = computed(() => props.item.reservation)
 const isMine = computed(() => r.value.userId === store.currentUser.id)
 const timeMeta = computed(() => `${timeLabel(r.value.startTime)} - ${timeLabel(r.value.endTime)}`)
 
 /** 后端状态是大写枚举，CSS 类名统一转小写，避免大小写不匹配导致配色失效 */
 const statusClass = computed(() => `status-${(r.value.status ?? '').toLowerCase()}`)
+
+/** 预约某天的某时刻；结束小时可 ≥24（次日约定），setHours 自动进位到次日 */
+function momentOf(time: string): Date {
+  const d = parseDateStr(r.value.date)
+  const [h, m] = time.split(':').map(Number)
+  d.setHours(h, m, 0, 0)
+  return d
+}
+
+/**
+ * 时间推导态（状态机没有 COMPLETED，结束与否由业务时钟判定）：
+ * 已结束 = 有效预约且已过结束时刻；进行中 = 已确认且当前落在时段内。
+ */
+const isEnded = computed(() => {
+  if (r.value.status !== 'CONFIRMED' && r.value.status !== 'PENDING') return false
+  return momentOf(r.value.endTime).getTime() <= systemTime.now.getTime()
+})
+
+const isOngoing = computed(() => {
+  if (r.value.status !== 'CONFIRMED') return false
+  const now = systemTime.now.getTime()
+  return momentOf(r.value.startTime).getTime() <= now && now < momentOf(r.value.endTime).getTime()
+})
 
 const cardStyle = computed(() => {
   const { top, height, lane, laneCount } = props.item
@@ -44,7 +69,7 @@ const showOwner = computed(() => props.item.height >= 58)
 <template>
   <div
     class="res-card"
-    :class="[statusClass, { mine: isMine }]"
+    :class="[statusClass, { mine: isMine, 'is-ended': isEnded, 'is-ongoing': isOngoing }]"
     :style="cardStyle"
     :title="`${r.title} ${timeMeta} · ${r.userName}`"
     @click.stop="emit('open', r.id)"
@@ -52,6 +77,7 @@ const showOwner = computed(() => props.item.height >= 58)
     <div class="res-title">
       <span v-if="roomName" class="room-badge">{{ roomName }}</span>
       <span class="res-title-text">{{ r.title }}</span>
+      <span v-if="isOngoing" class="live-tag">进行中</span>
       <span v-if="isMine" class="mine-tag">我</span>
     </div>
     <div v-if="showMeta" class="res-meta">{{ timeMeta }}</div>
@@ -132,6 +158,50 @@ const showOwner = computed(() => props.item.height >= 58)
 
 .res-card.mine.status-pending {
   box-shadow: inset 0 0 0 1.5px rgba(214, 143, 29, 0.55), 0 3px 8px rgba(29, 29, 31, 0.055);
+}
+
+/* 进行中（已确认且当前落在时段内）：绿底强调，状态机里的「正在使用」 */
+.res-card.is-ongoing {
+  background: #d9f4e1;
+  border-color: rgba(52, 168, 83, 0.5);
+}
+
+.res-card.is-ongoing .res-title-text {
+  color: #14743a;
+}
+
+.res-card.is-ongoing .res-meta {
+  color: #42855a;
+}
+
+/* 已结束（有效预约但已过结束时刻）：整体置灰表示时段已用完 */
+.res-card.is-ended {
+  background: #eceef0;
+  border-color: rgba(29, 29, 31, 0.14);
+  opacity: 0.88;
+}
+
+.res-card.is-ended .res-title-text {
+  color: #8e9096;
+}
+
+.res-card.is-ended .res-meta {
+  color: #a4a6ab;
+}
+
+.res-card.is-ended:not(.status-cancelled):not(.status-rejected):hover {
+  box-shadow: 0 6px 14px rgba(29, 29, 31, 0.08);
+}
+
+.live-tag {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  background: rgba(52, 168, 83, 0.16);
+  color: #14743a;
 }
 
 .res-title {
