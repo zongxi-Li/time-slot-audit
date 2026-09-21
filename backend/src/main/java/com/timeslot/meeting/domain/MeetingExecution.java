@@ -23,6 +23,9 @@ public class MeetingExecution {
     private AttendeeStatus myStatus;
     private LocalDateTime checkInAt;
     private LocalDateTime checkOutAt;
+    private LocalDateTime actualStartTime;
+    private LocalDateTime actualEndTime;
+    private Integer actualAttendeeCount;
 
     public Long getReservationId() { return reservationId; }
     public void setReservationId(Long reservationId) { this.reservationId = reservationId; }
@@ -48,4 +51,10 @@ public class MeetingExecution {
     public void setCheckInAt(LocalDateTime checkInAt) { this.checkInAt = checkInAt; }
     public LocalDateTime getCheckOutAt() { return checkOutAt; }
     public void setCheckOutAt(LocalDateTime checkOutAt) { this.checkOutAt = checkOutAt; }
+    public LocalDateTime getActualStartTime() { return actualStartTime; }
+    public void setActualStartTime(LocalDateTime actualStartTime) { this.actualStartTime = actualStartTime; }
+    public LocalDateTime getActualEndTime() { return actualEndTime; }
+    public void setActualEndTime(LocalDateTime actualEndTime) { this.actualEndTime = actualEndTime; }
+    public Integer getActualAttendeeCount() { return actualAttendeeCount; }
+    public void setActualAttendeeCount(Integer actualAttendeeCount) { this.actualAttendeeCount = actualAttendeeCount; }
 }

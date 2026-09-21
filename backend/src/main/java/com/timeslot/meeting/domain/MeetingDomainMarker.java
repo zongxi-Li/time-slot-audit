@@ -4,7 +4,7 @@
  */
 package com.timeslot.meeting.domain;
 
-/** Boundary marker; execution-stage tables are intentionally deferred. */
+/** Boundary marker for attendee, notification and meeting-level execution records. */
 public final class MeetingDomainMarker {
     private MeetingDomainMarker() {
     }

@@ -11,10 +11,12 @@ import com.timeslot.common.security.CurrentUserProvider;
 import com.timeslot.meeting.domain.Attendee;
 import com.timeslot.meeting.domain.AttendeeRole;
 import com.timeslot.meeting.domain.AttendeeStatus;
+import com.timeslot.meeting.domain.MeetingExecutionRecord;
 import com.timeslot.meeting.domain.NotificationType;
 import com.timeslot.meeting.domain.UserRef;
 import com.timeslot.meeting.dto.AddAttendeeRequest;
 import com.timeslot.meeting.dto.AttendeeView;
+import com.timeslot.meeting.dto.SaveMeetingExecutionRequest;
 import com.timeslot.meeting.mapper.MeetingExecutionMapper;
 import com.timeslot.reservation.domain.Reservation;
 import com.timeslot.reservation.domain.ReservationStatus;
@@ -472,6 +474,73 @@ class MeetingExecutionServiceTest {
                 () -> service.attendance(RESERVATION_ID));
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
+    }
+
+    @Test
+    void organizerCanSaveActualMeetingExecutionRecordIdempotently() {
+        LocalDateTime actualStart = now.minusHours(1);
+        LocalDateTime actualEnd = now.minusMinutes(10);
+        MeetingExecutionRecord saved = new MeetingExecutionRecord();
+        saved.setReservationId(RESERVATION_ID);
+        saved.setActualStartTime(actualStart);
+        saved.setActualEndTime(actualEnd);
+        saved.setActualAttendeeCount(2);
+        saved.setRecordedBy(ORGANIZER_ID);
+        when(attendeeMapper.findExecutionRecord(RESERVATION_ID)).thenReturn(saved);
+
+        var view = service.saveExecutionRecord(RESERVATION_ID,
+                new SaveMeetingExecutionRequest(actualStart, actualEnd, 2));
+
+        assertEquals(actualStart, view.actualStartTime());
+        assertEquals(actualEnd, view.actualEndTime());
+        assertEquals(2, view.actualAttendeeCount());
+        verify(attendeeMapper).upsertExecutionRecord(RESERVATION_ID, actualStart, actualEnd, 2, ORGANIZER_ID);
+    }
+
+    @Test
+    void actualExecutionRecordRejectsInvalidPeriod() {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.saveExecutionRecord(RESERVATION_ID,
+                        new SaveMeetingExecutionRequest(now, now, 1)));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
+        verify(attendeeMapper, never()).upsertExecutionRecord(anyLong(), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(), anyLong());
+    }
+
+    @Test
+    void actualExecutionRecordRejectsNegativeAttendeeCount() {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.saveExecutionRecord(RESERVATION_ID,
+                        new SaveMeetingExecutionRequest(now.minusHours(1), now.minusMinutes(1), -1)));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
+        verify(attendeeMapper, never()).upsertExecutionRecord(anyLong(), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(), anyLong());
+    }
+
+    @Test
+    void actualExecutionRecordRejectsFutureEndTime() {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.saveExecutionRecord(RESERVATION_ID,
+                        new SaveMeetingExecutionRequest(now, now.plusMinutes(30), 1)));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        verify(attendeeMapper, never()).upsertExecutionRecord(anyLong(), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(), anyLong());
+    }
+
+    @Test
+    void actualExecutionRecordRequiresOrganizerOrAdmin() {
+        when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(ATTENDEE_ID, "lisi", "USER"));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.saveExecutionRecord(RESERVATION_ID,
+                        new SaveMeetingExecutionRequest(now.minusHours(1), now.minusMinutes(1), 1)));
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getCode());
+        verify(attendeeMapper, never()).upsertExecutionRecord(anyLong(), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(), anyLong());
     }
 
     @Test

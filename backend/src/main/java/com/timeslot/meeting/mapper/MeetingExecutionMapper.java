@@ -6,6 +6,7 @@ package com.timeslot.meeting.mapper;
 
 import com.timeslot.meeting.domain.Attendee;
 import com.timeslot.meeting.domain.MeetingExecution;
+import com.timeslot.meeting.domain.MeetingExecutionRecord;
 import com.timeslot.meeting.domain.UserRef;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -20,7 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * meeting 域执行数据访问。写操作仅作用于 reservation_attendee；
+ * meeting 域执行数据访问。写操作仅作用于 meeting_execution / reservation_attendee；
  * 对 sys_user / reservation / meeting_room 只做只读 JOIN 用于解析与展示，
  * 预约业务事实（状态、时间、归属）一律通过 reservation 域公开查询服务获取。
  */
@@ -78,6 +79,37 @@ public interface MeetingExecutionMapper {
     int markNoShowForExpected(Long reservationId);
 
     // ---------------------------------------------------------------------
+    // 会议级实际使用记录（仅 meeting_execution）
+    // ---------------------------------------------------------------------
+
+    @Select("""
+            SELECT reservation_id, actual_start_time, actual_end_time, actual_attendee_count,
+                   recorded_by, created_at, updated_at
+            FROM meeting_execution
+            WHERE reservation_id = #{reservationId}
+            """)
+    MeetingExecutionRecord findExecutionRecord(Long reservationId);
+
+    /**
+     * 一场预约只允许一条会议级执行记录；重复登记视为修正记录，保持接口幂等。
+     */
+    @Insert("""
+            INSERT INTO meeting_execution
+                (reservation_id, actual_start_time, actual_end_time, actual_attendee_count, recorded_by)
+            VALUES (#{reservationId}, #{actualStartTime}, #{actualEndTime}, #{actualAttendeeCount}, #{recordedBy})
+            ON DUPLICATE KEY UPDATE
+                actual_start_time = VALUES(actual_start_time),
+                actual_end_time = VALUES(actual_end_time),
+                actual_attendee_count = VALUES(actual_attendee_count),
+                recorded_by = VALUES(recorded_by)
+            """)
+    int upsertExecutionRecord(@Param("reservationId") Long reservationId,
+                              @Param("actualStartTime") LocalDateTime actualStartTime,
+                              @Param("actualEndTime") LocalDateTime actualEndTime,
+                              @Param("actualAttendeeCount") Integer actualAttendeeCount,
+                              @Param("recordedBy") Long recordedBy);
+
+    // ---------------------------------------------------------------------
     // 参与人查询
     // ---------------------------------------------------------------------
 
@@ -114,19 +146,23 @@ public interface MeetingExecutionMapper {
                    r.status AS reservation_status, r.start_time, r.end_time,
                    COALESCE(a.attendee_role, 'ORGANIZER') AS attendee_role,
                    COALESCE(a.attendance_status, 'EXPECTED') AS attendance_status,
-                   a.check_in_at, a.check_out_at
+                   a.check_in_at, a.check_out_at,
+                   e.actual_start_time, e.actual_end_time, e.actual_attendee_count
             FROM reservation r
             JOIN meeting_room mr ON mr.id = r.room_id
             LEFT JOIN reservation_attendee a ON a.reservation_id = r.id AND a.user_id = #{userId}
+            LEFT JOIN meeting_execution e ON e.reservation_id = r.id
             WHERE r.user_id = #{userId}
             UNION
             SELECT r.id AS reservation_id, r.reservation_no, r.title, r.room_id, mr.room_name,
                    r.status AS reservation_status, r.start_time, r.end_time,
                    a.attendee_role, a.attendance_status,
-                   a.check_in_at, a.check_out_at
+                   a.check_in_at, a.check_out_at,
+                   e.actual_start_time, e.actual_end_time, e.actual_attendee_count
             FROM reservation_attendee a
             JOIN reservation r ON r.id = a.reservation_id
             JOIN meeting_room mr ON mr.id = r.room_id
+            LEFT JOIN meeting_execution e ON e.reservation_id = r.id
             WHERE a.user_id = #{userId}
             ORDER BY start_time DESC
             """)

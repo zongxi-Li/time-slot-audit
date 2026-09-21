@@ -18,6 +18,8 @@ import com.timeslot.meeting.dto.AddAttendeeRequest;
 import com.timeslot.meeting.dto.AttendanceView;
 import com.timeslot.meeting.dto.AttendeeView;
 import com.timeslot.meeting.dto.MeetingExecutionView;
+import com.timeslot.meeting.dto.MeetingExecutionRecordView;
+import com.timeslot.meeting.dto.SaveMeetingExecutionRequest;
 import com.timeslot.meeting.mapper.MeetingExecutionMapper;
 import com.timeslot.reservation.domain.Reservation;
 import com.timeslot.reservation.domain.ReservationStatus;
@@ -198,6 +200,55 @@ public class MeetingExecutionService {
                 rows.stream().filter(r -> r.getAttendanceStatus() == AttendeeStatus.CHECKED_OUT).count(),
                 rows.stream().filter(r -> r.getAttendanceStatus() == AttendeeStatus.NO_SHOW).count(),
                 rows.stream().map(AttendeeView::from).toList(), mine);
+    }
+
+    // ---------------------------------------------------------------------
+    // 会议级实际使用记录
+    // ---------------------------------------------------------------------
+
+    /**
+     * 由预约组织者或管理员保存一场会议的实际执行结果。
+     * 预约的 start_time/end_time 是计划时间，本方法只写 meeting_execution，二者不混用。
+     */
+    @Transactional
+    public MeetingExecutionRecordView saveExecutionRecord(Long reservationId, SaveMeetingExecutionRequest request) {
+        if (request == null || request.actualStartTime() == null || request.actualEndTime() == null
+                || request.actualAttendeeCount() == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
+                    "实际开始时间、实际结束时间和实际参会人数不能为空");
+        }
+        if (!request.actualEndTime().isAfter(request.actualStartTime())) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
+                    "实际结束时间必须晚于实际开始时间");
+        }
+        if (request.actualAttendeeCount() < 0) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
+                    "实际参会人数不能为负数");
+        }
+
+        AuthenticatedUser operator = currentUserProvider.getRequired();
+        Reservation reservation = reservationQueryService.requireReservation(reservationId);
+        requireManager(reservation, operator, "仅预约组织者或管理员可以登记会议实际使用记录");
+        if (reservation.getStatus() != ReservationStatus.CONFIRMED) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
+                    "只有已确认的预约可以登记会议实际使用记录");
+        }
+        if (request.actualEndTime().isAfter(LocalDateTime.now(clock))) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
+                    "实际结束时间不能晚于当前业务时间");
+        }
+
+        attendeeMapper.upsertExecutionRecord(reservationId, request.actualStartTime(), request.actualEndTime(),
+                request.actualAttendeeCount(), operator.userId());
+        return MeetingExecutionRecordView.from(attendeeMapper.findExecutionRecord(reservationId));
+    }
+
+    @Transactional(readOnly = true)
+    public MeetingExecutionRecordView executionRecord(Long reservationId) {
+        AuthenticatedUser operator = currentUserProvider.getRequired();
+        Reservation reservation = reservationQueryService.requireReservation(reservationId);
+        requireManager(reservation, operator, "仅预约组织者或管理员可以查看会议实际使用记录");
+        return MeetingExecutionRecordView.from(attendeeMapper.findExecutionRecord(reservationId));
     }
 
     // ---------------------------------------------------------------------

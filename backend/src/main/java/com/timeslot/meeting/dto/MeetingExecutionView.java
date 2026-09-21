@@ -12,13 +12,16 @@ import java.time.LocalDateTime;
 public record MeetingExecutionView(Long reservationId, String reservationNo, String title, Long roomId,
                                    String roomName, String reservationStatus, LocalDateTime startTime,
                                    LocalDateTime endTime, String myRole, String myAttendanceStatus,
-                                   LocalDateTime checkInAt, LocalDateTime checkOutAt) {
+                                   LocalDateTime checkInAt, LocalDateTime checkOutAt,
+                                   LocalDateTime actualStartTime, LocalDateTime actualEndTime,
+                                   Integer actualAttendeeCount) {
     public static MeetingExecutionView from(MeetingExecution execution) {
         return new MeetingExecutionView(execution.getReservationId(), execution.getReservationNo(),
                 execution.getTitle(), execution.getRoomId(), execution.getRoomName(),
                 execution.getReservationStatus(), execution.getStartTime(), execution.getEndTime(),
                 execution.getMyRole() == null ? null : execution.getMyRole().name(),
                 execution.getMyStatus() == null ? null : execution.getMyStatus().name(),
-                execution.getCheckInAt(), execution.getCheckOutAt());
+                execution.getCheckInAt(), execution.getCheckOutAt(), execution.getActualStartTime(),
+                execution.getActualEndTime(), execution.getActualAttendeeCount());
     }
 }

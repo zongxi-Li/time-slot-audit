@@ -5,6 +5,7 @@
  *        DELETE /api/meetings/{reservationId}/attendees/{userId}；
  *        POST /api/meetings/{reservationId}/check-in；
  *        POST /api/meetings/{reservationId}/check-out；
+ *        GET/PUT /api/meetings/{reservationId}/execution；
  *        …。
  */
 package com.timeslot.meeting.controller;
@@ -14,13 +15,17 @@ import com.timeslot.meeting.dto.AddAttendeeRequest;
 import com.timeslot.meeting.dto.AttendanceView;
 import com.timeslot.meeting.dto.AttendeeView;
 import com.timeslot.meeting.dto.MeetingExecutionView;
+import com.timeslot.meeting.dto.MeetingExecutionRecordView;
+import com.timeslot.meeting.dto.SaveMeetingExecutionRequest;
 import com.timeslot.meeting.service.MeetingExecutionService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -71,6 +76,17 @@ public class MeetingExecutionController {
     @GetMapping("/{reservationId}/attendance")
     public ApiResponse<AttendanceView> attendance(@PathVariable Long reservationId) {
         return ApiResponse.success(meetingExecutionService.attendance(reservationId));
+    }
+
+    @GetMapping("/{reservationId}/execution")
+    public ApiResponse<MeetingExecutionRecordView> execution(@PathVariable Long reservationId) {
+        return ApiResponse.success(meetingExecutionService.executionRecord(reservationId));
+    }
+
+    @PutMapping("/{reservationId}/execution")
+    public ApiResponse<MeetingExecutionRecordView> saveExecution(
+            @PathVariable Long reservationId, @Valid @RequestBody SaveMeetingExecutionRequest request) {
+        return ApiResponse.success(meetingExecutionService.saveExecutionRecord(reservationId, request));
     }
 
     @GetMapping("/my")
