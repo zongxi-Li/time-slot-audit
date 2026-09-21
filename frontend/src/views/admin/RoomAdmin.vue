@@ -178,6 +178,28 @@ function confirmStatusChange(room: MeetingRoom, status: RoomFlag) {
   )
 }
 
+/** 删除会议室：存在未来预约或历史记录时由后端拒绝，此处原样透出业务错误。 */
+async function handleDelete(room: MeetingRoom) {
+  const confirmed = await ElMessageBox.confirm(
+    `确定删除会议室「${room.name}」吗？删除后不可恢复。`,
+    '删除会议室',
+    { confirmButtonText: '确定删除', cancelButtonText: '再想想', type: 'warning' },
+  ).then(
+    () => true,
+    () => false,
+  )
+  if (!confirmed) return
+  try {
+    await adminRoomsApi.remove(room.id)
+    await roomStore.refreshRooms()
+    logApi('DELETE', `/api/admin/rooms/${room.id}`, `删除会议室 ${room.name}`)
+    monitor.log('删除会议室', `${room.name} · ${room.location}`, '管理员', 'ADMIN')
+    ElMessage.success(`会议室 ${room.name} 已删除`)
+  } catch (error) {
+    ElMessage.error(errorMessage(error))
+  }
+}
+
 /* —— 设施管理 —— */
 const facilityDialogVisible = ref(false)
 const facilityRoom = ref<MeetingRoom | null>(null)
@@ -555,7 +577,7 @@ async function finishMaintenance(plan: MaintenanceResponse) {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="300" fixed="right">
+        <el-table-column label="操作" :width="340" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openEdit(row)">
               编辑
@@ -579,6 +601,7 @@ async function finishMaintenance(plan: MaintenanceResponse) {
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
+            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

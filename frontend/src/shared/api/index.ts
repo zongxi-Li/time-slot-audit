@@ -206,6 +206,9 @@ export const adminRoomsApi = {
   async changeStatus(roomId: string | number, status: string) {
     return request<RoomResponse>(`/admin/rooms/${roomId}/status`, { method: 'POST', body: { status } })
   },
+  async remove(roomId: string | number) {
+    return request<void>(`/admin/rooms/${roomId}`, { method: 'DELETE' })
+  },
   async replaceFacilities(roomId: string | number, facilities: SaveFacilityRequest[]) {
     return request<FacilityResponse[]>(`/admin/rooms/${roomId}/facilities`, {
       method: 'PUT',
