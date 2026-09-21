@@ -24,7 +24,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -40,6 +42,8 @@ class ReservationLifecycleServiceTest {
 
     private ReservationLifecycleService service;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-11T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
+    /** 与固定时钟对应的业务当前时刻，供过期失效的守卫参数复用 */
+    private final LocalDateTime NOW = LocalDateTime.of(2026, 9, 11, 10, 0);
 
     @BeforeEach
     void setUp() {
@@ -223,5 +227,32 @@ class ReservationLifecycleServiceTest {
                 () -> service.forceCancel(9L, 1L, "并发失配"));
 
         assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+    }
+
+    // —— 审批超时自动失效（系统调度，无人工操作者） —— //
+
+    @Test
+    void expireIfEndedReportsTransitionWhenGuardHits() {
+        when(reservationMapper.expirePendingEnded(9L, NOW)).thenReturn(1);
+
+        assertTrue(service.expireIfEnded(9L, NOW));
+    }
+
+    @Test
+    void expireIfEndedReportsSkipWhenGuardMisses() {
+        // 并发下已被人工审批/驳回，或刚被改期到未来：守卫未命中，静默返回 false
+        when(reservationMapper.expirePendingEnded(9L, NOW)).thenReturn(0);
+
+        assertFalse(service.expireIfEnded(9L, NOW));
+    }
+
+    @Test
+    void expireIfEndedDoesNotTouchUnrelatedRows() {
+        when(reservationMapper.expirePendingEnded(9L, NOW)).thenReturn(0);
+
+        service.expireIfEnded(9L, NOW);
+
+        verify(reservationMapper, never()).transitionStatusExpected(anyLong(), anyString(), anyString());
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 }

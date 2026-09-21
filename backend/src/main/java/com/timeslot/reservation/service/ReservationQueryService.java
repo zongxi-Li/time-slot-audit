@@ -63,4 +63,13 @@ public class ReservationQueryService {
                 .filter(r -> !r.getEndTime().isAfter(now))
                 .toList();
     }
+
+    /**
+     * 查询已结束（end_time <= now）仍处于 PENDING 的预约，用于审批超时自动失效。
+     * 不设回扫下限：历史积压也要一次清完，此后每轮增量趋近于零。
+     */
+    @Transactional(readOnly = true)
+    public List<Reservation> findPendingEndedBefore(LocalDateTime now) {
+        return reservationMapper.findPendingEndedBefore(now);
+    }
 }

@@ -154,4 +154,35 @@ public interface ReservationMapper {
             """)
     int cancelExpected(@Param("id") Long id, @Param("expectedStatus") String expectedStatus,
                        @Param("targetStatus") String targetStatus, @Param("reason") String reason);
+
+    /**
+     * 审批超时候选：已结束（end_time <= now）仍处于 PENDING 的预约。
+     * 不设回扫下限：调度中断造成的历史积压也要一次清完，此后每轮增量趋近于零。
+     */
+    @Select("""
+            SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
+                   mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
+                   r.participant_count, r.status, r.remark, r.version
+            FROM reservation r
+            JOIN meeting_room mr ON mr.id = r.room_id
+            JOIN sys_user u ON u.id = r.user_id
+            WHERE r.status = 'PENDING'
+              AND r.end_time <= #{now}
+            ORDER BY r.end_time
+            """)
+    List<Reservation> findPendingEndedBefore(@Param("now") LocalDateTime now);
+
+    /**
+     * 审批超时自动失效：状态机 REJECT（PENDING -> REJECTED）的系统调度版。
+     * status + end_time 双重守卫：重复调度幂等，且不会误伤候选读取后刚被改期到未来的预约；
+     * 命中返回 1，被并发操作抢先或已改期则返回 0，调用方静默跳过。
+     */
+    @Update("""
+            UPDATE reservation
+            SET status = 'REJECTED', version = version + 1
+            WHERE id = #{id}
+              AND status = 'PENDING'
+              AND end_time <= #{now}
+            """)
+    int expirePendingEnded(@Param("id") Long id, @Param("now") LocalDateTime now);
 }

@@ -77,6 +77,19 @@ public class ReservationLifecycleService {
         return cancel(reservation, target, reason);
     }
 
+    /**
+     * 审批超时自动失效（系统调度调用，无人工操作者）：PENDING -> REJECTED。
+     * 与人工驳回相反，这里要求预约已结束——PENDING 一旦过了时段就永远失去审批意义，
+     * 不自动失效会在待审批列表无限堆积。是否真的迁移由 UPDATE 的
+     * status='PENDING' AND end_time <= now 双重守卫裁决，命中返回 true；
+     * 并发下被人工操作抢先或刚被改期到未来则返回 0，调用方静默跳过，
+     * 因此刻意不走锁行 + fail-closed 路径（批量清扫不需要逐行报错）。
+     */
+    @Transactional
+    public boolean expireIfEnded(Long reservationId, LocalDateTime now) {
+        return reservationMapper.expirePendingEnded(reservationId, now) == 1;
+    }
+
     private Reservation lockForTransition(Long reservationId) {
         Reservation reservation = reservationMapper.findByIdForUpdate(reservationId);
         if (reservation == null) {
