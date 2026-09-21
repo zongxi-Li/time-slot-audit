@@ -23,6 +23,7 @@ import com.timeslot.resource.dto.SaveRoomRequest;
 import com.timeslot.resource.service.RoomAdminService;
 import com.timeslot.resource.service.RoomMaintenanceService;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,6 +67,13 @@ public class RoomAdminController {
     public ApiResponse<RoomResponse> changeStatus(@PathVariable Long roomId,
                                                   @Valid @RequestBody ChangeRoomStatusRequest request) {
         return ApiResponse.success(roomAdminService.changeStatus(roomId, request));
+    }
+
+    @DeleteMapping("/{roomId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> deleteRoom(@PathVariable Long roomId) {
+        roomAdminService.deleteRoom(roomId);
+        return ApiResponse.success(null);
     }
 
     @PutMapping("/{roomId}/open-rules")

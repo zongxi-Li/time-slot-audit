@@ -23,6 +23,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -31,9 +33,11 @@ import java.util.Set;
 @Service
 public class RoomAdminService {
     private final ResourceMapper mapper;
+    private final Clock clock;
 
-    public RoomAdminService(ResourceMapper mapper) {
+    public RoomAdminService(ResourceMapper mapper, Clock clock) {
         this.mapper = mapper;
+        this.clock = clock;
     }
 
     @Transactional
@@ -83,6 +87,34 @@ public class RoomAdminService {
         MeetingRoomStatus status = parseStatus(request.status());
         mapper.updateRoomStatus(roomId, status.toDb());
         return getRoomResponse(roomId);
+    }
+
+    /**
+     * 删除会议室（任务书规则：存在未来预约的会议室不能删除）。
+     * 先 FOR UPDATE 锁房间行，与预约创建/改期加的是同一把锁：并发预约会等待本事务，
+     * 锁释放后 lockBookableRoom 读不到房间直接报“会议室不存在”，因此不存在“检查后又被预约”的窗口。
+     * 仅剩历史预约的会议室同样阻断——预约是使用记录且 reservation.room_id 外键指向本表，物理删除会断链。
+     */
+    @Transactional
+    public void deleteRoom(Long roomId) {
+        ResourceMapper.RoomRow room = mapper.findRoomForUpdate(roomId);
+        if (room == null) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "会议室不存在");
+        }
+        if (mapper.countFutureReservations(roomId, LocalDateTime.now(clock)) > 0) {
+            throw new BusinessException(ErrorCode.ROOM_DELETE_BLOCKED,
+                    "该会议室存在未来预约，不能删除；请先取消相关预约或等待其结束");
+        }
+        if (mapper.countAllReservations(roomId) > 0) {
+            throw new BusinessException(ErrorCode.ROOM_DELETE_BLOCKED,
+                    "该会议室存在历史预约记录，不能删除；如需下线可将其停用");
+        }
+        // 先清子表再删主行（外键约束顺序），全部在同一事务内。
+        mapper.deleteRepairTicketsByRoom(roomId);
+        mapper.deleteMaintenanceByRoom(roomId);
+        mapper.deleteOpenRulesByRoom(roomId);
+        mapper.deleteFacilitiesByRoom(roomId);
+        mapper.deleteRoom(roomId);
     }
 
     public RoomDetailResponse getRoomDetail(Long roomId) {
