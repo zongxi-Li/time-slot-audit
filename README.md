@@ -72,7 +72,7 @@ administration  审批、强制取消、审计和运营统计
 TimeSlot/
 ├─ frontend/       Vue 3 + TypeScript + Vite 前端
 ├─ backend/        Spring Boot + MyBatis 后端
-├─ sql/            schema、种子数据和 V1_1~V1_10 迁移
+├─ sql/            schema、种子数据和 V1_1~V1_11 迁移
 ├─ scripts/        开发启动与并发验证脚本
 ├─ docs/           开发契约、交付文档、图表和个人文档
 ├─ start-dev.cmd   Windows 一键启动入口
@@ -91,19 +91,24 @@ TimeSlot/
 
 ### 1. 初始化数据库
 
-新建数据库时，schema.sql 和 data.sql 都是从零初始化脚本；data.sql 会清空并重建演示数据，请勿直接用于需要保留数据的数据库。
+推荐直接执行一体化建库脚本 `sql/init.sql`，它会建库、重建 17 张业务表（含索引、外键与 CHECK 约束）并写入演示数据：
 
 ~~~powershell
-mysql --default-character-set=utf8mb4 -u<user> -p < sql/schema.sql
-mysql --default-character-set=utf8mb4 -u<user> -p meeting_room < sql/data.sql
+mysql --default-character-set=utf8mb4 -u<user> -p -e "source sql/init.sql"
 ~~~
 
-已有数据库只执行迁移，并按文件名顺序执行当前 V1_1 至 V1_10：
+`init.sql` 会 DROP 并重建全部业务表，请勿直接用于需要保留数据的数据库。
+
+> Windows 下不要用 `Get-Content ... | mysql` 管道执行脚本：PowerShell 会按本地代码页重编码，UTF-8 中文注释变成乱码并报 `ERROR 1064`。请使用上面的 `source` 方式，或在 cmd 中用 `<` 重定向。
+
+若需要分步执行结构脚本与种子脚本，可分别执行 `sql/schema.sql`（仅结构）与 `sql/data.sql`（仅演示数据）。
+
+已有数据库只执行迁移，并按文件名顺序执行当前 V1_1 至 V1_11：
 
 ~~~powershell
 Get-ChildItem sql/migrations/V1_*.sql |
   Sort-Object Name |
-  ForEach-Object { Get-Content $_ -Raw | mysql --default-character-set=utf8mb4 -u<user> -p meeting_room }
+  ForEach-Object { mysql --default-character-set=utf8mb4 -u<user> -p -e "source $($_.FullName)" }
 ~~~
 
 演示账号密码均为 123456，仅适用于本地开发：
