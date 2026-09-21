@@ -17,10 +17,10 @@ docs/ 保存需求、设计、开发契约、验收材料、图表和个人模�
 
 ~~~text
 项目 README
-  → 开发文档/核心业务契约.md
-  → 开发文档/领域边界.md
+  → 开发文档/core-business-contract.md
+  → 开发文档/domain-boundaries.md
   → 开发文档/api-contract-v0.2.md
-  → 开发文档/数据库演进.md
+  → 开发文档/database-evolution.md
   → 源码与测试
 ~~~
 
