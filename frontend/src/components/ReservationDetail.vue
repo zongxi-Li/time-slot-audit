@@ -42,23 +42,39 @@ const isMine = computed(
   () => reservation.value?.userId === auth.currentUser.id,
 )
 
-/** 已结束（结束时间早于当前时间）的预约不允许再取消 */
+/** 预约某天的某个时刻（与后端业务时钟 systemTime 对齐） */
+function reservationMoment(time: string): Date {
+  const r = reservation.value!
+  const d = parseDateStr(r.date)
+  const [h, m] = time.split(':').map(Number)
+  d.setHours(h, m, 0, 0)
+  return d
+}
+
+/** 已结束（结束时间不晚于当前时间）的预约不允许再取消 */
 const isEnded = computed(() => {
-  const r = reservation.value
-  if (!r) return false
-  const end = parseDateStr(r.date)
-  const [h, m] = r.endTime.split(':').map(Number)
-  end.setHours(h, m, 0, 0)
-  return end.getTime() <= systemTime.now.getTime()
+  if (!reservation.value) return false
+  return reservationMoment(reservation.value.endTime).getTime() <= systemTime.now.getTime()
+})
+
+/** 已开始（开始时间不晚于当前时间）的预约不允许再审批，与后端 requireBeforeStart 一致 */
+const isStarted = computed(() => {
+  if (!reservation.value) return false
+  return reservationMoment(reservation.value.startTime).getTime() <= systemTime.now.getTime()
 })
 
 const canCancel = computed(
   () => isMine.value && !isEnded.value && reservation.value?.status !== 'CANCELLED' && reservation.value?.status !== 'REJECTED',
 )
 
-/** 管理员：可对任意待审核预约进行审核 */
+/** 管理员：可对未开始的待审核预约进行审核 */
 const canAudit = computed(
-  () => auth.isAdmin && reservation.value?.status === 'PENDING',
+  () => auth.isAdmin && reservation.value?.status === 'PENDING' && !isStarted.value,
+)
+
+/** 待审核但已开始：审批按钮消失时给出解释，避免像“点击没反应” */
+const pendingStarted = computed(
+  () => auth.isAdmin && reservation.value?.status === 'PENDING' && isStarted.value,
 )
 
 /* panel 模式：侧栏为固定定位的整条右栏，打开时让页面布局为其让位（见文件底部全局样式） */
@@ -87,6 +103,19 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
 })
 
+/**
+ * 统一兜底：接口失败必须给出可见提示，否则表现为“点击没反应”。
+ * 失败时返回 undefined，调用方据此跳过后续本地更新与埋点。
+ */
+async function runGuarded<T>(action: () => Promise<T>, fallback: string): Promise<T | undefined> {
+  try {
+    return await action()
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : fallback)
+    return undefined
+  }
+}
+
 async function handleCancel() {
   const r = reservation.value
   if (!r) return
@@ -99,7 +128,7 @@ async function handleCancel() {
   } catch {
     return
   }
-  await store.cancelReservation(r.id)
+  await runGuarded(() => store.cancelReservation(r.id), '取消预约失败')
   monitor.pushFeed({
     method: 'DELETE',
     path: `/api/reservations/${r.id}`,
@@ -128,6 +157,8 @@ async function handleAudit(approve: boolean) {
         confirmButtonText: '确定驳回',
         cancelButtonText: '再想想',
         inputPlaceholder: '例如：该时段需优先保障教学活动',
+        inputPattern: /\S+/,
+        inputErrorMessage: '驳回原因不能为空',
       })
       reason = value?.trim() ?? ''
     } catch {
@@ -136,9 +167,11 @@ async function handleAudit(approve: boolean) {
   }
 
   // 审批状态迁移由后端唯一状态机裁决；前端只用返回的最新数据替换本地记录。
-  const updated = approve
-    ? await administrationApi.approve(Number(r.id))
-    : await administrationApi.reject(Number(r.id), reason)
+  const updated = await runGuarded(
+    () => (approve ? administrationApi.approve(Number(r.id)) : administrationApi.reject(Number(r.id), reason)),
+    approve ? '审批失败' : '驳回失败',
+  )
+  if (!updated) return
   store.replaceLocalReservation({
     ...r,
     status: updated.status,
@@ -194,6 +227,7 @@ async function handleAudit(approve: boolean) {
       </el-descriptions>
 
       <div v-if="isMine" class="mine-note">这是我创建的预约</div>
+      <div v-if="pendingStarted" class="audit-hint">该预约已开始，不能再审批；如需撤销可在「预约审批」页强制取消。</div>
     </template>
 
     <template #footer>
@@ -258,6 +292,7 @@ async function handleAudit(approve: boolean) {
         </el-descriptions>
 
         <div v-if="isMine" class="mine-note">这是我创建的预约</div>
+        <div v-if="pendingStarted" class="audit-hint">该预约已开始，不能再审批；如需撤销可在「预约审批」页强制取消。</div>
       </template>
       <el-empty v-else description="暂无预约详情" :image-size="64" />
     </div>
@@ -307,6 +342,13 @@ async function handleAudit(approve: boolean) {
   margin-top: 12px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.audit-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--el-color-warning);
 }
 
 .drawer-footer {
