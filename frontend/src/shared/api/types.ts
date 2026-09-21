@@ -204,6 +204,8 @@ export interface CreateReservationRequest {
   endTime: string
   participantCount: number
   remark?: string
+  /** 周期性会议（按周重复）周数：缺省/1 为单次，2..8 由后端逐周校验后批量创建 */
+  repeatWeeks?: number
 }
 
 /* —— 身份治理（identity 域）：用户/部门/信用 —— */

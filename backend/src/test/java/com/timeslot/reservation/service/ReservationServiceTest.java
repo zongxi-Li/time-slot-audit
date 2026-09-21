@@ -24,6 +24,7 @@ import com.timeslot.resource.service.ResourceBookingQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -43,6 +44,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -86,7 +88,7 @@ class ReservationServiceTest {
 
     private CreateReservationRequest request() {
         return new CreateReservationRequest("request-1", 1L, "课程讨论",
-                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, "备注");
+                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, "备注", null);
     }
 
     @Test
@@ -164,7 +166,7 @@ class ReservationServiceTest {
     @Test
     void capacityExceededIsRejected() {
         CreateReservationRequest tooMany = new CreateReservationRequest("request-1", 1L, "课程讨论",
-                request().startTime(), request().endTime(), 9, null);
+                request().startTime(), request().endTime(), 9, null, null);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(tooMany));
 
@@ -174,7 +176,7 @@ class ReservationServiceTest {
     @Test
     void invalidTimeIsRejected() {
         CreateReservationRequest invalid = new CreateReservationRequest("request-1", 1L, "课程讨论",
-                request().endTime(), request().startTime(), 3, null);
+                request().endTime(), request().startTime(), 3, null, null);
 
         assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(BusinessException.class,
                 () -> service.createReservation(invalid)).getCode());
@@ -186,7 +188,7 @@ class ReservationServiceTest {
         when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(
                 new BookableRoomProfile(1L, "A301", 8, "AVAILABLE", false, 24 * 60, 7));
         CreateReservationRequest overnight = new CreateReservationRequest("request-1", 1L, "通宵研讨",
-                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 1, 0), 4, null);
+                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 1, 0), 4, null, null);
 
         assertEquals("CONFIRMED", service.createReservation(overnight).status());
         verify(reservationMapper).insert(any(Reservation.class));
@@ -196,7 +198,7 @@ class ReservationServiceTest {
     void reservationBeyondWindowEndIsRejected() {
         // 结束落到次日 10:00（2040 分钟），超出默认窗口 1920 分钟
         CreateReservationRequest beyond = new CreateReservationRequest("request-1", 1L, "超时段预约",
-                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 10, 0), 4, null);
+                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 10, 0), 4, null, null);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(beyond));
 
@@ -208,7 +210,7 @@ class ReservationServiceTest {
     void reservationBeforeWindowStartIsRejected() {
         when(bookingWindowService.get()).thenReturn(new BookingWindowResponse(600, 1080));
         CreateReservationRequest early = new CreateReservationRequest("request-1", 1L, "过早预约",
-                LocalDateTime.of(2026, 9, 12, 9, 0), LocalDateTime.of(2026, 9, 12, 10, 0), 4, null);
+                LocalDateTime.of(2026, 9, 12, 9, 0), LocalDateTime.of(2026, 9, 12, 10, 0), 4, null, null);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(early));
 
@@ -289,6 +291,60 @@ class ReservationServiceTest {
         verify(reservationMapper, never()).insert(any());
     }
 
+    /* —— 周期性会议（按周重复）—— */
+
+    private CreateReservationRequest recurringRequest(int weeks) {
+        return new CreateReservationRequest("request-1", 1L, "周期例会",
+                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, null, weeks);
+    }
+
+    @Test
+    void recurringReservationCreatesWeeklyOccurrences() {
+        ReservationResponse response = service.createReservation(recurringRequest(3));
+
+        // 响应返回首次发生的预约；三场按 +7 天展开，幂等键仅首场用原始 requestId。
+        assertEquals("CONFIRMED", response.status());
+        assertEquals(LocalDateTime.of(2026, 9, 12, 10, 0), response.startTime());
+        ArgumentCaptor<Reservation> captor = ArgumentCaptor.forClass(Reservation.class);
+        verify(reservationMapper, times(3)).insert(captor.capture());
+        assertEquals(LocalDateTime.of(2026, 9, 19, 10, 0), captor.getAllValues().get(1).getStartTime());
+        assertEquals(LocalDateTime.of(2026, 9, 26, 11, 0), captor.getAllValues().get(2).getEndTime());
+        assertEquals("request-1", captor.getAllValues().get(0).getRequestId());
+        assertEquals("request-1~w1", captor.getAllValues().get(1).getRequestId());
+        assertEquals("request-1~w2", captor.getAllValues().get(2).getRequestId());
+    }
+
+    @Test
+    void conflictInAnyWeekRejectsWholeRecurringRequest() {
+        // 仅第三周（9/26 同时段）与已有预约冲突：整批不落库。
+        when(reservationMapper.findFirstConflict(eq(1L),
+                eq(LocalDateTime.of(2026, 9, 26, 10, 0)), eq(LocalDateTime.of(2026, 9, 26, 11, 0)), isNull()))
+                .thenReturn(conflictingReservation());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.createReservation(recurringRequest(3)));
+
+        assertEquals(ErrorCode.RESERVATION_TIME_CONFLICT, exception.getCode());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
+
+    @Test
+    void recurringLaterWeeksAreNotLimitedByAdvanceDays() {
+        // 首次开始 9/12（提前 1 天）；第 4 周落到 10/3，远超 7 天提前量——周期预约的提前量只看首次开始。
+        when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(
+                new BookableRoomProfile(1L, "A301", 8, "AVAILABLE", false, 120, 7));
+
+        assertEquals("CONFIRMED", service.createReservation(recurringRequest(4)).status());
+        verify(reservationMapper, times(4)).insert(any(Reservation.class));
+    }
+
+    @Test
+    void repeatWeeksOutOfRangeIsRejected() {
+        assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(BusinessException.class,
+                () -> service.createReservation(recurringRequest(9))).getCode());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
+
     private Reservation ownedReservation(Long ownerId) {
         Reservation reservation = new Reservation();
         reservation.setId(7L);
@@ -343,6 +399,21 @@ class ReservationServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
 
         assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+    }
+
+    /** 任务书点名情形：已开始的预约不能取消（与改期共用守卫，此处为独立断言用例）。 */
+    @Test
+    void startedReservationCannotBeCancelled() {
+        Reservation started = ownedReservation(2L);
+        started.setStartTime(LocalDateTime.of(2026, 9, 11, 9, 0));
+        started.setEndTime(LocalDateTime.of(2026, 9, 11, 10, 0)); // 固定时钟 now = 2026-09-11 10:00
+        when(reservationMapper.findByIdForUpdate(7L)).thenReturn(started);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.cancel(7L, null));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        assertTrue(exception.getMessage().contains("预约已开始"));
+        verify(reservationMapper, never()).cancelExpected(anyLong(), anyString(), anyString(), any());
     }
 
     private UpdateReservationRequest updateRequest() {

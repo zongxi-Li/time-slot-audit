@@ -90,6 +90,7 @@ const form = reactive<ReservationDraft>({
   endTime: '11:00',
   participantCount: 4,
   remark: '',
+  repeatWeeks: 1,
 })
 
 watch(visible, (open) => {
@@ -111,6 +112,7 @@ watch(visible, (open) => {
   form.endTime = props.editing?.endTime ?? props.initial?.endTime ?? fallbackEnd
   form.participantCount = props.editing?.participantCount ?? 4
   form.remark = props.editing?.remark ?? ''
+  form.repeatWeeks = 1
 })
 
 const selectedRoom = computed(() => roomStore.getRoom(form.roomId))
@@ -179,10 +181,11 @@ async function handleSubmit() {
     }
     const requestId = createRequestId.value ?? crypto.randomUUID()
     createRequestId.value = requestId
+    const weeklyNote = (form.repeatWeeks ?? 1) > 1 ? `，已按周创建 ${form.repeatWeeks} 场预约` : ''
     const created = await store.addReservation({ ...form }, requestId)
-    ElMessage.success(created.status === 'PENDING'
+    ElMessage.success((created.status === 'PENDING'
       ? '预约已提交，等待管理员审批'
-      : '预约成功')
+      : '预约成功') + weeklyNote)
     // 上报并发监视：201 成功
     monitor.noteSuccess()
     monitor.pushFeed({
@@ -330,6 +333,16 @@ async function handleSubmit() {
         <span v-if="selectedRoom" class="capacity-hint">
           {{ selectedRoom.name }} 容量 {{ selectedRoom.capacity }} 人
         </span>
+      </el-form-item>
+
+      <el-form-item v-if="!props.editing" label="重复">
+        <el-select v-model="form.repeatWeeks" style="width: 220px" @change="clearConflict">
+          <el-option :value="1" label="不重复（单次会议）" />
+          <el-option :value="2" label="每周重复 · 共 2 周" />
+          <el-option :value="3" label="每周重复 · 共 3 周" />
+          <el-option :value="4" label="每周重复 · 共 4 周" />
+        </el-select>
+        <span class="capacity-hint">按周批量创建，冲突逐周校验，任一周冲突整批失败</span>
       </el-form-item>
 
       <el-form-item label="备注" prop="remark">

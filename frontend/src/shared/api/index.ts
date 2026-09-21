@@ -280,6 +280,8 @@ export const reservationsApi = {
       endTime: toIsoDateTime(draft.date, draft.endTime),
       participantCount: draft.participantCount,
       remark: draft.remark,
+      // 周期性会议：>1 时后端按周展开并逐周校验冲突；undefined 不会序列化进请求体
+      repeatWeeks: draft.repeatWeeks && draft.repeatWeeks > 1 ? draft.repeatWeeks : undefined,
     }
     return toReservation(await request<ReservationResponse>('/reservations', { method: 'POST', body }))
   },

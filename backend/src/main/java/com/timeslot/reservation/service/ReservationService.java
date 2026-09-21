@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Isolation;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,32 +86,52 @@ public class ReservationService {
         // Re-check after the lock so it returns the committed result instead of a false conflict.
         Reservation existingAfterLock = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
         if (existingAfterLock != null) return ReservationResponse.from(existingAfterLock, clock);
-        validateSlot(room, interval, request.participantCount(), now, null);
 
-        Reservation reservation = new Reservation();
-        reservation.setRequestId(request.requestId());
-        reservation.setReservationNo("RSV" + UUID.randomUUID().toString().replace("-", "").substring(0, 20));
-        reservation.setRoomId(room.roomId());
-        reservation.setUserId(user.userId());
-        reservation.setRoomName(room.roomName());
-        reservation.setUserName(user.username());
-        reservation.setTitle(request.title());
-        reservation.setStartTime(interval.start());
-        reservation.setEndTime(interval.end());
-        reservation.setParticipantCount(request.participantCount());
-        reservation.setStatus(ReservationStateMachine.initialStatus(room.approvalRequired()));
-        reservation.setRemark(request.remark());
-        reservation.setVersion(0);
-        try {
-            reservationMapper.insert(reservation);
-        } catch (DuplicateKeyException duplicateKeyException) {
-            Reservation duplicate = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
-            if (duplicate != null) return ReservationResponse.from(duplicate, clock);
-            throw duplicateKeyException;
+        int weeks = normalizeRepeatWeeks(request.repeatWeeks());
+        // 首次发生走完整规则链（含提前量）；后续周次提前量只看首次开始（同一次预约意图）。
+        validateSlot(room, interval, request.participantCount(), now, null);
+        List<TimeInterval> occurrences = new ArrayList<>();
+        occurrences.add(interval);
+        for (int i = 1; i < weeks; i++) {
+            TimeInterval occurrence = new TimeInterval(interval.start().plusWeeks(i), interval.end().plusWeeks(i));
+            validateRecurringOccurrence(room, occurrence, request.participantCount());
+            occurrences.add(occurrence);
         }
-        // 出站通知：本人收到“创建成功”，受控分类还需广播管理员“待审批”。
-        notifyReservationLifecycle(reservation);
-        return ReservationResponse.from(reservation, clock);
+
+        // 整批校验通过后才落库：任何一周冲突/不合法都不会写入任何一行（事务再兜底回滚）。
+        Reservation anchor = null;
+        for (int i = 0; i < occurrences.size(); i++) {
+            TimeInterval occurrence = occurrences.get(i);
+            Reservation reservation = new Reservation();
+            // 幂等键：仅首次发生用原始 requestId（重试短路靠它），后续周次加后缀保证 (user_id, request_id) 唯一。
+            reservation.setRequestId(i == 0 ? request.requestId() : request.requestId() + "~w" + i);
+            reservation.setReservationNo("RSV" + UUID.randomUUID().toString().replace("-", "").substring(0, 20));
+            reservation.setRoomId(room.roomId());
+            reservation.setUserId(user.userId());
+            reservation.setRoomName(room.roomName());
+            reservation.setTitle(request.title());
+            reservation.setStartTime(occurrence.start());
+            reservation.setEndTime(occurrence.end());
+            reservation.setParticipantCount(request.participantCount());
+            reservation.setStatus(ReservationStateMachine.initialStatus(room.approvalRequired()));
+            reservation.setRemark(request.remark());
+            reservation.setVersion(0);
+            if (i == 0) {
+                try {
+                    reservationMapper.insert(reservation);
+                } catch (DuplicateKeyException duplicateKeyException) {
+                    Reservation duplicate = reservationMapper.findByUserIdAndRequestId(user.userId(), request.requestId());
+                    if (duplicate != null) return ReservationResponse.from(duplicate, clock);
+                    throw duplicateKeyException;
+                }
+                anchor = reservation;
+            } else {
+                reservationMapper.insert(reservation);
+            }
+            // 出站通知：本人收到“创建成功”，受控分类还需广播管理员“待审批”。
+            notifyReservationLifecycle(reservation);
+        }
+        return ReservationResponse.from(anchor, clock);
     }
 
     private void notifyReservationLifecycle(Reservation reservation) {
@@ -260,13 +281,32 @@ public class ReservationService {
      */
     private void validateSlot(BookableRoomProfile room, TimeInterval interval, int participantCount,
                               LocalDateTime now, Long excludeReservationId) {
-        if (!"AVAILABLE".equals(room.status())) {
-            throw new BusinessException(ErrorCode.ROOM_UNAVAILABLE, "会议室当前不可预约");
-        }
+        requireRoomAvailable(room);
         long advanceDays = ChronoUnit.DAYS.between(now.toLocalDate(), interval.start().toLocalDate());
         if (advanceDays > room.advanceDays()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "超过会议室允许的提前预约天数");
         }
+        validateWindowCapacityAndConflict(room, interval, participantCount, excludeReservationId);
+    }
+
+    /**
+     * 周期性预约的第 2..N 次发生：同属一次预约意图，提前量约束只看首次开始；
+     * 但会议室状态、时长、容量、开放窗口与冲突仍逐周校验，任一周不合法整批失败。
+     */
+    private void validateRecurringOccurrence(BookableRoomProfile room, TimeInterval interval, int participantCount) {
+        requireRoomAvailable(room);
+        validateWindowCapacityAndConflict(room, interval, participantCount, null);
+    }
+
+    private void requireRoomAvailable(BookableRoomProfile room) {
+        if (!"AVAILABLE".equals(room.status())) {
+            throw new BusinessException(ErrorCode.ROOM_UNAVAILABLE, "会议室当前不可预约");
+        }
+    }
+
+    /** 时长、容量、开放窗口与时间冲突：创建与改期共用的完整校验顺序。 */
+    private void validateWindowCapacityAndConflict(BookableRoomProfile room, TimeInterval interval,
+                                                   int participantCount, Long excludeReservationId) {
         if (interval.start().until(interval.end(), ChronoUnit.MINUTES) > room.maxDurationMinutes()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "超过会议室允许的最长预约时长");
         }
@@ -291,5 +331,19 @@ public class ReservationService {
                             + CONFLICT_SLOT_FORMATTER.format(conflict.getStartTime()) + " 至 "
                             + CONFLICT_SLOT_FORMATTER.format(conflict.getEndTime()) + "）");
         }
+    }
+
+    /** 周期性会议（按周重复）周数：缺省 1 次；上限 {@value MAX_REPEAT_WEEKS} 周，防止一次提交铺满整学期。 */
+    private static final int MAX_REPEAT_WEEKS = 8;
+
+    private int normalizeRepeatWeeks(Integer repeatWeeks) {
+        if (repeatWeeks == null) {
+            return 1;
+        }
+        if (repeatWeeks < 1 || repeatWeeks > MAX_REPEAT_WEEKS) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST,
+                    "周期性会议最多支持连续 " + MAX_REPEAT_WEEKS + " 周");
+        }
+        return repeatWeeks;
     }
 }

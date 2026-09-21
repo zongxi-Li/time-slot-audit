@@ -56,6 +56,8 @@ export interface ReservationDraft {
   endTime: string
   participantCount: number
   remark?: string
+  /** 周期性会议（按周重复）周数：缺省/1 为单次会议，2..8 为每周同一时段批量预约 */
+  repeatWeeks?: number
 }
 
 export type RoomStatus = 'idle' | 'in-use'
