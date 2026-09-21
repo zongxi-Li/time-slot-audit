@@ -2,8 +2,10 @@
 -- 会议室预约与时间冲突检查系统 —— 数据库建表脚本
 -- -----------------------------------------------------------------------------
 -- 目标数据库 : MySQL 8.x
--- 版本       : v1.4（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 + V1_4 资源管理 2026-09-15）
---              本文件始终表示从零初始化后的最新完整结构；存量库升级请按序执行
+-- 版本       : v1.5（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 + V1_4 资源管理
+--              2026-09-15 + V1_5 会议执行 2026-09-21）
+--              本文件始终表示从零初始化后的最新完整结构，已含全部 16 张表，
+--              从零初始化只需 schema.sql + data.sql；存量库升级请按序执行
 --              sql/migrations/ 下的增量脚本（见 docs/development/database-evolution.md）
 -- 设计约定   : InnoDB / utf8mb4 / snake_case / BIGINT 主键 / DATETIME 时间
 --              不使用 ENUM / 存储过程 / 触发器；
@@ -22,6 +24,8 @@ USE meeting_room;
 -- 重建时按外键依赖逆序删表（首次执行可忽略）
 DROP TABLE IF EXISTS user_violation;
 DROP TABLE IF EXISTS operation_log;
+DROP TABLE IF EXISTS notification;
+DROP TABLE IF EXISTS reservation_attendee;
 DROP TABLE IF EXISTS approval_record;
 DROP TABLE IF EXISTS reservation;
 DROP TABLE IF EXISTS facility_repair_ticket;
@@ -272,39 +276,62 @@ CREATE TABLE approval_record (
 ) ENGINE = InnoDB COMMENT = '审批记录表（审批行为历史）';
 
 -- =============================================================================
--- 12. operation_log 操作日志表
+-- 12. reservation_attendee 预约参与人与执行出勤表（v1.5 会议执行）
+--    职责：只记录预约执行阶段的事实（谁参与、是否签到/签退、是否缺席）；
+--    禁止本表触发 reservation.status 的任何更新（所有权归预约域）。
+--    出勤状态机（应用层维护）：EXPECTED -> CHECKED_IN -> CHECKED_OUT；
+--    EXPECTED -> NO_SHOW（预约结束后由调度判定，幂等）。
+--    组织者（预约创建人）以 attendee_role = 'ORGANIZER' 的行存在，
+--    由应用层在首次触达执行流程时幂等补齐（INSERT IGNORE）。
+-- =============================================================================
+CREATE TABLE reservation_attendee (
+    id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    reservation_id    BIGINT       NOT NULL                COMMENT '所属预约ID（预约域，只读引用）',
+    user_id           BIGINT       NOT NULL                COMMENT '参与人用户ID（身份域，只读引用）',
+    attendee_role     VARCHAR(20)  NOT NULL DEFAULT 'ATTENDEE' COMMENT '参会角色：ORGANIZER-组织者(预约创建人) / ATTENDEE-参与人',
+    attendance_status VARCHAR(20)  NOT NULL DEFAULT 'EXPECTED' COMMENT '出勤状态：EXPECTED-待签到 / CHECKED_IN-已签到 / CHECKED_OUT-已签退 / NO_SHOW-缺席',
+    check_in_at       DATETIME     NULL                    COMMENT '签到时间（服务器时间）',
+    check_out_at      DATETIME     NULL                    COMMENT '签退时间（服务器时间）',
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+    updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_attendee_reservation_user (reservation_id, user_id),
+    KEY idx_attendee_user (user_id),
+    CONSTRAINT fk_attendee_reservation FOREIGN KEY (reservation_id) REFERENCES reservation (id),
+    CONSTRAINT fk_attendee_user FOREIGN KEY (user_id) REFERENCES sys_user (id),
+    CONSTRAINT chk_attendee_role CHECK (attendee_role IN ('ORGANIZER', 'ATTENDEE')),
+    CONSTRAINT chk_attendee_status CHECK (attendance_status IN ('EXPECTED', 'CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW'))
+) ENGINE = InnoDB COMMENT = '预约参与人与执行出勤表（meeting 域）';
+
+-- =============================================================================
+-- 13. notification 个人通知表（v1.5 会议执行）
+--    职责：meeting 域业务内通知（被加入/移出会议、会议开始提醒、No-Show 结果）。
+--    幂等：uk_notification_dedup(user_id, dedup_key) + INSERT IGNORE，
+--    调度类通知使用确定性 dedup_key，重复执行不产生重复通知。
+--    预约取消/审批结果通知依赖预约/管理域回调，type 取值预留。
+-- =============================================================================
+CREATE TABLE notification (
+    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    user_id        BIGINT       NOT NULL                COMMENT '接收人用户ID',
+    type           VARCHAR(30)  NOT NULL                COMMENT '通知类型：ATTENDEE_ADDED/ATTENDEE_REMOVED/MEETING_REMINDER/NO_SHOW_MARKED（预留 MEETING_CANCELLED/APPROVAL_RESULT）',
+    title          VARCHAR(100) NOT NULL                COMMENT '通知标题',
+    content        VARCHAR(500) NOT NULL                COMMENT '通知内容',
+    reservation_id BIGINT       NULL                    COMMENT '关联预约ID（可空；当前通知均源自会议执行）',
+    dedup_key      VARCHAR(120) NOT NULL                COMMENT '业务幂等键：同一业务事实对同一用户只产生一条通知',
+    is_read        TINYINT      NOT NULL DEFAULT 0      COMMENT '是否已读：0-未读 1-已读',
+    read_at        DATETIME     NULL                    COMMENT '已读时间',
+    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_notification_dedup (user_id, dedup_key),
+    KEY idx_notification_user_read (user_id, is_read, created_at),
+    CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES sys_user (id)
+) ENGINE = InnoDB COMMENT = '个人通知表（meeting 域）';
+
+-- =============================================================================
+-- 14. operation_log 操作日志表
 --    职责：只记录关键管理行为（审批/驳回、会议室增改、分类修改、强制取消等），
 --    不记录所有 HTTP 请求。只增不改，不设 updated_at。
 -- =============================================================================
--- =============================================================================
--- 13. system_time_config: singleton business clock configuration
--- =============================================================================
-CREATE TABLE system_time_config (
-    id          TINYINT      NOT NULL COMMENT 'singleton row; always 1',
-    fixed_time  DATETIME     NULL     COMMENT 'NULL means real-time business clock',
-    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    CONSTRAINT chk_system_time_config_singleton CHECK (id = 1)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'business test clock configuration';
-
-INSERT INTO system_time_config (id, fixed_time) VALUES (1, NULL);
-
--- =============================================================================
--- 14. booking_window_config: singleton admin-controlled bookable time window
--- =============================================================================
-CREATE TABLE booking_window_config (
-    id           TINYINT      NOT NULL COMMENT 'singleton row; always 1',
-    start_minute INT          NOT NULL COMMENT '可预约开始，相对预约日期 00:00 的分钟数（含）',
-    end_minute   INT          NOT NULL COMMENT '可预约结束，相对预约日期 00:00 的分钟数（含）；超过 1440 表示次日',
-    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    CONSTRAINT chk_booking_window_singleton CHECK (id = 1),
-    CONSTRAINT chk_booking_window_range CHECK (start_minute >= 0 AND start_minute < end_minute AND end_minute <= 2880)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '全局可预约时段配置';
-
--- 默认 08:00 - 次日 08:00（全天 24 小时可预约）
-INSERT INTO booking_window_config (id, start_minute, end_minute) VALUES (1, 480, 1920);
-
 CREATE TABLE operation_log (
     id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     user_id        BIGINT       NOT NULL                COMMENT '操作人用户ID',
@@ -319,3 +346,32 @@ CREATE TABLE operation_log (
     KEY idx_log_business (business_type, business_id),
     CONSTRAINT fk_log_user FOREIGN KEY (user_id) REFERENCES sys_user (id)
 ) ENGINE = InnoDB COMMENT = '操作日志表（关键管理行为）';
+
+-- =============================================================================
+-- 15. system_time_config: singleton business clock configuration
+-- =============================================================================
+CREATE TABLE system_time_config (
+    id          TINYINT      NOT NULL COMMENT 'singleton row; always 1',
+    fixed_time  DATETIME     NULL     COMMENT 'NULL means real-time business clock',
+    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT chk_system_time_config_singleton CHECK (id = 1)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'business test clock configuration';
+
+INSERT INTO system_time_config (id, fixed_time) VALUES (1, NULL);
+
+-- =============================================================================
+-- 16. booking_window_config: singleton admin-controlled bookable time window
+-- =============================================================================
+CREATE TABLE booking_window_config (
+    id           TINYINT      NOT NULL COMMENT 'singleton row; always 1',
+    start_minute INT          NOT NULL COMMENT '可预约开始，相对预约日期 00:00 的分钟数（含）',
+    end_minute   INT          NOT NULL COMMENT '可预约结束，相对预约日期 00:00 的分钟数（含）；超过 1440 表示次日',
+    updated_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT chk_booking_window_singleton CHECK (id = 1),
+    CONSTRAINT chk_booking_window_range CHECK (start_minute >= 0 AND start_minute < end_minute AND end_minute <= 2880)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '全局可预约时段配置';
+
+-- 默认 08:00 - 次日 08:00（全天 24 小时可预约）
+INSERT INTO booking_window_config (id, start_minute, end_minute) VALUES (1, 480, 1920);
