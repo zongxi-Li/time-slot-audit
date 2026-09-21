@@ -19,3 +19,11 @@ backend-run.log
 
 # WorkBuddy 项目数据（非源码）
 .workbuddy/
+
+# 文档生成过程的工作目录：生成脚本、渲染预览、原始文件备份、结构校验输出等
+# 注意：output/playwright/ 下的联调截图仍需要入库，因此只忽略该子目录
+output/dbdoc_inspect/
+
+# 交付文档的渲染预览（DOCX 才是交付物，预览 PDF 不入库）
+*_预览.pdf
+docs/交付文档/**/*_预览.pdf
