@@ -11,6 +11,7 @@ import { repairTicketsApi, roomsApi } from '@/shared/api'
 import { roomQueryApi, type RoomFilterParams } from '@/shared/api/roomQuery'
 import { ApiError } from '@/shared/api/types'
 import type { FacilityResponse } from '@/shared/api/types'
+import { Calendar, InfoFilled, Location, Monitor, RefreshLeft, Search } from '@element-plus/icons-vue'
 import { toMinutes } from '@/utils/datetime'
 import { roomStatusMeta } from '@/utils/roomStatus'
 import type { MeetingRoom } from '@/types'
@@ -181,87 +182,101 @@ async function submitRepair() {
     <p class="page-subtitle">按位置、容量与设备筛选会议室，并可查询指定日期时段内的空闲会议室</p>
 
     <div class="panel filter-panel">
-      <el-form inline label-width="72px" class="filter-form" @submit.prevent>
-        <el-form-item label="位置">
+      <div class="filter-grid">
+        <div class="field">
+          <span class="field-label">位置</span>
           <el-input
             v-model="filterForm.location"
-            placeholder="位置关键字，如 3F"
+            placeholder="关键字，如 3F"
             clearable
-            style="width: 150px"
+            :prefix-icon="Location"
             @keyup.enter="fetchRooms"
             @clear="fetchRooms"
           />
-        </el-form-item>
-        <el-form-item label="最小容量">
+        </div>
+        <div class="field field--capacity">
+          <span class="field-label">最小容量</span>
           <el-input-number
             v-model="filterForm.minCapacity"
             :min="1"
             placeholder="人数"
             controls-position="right"
-            style="width: 130px"
           />
-        </el-form-item>
-        <el-form-item label="设备">
+        </div>
+        <div class="field">
+          <span class="field-label">设备</span>
           <el-input
             v-model="filterForm.facility"
             placeholder="设施关键字，如 投影"
             clearable
-            style="width: 150px"
+            :prefix-icon="Monitor"
             @keyup.enter="fetchRooms"
             @clear="fetchRooms"
           />
-        </el-form-item>
-        <el-form-item label="空闲时段">
-          <el-date-picker
-            v-model="slotQuery.date"
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="日期"
-            style="width: 130px"
-          />
-          <el-time-select
-            v-model="slotQuery.startTime"
-            start="00:00"
-            end="23:30"
-            step="00:30"
-            placeholder="开始"
-            style="width: 104px; margin-left: 8px"
-          />
-          <el-time-select
-            v-model="slotQuery.endTime"
-            start="00:00"
-            end="23:30"
-            step="00:30"
-            placeholder="结束"
-            style="width: 104px; margin-left: 8px"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="roomsLoading" @click="fetchRooms">查询</el-button>
-          <el-button :loading="roomsLoading" @click="queryAvailable">查空闲</el-button>
-          <el-button text @click="resetFilters">重置</el-button>
-        </el-form-item>
-      </el-form>
-      <div class="filter-hint">
+        </div>
+        <div class="field field--slot" :class="{ 'is-active': slotQuery.active }">
+          <span class="field-label">
+            <el-icon class="field-label-icon"><Calendar /></el-icon>
+            空闲时段
+          </span>
+          <div class="slot-controls">
+            <el-date-picker
+              v-model="slotQuery.date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="日期"
+            />
+            <span class="slot-sep">~</span>
+            <el-time-select
+              v-model="slotQuery.startTime"
+              start="00:00"
+              end="23:30"
+              step="00:30"
+              placeholder="开始"
+            />
+            <span class="slot-sep">~</span>
+            <el-time-select
+              v-model="slotQuery.endTime"
+              start="00:00"
+              end="23:30"
+              step="00:30"
+              placeholder="结束"
+            />
+          </div>
+        </div>
+        <div class="filter-actions">
+          <el-button type="primary" :icon="Search" :loading="roomsLoading" @click="fetchRooms">查询</el-button>
+          <el-button plain type="primary" :icon="Calendar" :loading="roomsLoading" @click="queryAvailable">查空闲</el-button>
+          <el-button text :icon="RefreshLeft" @click="resetFilters">重置</el-button>
+        </div>
+      </div>
+
+      <transition name="slot-chip">
+        <div v-if="slotQuery.active" class="slot-chip">
+          <el-icon class="slot-chip-icon"><Calendar /></el-icon>
+          <span class="slot-chip-text">空闲查询：{{ availabilitySummary }}</span>
+          <el-button link type="primary" @click="clearSlotQuery">清除时段过滤</el-button>
+        </div>
+      </transition>
+
+      <div class="filter-foot">
+        <el-icon class="foot-icon"><InfoFilled /></el-icon>
         结束时间不晚于开始时间按次日结束计算（跨天）；“查空闲”仅返回该时段无预约且处于可预约状态的会议室。
       </div>
-      <el-alert
-        v-if="slotQuery.active"
-        type="success"
-        :closable="false"
-        show-icon
-        class="slot-banner"
-      >
-        <template #title>
-          空闲查询：{{ availabilitySummary }}
-          <el-button link type="primary" @click="clearSlotQuery">清除时段过滤</el-button>
-        </template>
-      </el-alert>
     </div>
 
-    <el-empty v-if="!cards.length && !roomsLoading" description="没有符合条件的会议室" :image-size="90" />
+    <div v-if="!cards.length && !roomsLoading" class="panel empty-panel">
+      <div class="empty-icon">
+        <el-icon :size="26"><Calendar /></el-icon>
+      </div>
+      <div class="empty-title">{{ slotQuery.active ? '该时段没有空闲会议室' : '没有符合条件的会议室' }}</div>
+      <div class="empty-desc">
+        {{ slotQuery.active ? '换个时间段试试，或清除时段过滤后查看全部会议室' : '调整筛选条件，或重置后查看全部会议室' }}
+      </div>
+      <el-button plain type="primary" :icon="RefreshLeft" @click="resetFilters">重置筛选</el-button>
+    </div>
 
-    <el-row v-show="cards.length" :gutter="14">
+    <el-row v-show="cards.length" v-loading="roomsLoading" :gutter="14">
       <el-col v-for="card in cards" :key="card.id" :xs="24" :sm="12" :md="8" :lg="8" class="room-col">
         <div class="panel room-card" :class="`room-card--${card.displayStatus}`">
           <div class="room-head">
@@ -344,19 +359,171 @@ async function submitRepair() {
 </template>
 
 <style scoped>
+/* —— 筛选工具栏：字段块 + 迷你标签，时段查询为蓝色强调分组 —— */
 .filter-panel {
-  margin-bottom: 16px;
-  padding: 16px 18px 4px;
+  margin-bottom: 18px;
+  padding: 18px 20px 14px;
 }
 
-.filter-hint {
-  margin: -8px 0 12px;
+.filter-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex: 1 1 160px;
+  min-width: 150px;
+  max-width: 230px;
+  flex-direction: column;
+}
+
+.field--capacity {
+  flex: 0 1 140px;
+  min-width: 128px;
+  max-width: 150px;
+}
+
+.field-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.field :deep(.el-input-number) {
+  width: 100%;
+}
+
+.field--slot {
+  flex: 1.9 1 400px;
+  max-width: 560px;
+  padding: 9px 12px 11px;
+  margin: -9px -6px -11px;
+  border: 1px solid rgba(0, 113, 227, 0.16);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(237, 246, 253, 0.62), rgba(237, 246, 253, 0.28));
+  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+}
+
+.field--slot .field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #0062c4;
+}
+
+.field-label-icon {
+  font-size: 13px;
+}
+
+.field--slot.is-active {
+  border-color: rgba(0, 113, 227, 0.34);
+  background: rgba(237, 246, 253, 0.92);
+  box-shadow: 0 6px 18px rgba(0, 113, 227, 0.09);
+}
+
+.slot-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-controls :deep(.el-date-editor) {
+  width: 126px;
+  flex: none;
+}
+
+.slot-sep {
   font-size: 12px;
   color: var(--text-muted);
 }
 
-.slot-banner {
-  margin-bottom: 12px;
+.filter-actions {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+  align-self: flex-end;
+}
+
+.slot-chip {
+  display: flex;
+  width: fit-content;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(0, 113, 227, 0.07);
+  color: #0062c4;
+  font-size: 12.5px;
+}
+
+.slot-chip-icon {
+  font-size: 14px;
+}
+
+.slot-chip-enter-active,
+.slot-chip-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.slot-chip-enter-from,
+.slot-chip-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.filter-foot {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 13px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.foot-icon {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* —— 空态面板：图标 + 结论 + 动作 —— */
+.empty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 54px 24px 48px;
+  text-align: center;
+}
+
+.empty-icon {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: rgba(0, 113, 227, 0.07);
+  color: var(--el-color-primary);
+}
+
+.empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty-desc {
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
 }
 
 .room-col {
