@@ -113,10 +113,17 @@ function inSelection(roomId: string, slot: number): boolean {
   return !!box && box.roomId === roomId && slot >= box.start && slot < box.end
 }
 
+/** 维护中/停用的会议室不可预约：不响应左键框选，也不给悬停高亮 */
+function isBookable(roomId: string): boolean {
+  return props.rooms.find((r) => r.id === roomId)?.status === 'AVAILABLE'
+}
+
 function onPointerDown(e: PointerEvent, roomId: string) {
   if (e.button !== 0 || e.pointerType === 'touch') return
   // 预约卡片自己处理点击打开详情，不作为框选起点
   if ((e.target as HTMLElement).closest('.res-card')) return
+  // 维护中/停用的会议室整列不可选
+  if (!isBookable(roomId)) return
   e.preventDefault()
   const slot = slotFromEvent(e, e.currentTarget as HTMLElement)
   // 再点一次已选中的单格 -> 取消选择
@@ -140,6 +147,11 @@ function onPointerDown(e: PointerEvent, roomId: string) {
 }
 
 function onPointerMove(e: PointerEvent, roomId: string) {
+  // 不可预约的列不给任何悬停反馈
+  if (!isBookable(roomId)) {
+    if (hover.value?.roomId === roomId) hover.value = null
+    return
+  }
   const slot = slotFromEvent(e, e.currentTarget as HTMLElement)
   if (dragging.value) {
     // 框选锁定在按下时的那一列，跨列移动只改变时间范围
@@ -449,10 +461,12 @@ function onPanPointerUp() {
 
 .grid-room-col.room-column--maintenance {
   background-color: rgba(245, 158, 11, 0.035);
+  cursor: not-allowed;
 }
 
 .grid-room-col.room-column--disabled {
   background-color: rgba(107, 114, 128, 0.045);
+  cursor: not-allowed;
 }
 
 /* 当前时段：业务时刻所在小时格的整格底色，压在卡片之下 */
