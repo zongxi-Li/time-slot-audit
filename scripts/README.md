@@ -29,3 +29,34 @@ python scripts/concurrency-test.py --base-url http://localhost:8081/api --token 
 ~~~
 
 可通过 --second-room-id 同时验证第二个会议室。脚本不会修改表结构，也不会主动清理预约数据；请在专用测试数据库或可接受数据写入的环境运行。
+
+### 独立演示入口
+
+Windows PowerShell 可以直接运行独立入口。它会自动使用测试账号登录，并把 Token 传给 Python 并发脚本：
+
+~~~powershell
+.\scripts\run-concurrency-demo.ps1 -BaseUrl http://localhost:8081 -RoomId 1 -Count 10
+~~~
+
+如需同时测试两个会议室：
+
+~~~powershell
+.\scripts\run-concurrency-demo.ps1 -BaseUrl http://localhost:8081 -RoomId 1 -SecondRoomId 2 -Count 10
+~~~
+
+也可以指定具体的预约日期、时间段和预约信息：
+
+~~~powershell
+.\scripts\run-concurrency-demo.ps1 `
+  -BaseUrl http://localhost:8081 `
+  -RoomId 1 `
+  -Date 2026-09-22 `
+  -StartTime 14:00 `
+  -EndTime 15:30 `
+  -Count 10 `
+  -Title "答辩并发演示" `
+  -ParticipantCount 5 `
+  -Remark "同一会议室同一时间段并发预约"
+~~~
+
+直接运行 `concurrency-test.py` 时，也可以使用 `--date`、`--start-time`、`--end-time`、`--title`、`--participant-count` 和 `--remark` 参数覆盖脚本顶部的默认配置。每个会议室预期恰好一个 `201`，否则测试失败；因此请确保目标时间段事先为空。
