@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { administrationApi } from './api'
 import type { AdminReservation } from './types'
+import { useAutoRefresh } from '@/shared/composables/useAutoRefresh'
 
 const loading = ref(false)
 const status = ref('PENDING')
@@ -30,16 +31,20 @@ const statusTypes: Record<string, 'warning' | 'success' | 'danger' | 'info'> = {
 
 const pendingCount = computed(() => reservations.value.filter((item) => item.status === 'PENDING').length)
 
-async function load() {
-  loading.value = true
+async function load(silent = false) {
+  if (!silent) loading.value = true
   try {
     reservations.value = await administrationApi.reservations(status.value || undefined)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '加载预约失败')
+    // 静默轮询失败不打扰用户，正式加载仍给出错误提示
+    if (!silent) ElMessage.error(error instanceof Error ? error.message : '加载预约失败')
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
+
+/** 用户端提交的审批会自动出现在列表里：可见时每 1s 静默轮询，切回页面立即刷新 */
+useAutoRefresh(() => load(true), 1_000)
 
 async function openDetail(row: AdminReservation) {
   detailVisible.value = true

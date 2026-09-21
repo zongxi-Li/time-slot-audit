@@ -14,6 +14,7 @@ import { formatDateTime, parseDateStr, timeLabel } from '@/utils/datetime'
 import { violationLabel, violationTagType } from '@/utils/violation'
 import { myViolationsApi } from '@/shared/api'
 import type { ViolationResponse } from '@/shared/api'
+import { useAutoRefresh } from '@/shared/composables/useAutoRefresh'
 import type { DisplayStatus, Reservation } from '@/types'
 import ReservationDetail from '@/components/ReservationDetail.vue'
 import ReservationDialog from '@/components/ReservationDialog.vue'
@@ -57,6 +58,9 @@ onMounted(async () => {
 })
 
 watch(() => systemTime.revision, () => void store.refreshMine())
+
+/** 管理员审批结果自动生效：可见时每 1s 静默轮询，切回页面立即刷新 */
+useAutoRefresh(() => store.refreshMine(), 1_000)
 
 const detailVisible = ref(false)
 const detailId = ref<string | null>(null)

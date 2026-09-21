@@ -17,6 +17,7 @@ import {
   weekdayName,
 } from '@/utils/datetime'
 import { useSystemTimeStore } from '@/stores/systemTime'
+import { useAutoRefresh } from '@/shared/composables/useAutoRefresh'
 import type { ReservationDraft, SlotSelection } from '@/types'
 import ReservationGrid from '@/components/ReservationGrid.vue'
 import ReservationWeekGrid from '@/components/ReservationWeekGrid.vue'
@@ -55,6 +56,12 @@ watch(selectedDate, (date) => {
 watch(() => systemTime.revision, () => {
   selectedDate.value = systemTime.date
 })
+
+/** 他端新建/审批的预约自动上板：可见时每 1s 静默轮询，切回页面立即刷新 */
+useAutoRefresh(() => {
+  void roomStore.refreshRooms().catch(() => undefined)
+  return store.refreshCalendar(selectedDate.value)
+}, 1_000)
 
 function isToday(day: string) {
   return day === systemTime.date
