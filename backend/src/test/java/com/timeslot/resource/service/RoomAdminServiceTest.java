@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.HttpStatus;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -56,6 +57,8 @@ class RoomAdminServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.deleteRoom(9L));
 
         assertEquals(ErrorCode.ROOM_DELETE_BLOCKED, exception.getCode());
+        // 业务规则阻止必须返回 409 业务错误，不能落到 500 兜底
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertTrue(exception.getMessage().contains("未来预约"));
         verify(mapper, never()).deleteRoom(anyLong());
     }

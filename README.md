@@ -111,14 +111,21 @@ Get-ChildItem sql/migrations/V1_*.sql |
   ForEach-Object { mysql --default-character-set=utf8mb4 -u<user> -p -e "source $($_.FullName)" }
 ~~~
 
-演示账号密码均为 123456，仅适用于本地开发：
+种子数据包含 6 个部门、11 个账号、16 间会议室和 47 条预约（覆盖 PENDING / CONFIRMED / REJECTED / CANCELLED 四种状态，并含周期性会议、跨天预约、已结束会议的实际使用记录与出勤数据）。所有账号密码均为 123456，仅适用于本地开发：
 
-| 用户名 | 角色 |
-|:---|:---|
-| admin | ADMIN |
-| lzx | ADMIN |
-| zhangsan | USER |
-| lisi | USER |
+| 用户名 | 姓名 | 角色 | 部门 | 信用分 | 说明 |
+|:---|:---|:---|:---|:---|:---|
+| admin | 系统管理员 | ADMIN | 信息中心 | 100 | 管理员，可审批与强制取消 |
+| lzx | LZX | ADMIN | 信息中心 | 100 | 管理员 |
+| zhangsan | 张三 | USER | 软件学院 | 110 | 周期会议组织者，含已结束会议的执行记录 |
+| lisi | 李四 | USER | 信息中心 | 80 | 有信用扣分，仍具备预约资格 |
+| wangwu | 王五 | USER | 软件学院 | 110 | 跨天彩排组织者 |
+| zhaoliu | 赵六 | USER | 后勤保障处 | 95 | |
+| sunqi | 孙七 | USER | 教务处 | 100 | 有禁用/启用审计记录，净扣分为 0 |
+| zhouba | 周八 | USER | 图书馆 | 70 | 有缺席记录 |
+| wujiu | 吴九 | USER | 外国语学院 | 100 | |
+| zhengshi | 郑十 | USER | 软件学院 | 60 | 信用分恰好达到预约门槛 |
+| liushiyi | 刘十一 | USER | 后勤保障处 | 45 | **低于门槛且处于限制期，不具备预约资格** |
 
 ### 2. 配置本地环境
 

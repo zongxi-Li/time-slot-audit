@@ -26,7 +26,8 @@ public class BusinessException extends RuntimeException {
             case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
             case RESOURCE_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case ROOM_UNAVAILABLE, RESERVATION_TIME_CONFLICT, RESERVATION_INVALID_STATE, DUPLICATE_REQUEST -> HttpStatus.CONFLICT;
+            case ROOM_UNAVAILABLE, ROOM_DELETE_BLOCKED, RESERVATION_TIME_CONFLICT,
+                 RESERVATION_INVALID_STATE, DUPLICATE_REQUEST -> HttpStatus.CONFLICT;
             case VALIDATION_ERROR, ROOM_CAPACITY_EXCEEDED -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
