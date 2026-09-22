@@ -11,10 +11,15 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * {@code repeatWeeks} 为选填的周期性会议（按周重复）周数：缺省或 1 表示单次会议；
  * 2..8 表示从首次开始时刻起每周同一时段批量创建 N 场预约，逐周做冲突与规则校验。
+ *
+ * <p>{@code attendeeIds} 为选填的初始参与人 userId 列表（不含创建人，组织者行自动补齐）：
+ * 可空；每一场（含周期性展开的每一周）都会登记同一批参与人，人数上限受申报人数约束，
+ * 校验与落库由 meeting 域经 {@code ReservationAttendeePort} 完成。
  */
 public record CreateReservationRequest(
         @NotBlank @Size(max = 100) String requestId,
@@ -24,6 +29,7 @@ public record CreateReservationRequest(
         @NotNull LocalDateTime endTime,
         @NotNull @Min(1) Integer participantCount,
         @Size(max = 500) String remark,
-        @Min(1) @Max(8) Integer repeatWeeks
+        @Min(1) @Max(8) Integer repeatWeeks,
+        List<Long> attendeeIds
 ) {
 }

@@ -206,6 +206,8 @@ export interface CreateReservationRequest {
   remark?: string
   /** 周期性会议（按周重复）周数：缺省/1 为单次，2..8 由后端逐周校验后批量创建 */
   repeatWeeks?: number
+  /** 初始参与人 userId 列表（不含创建人）：随创建一并登记，受申报人数上限约束 */
+  attendeeIds?: number[]
 }
 
 /* —— 身份治理（identity 域）：用户/部门/信用 —— */
@@ -254,6 +256,15 @@ export interface DepartmentResponse {
   id: number | string
   deptName: string
   description?: string | null
+}
+
+/** 用户目录条目（GET /api/users/directory）：选参与人下拉的最小信息集 */
+export interface UserDirectoryResponse {
+  id: number | string
+  username: string
+  realName: string
+  departmentId?: number | string | null
+  departmentName?: string | null
 }
 
 export interface CreateUserPayload {

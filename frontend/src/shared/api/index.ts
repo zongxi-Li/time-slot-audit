@@ -32,6 +32,7 @@ import type {
   SaveRoomRequest,
   SaveCategoryRequest,
   SystemTimeResponse,
+  UserDirectoryResponse,
   UserResponse,
   ViolationResponse,
 } from './types'
@@ -186,6 +187,13 @@ export const myViolationsApi = {
   },
 }
 
+/** 用户目录（活跃账号 + 部门名）：任何登录用户可读，用于新建预约时选择参与人 */
+export const userDirectoryApi = {
+  async list() {
+    return request<UserDirectoryResponse[]>('/users/directory')
+  },
+}
+
 export const roomsApi = {
   async list() {
     return (await request<RoomResponse[]>('/rooms')).map(toRoom)
@@ -282,6 +290,8 @@ export const reservationsApi = {
       remark: draft.remark,
       // 周期性会议：>1 时后端按周展开并逐周校验冲突；undefined 不会序列化进请求体
       repeatWeeks: draft.repeatWeeks && draft.repeatWeeks > 1 ? draft.repeatWeeks : undefined,
+      // 初始参与人：空列表不序列化，保持与旧请求体兼容
+      attendeeIds: draft.attendeeIds?.length ? draft.attendeeIds : undefined,
     }
     return toReservation(await request<ReservationResponse>('/reservations', { method: 'POST', body }))
   },
@@ -312,6 +322,7 @@ export type {
   DepartmentResponse,
   DepartmentPayload,
   QualificationResponse,
+  UserDirectoryResponse,
   ViolationResponse,
   ViolationType,
 } from './types'

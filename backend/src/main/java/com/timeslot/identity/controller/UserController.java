@@ -10,6 +10,7 @@ import com.timeslot.common.api.ApiResponse;
 import com.timeslot.common.security.AuthenticatedUser;
 import com.timeslot.common.security.CurrentUserProvider;
 import com.timeslot.identity.dto.QualificationResponse;
+import com.timeslot.identity.dto.UserDirectoryResponse;
 import com.timeslot.identity.dto.UserResponse;
 import com.timeslot.identity.dto.ViolationResponse;
 import com.timeslot.identity.service.AuthService;
@@ -42,6 +43,13 @@ public class UserController {
     public ApiResponse<UserResponse> me() {
         AuthenticatedUser current = currentUserProvider.getRequired();
         return ApiResponse.success(authService.getCurrentUser(current));
+    }
+
+    /** 用户目录（活跃账号 + 部门名）：任何登录用户可读，用于新建预约时选择参与人。 */
+    @GetMapping("/directory")
+    public ApiResponse<List<UserDirectoryResponse>> directory() {
+        currentUserProvider.getRequired();
+        return ApiResponse.success(authService.listDirectory());
     }
 
     @GetMapping("/me/qualification")

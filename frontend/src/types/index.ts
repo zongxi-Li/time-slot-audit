@@ -58,6 +58,8 @@ export interface ReservationDraft {
   remark?: string
   /** 周期性会议（按周重复）周数：缺省/1 为单次会议，2..8 为每周同一时段批量预约 */
   repeatWeeks?: number
+  /** 初始参与人 userId 列表（不含创建人）：创建时随预约一并登记，人数受申报上限约束 */
+  attendeeIds?: number[]
 }
 
 export type RoomStatus = 'idle' | 'in-use'

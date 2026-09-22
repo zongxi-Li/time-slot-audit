@@ -18,6 +18,7 @@ import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
+import com.timeslot.reservation.spi.ReservationAttendeePort;
 import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.resource.dto.BookableRoomProfile;
 import com.timeslot.resource.service.ResourceBookingQueryService;
@@ -35,6 +36,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,6 +47,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -62,6 +65,7 @@ class ReservationServiceTest {
     @Mock CurrentUserProvider currentUserProvider;
     @Mock BookingWindowService bookingWindowService;
     @Mock ReservationNotificationPort notificationPort;
+    @Mock ReservationAttendeePort attendeePort;
 
     private ReservationService service;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-11T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -74,7 +78,7 @@ class ReservationServiceTest {
     @BeforeEach
     void setUp() {
         service = new ReservationService(reservationMapper, resourceBookingQueryService, bookingQualificationService,
-                currentUserProvider, bookingWindowService, notificationPort, clock);
+                currentUserProvider, bookingWindowService, notificationPort, attendeePort, clock);
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(2L, "zhangsan", "USER"));
         when(bookingQualificationService.check(2L)).thenReturn(BookingQualification.allow(2L, 100));
         when(reservationMapper.findByUserIdAndRequestId(anyLong(), anyString())).thenReturn(null);
@@ -88,7 +92,7 @@ class ReservationServiceTest {
 
     private CreateReservationRequest request() {
         return new CreateReservationRequest("request-1", 1L, "课程讨论",
-                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, "备注", null);
+                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, "备注", null, null);
     }
 
     @Test
@@ -166,7 +170,7 @@ class ReservationServiceTest {
     @Test
     void capacityExceededIsRejected() {
         CreateReservationRequest tooMany = new CreateReservationRequest("request-1", 1L, "课程讨论",
-                request().startTime(), request().endTime(), 9, null, null);
+                request().startTime(), request().endTime(), 9, null, null, null);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(tooMany));
 
@@ -176,7 +180,7 @@ class ReservationServiceTest {
     @Test
     void invalidTimeIsRejected() {
         CreateReservationRequest invalid = new CreateReservationRequest("request-1", 1L, "课程讨论",
-                request().endTime(), request().startTime(), 3, null, null);
+                request().endTime(), request().startTime(), 3, null, null, null);
 
         assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(BusinessException.class,
                 () -> service.createReservation(invalid)).getCode());
@@ -188,7 +192,7 @@ class ReservationServiceTest {
         when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(
                 new BookableRoomProfile(1L, "A301", 8, "AVAILABLE", false, 24 * 60, 7));
         CreateReservationRequest overnight = new CreateReservationRequest("request-1", 1L, "通宵研讨",
-                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 1, 0), 4, null, null);
+                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 1, 0), 4, null, null, null);
 
         assertEquals("CONFIRMED", service.createReservation(overnight).status());
         verify(reservationMapper).insert(any(Reservation.class));
@@ -198,7 +202,7 @@ class ReservationServiceTest {
     void reservationBeyondWindowEndIsRejected() {
         // 结束落到次日 10:00（2040 分钟），超出默认窗口 1920 分钟
         CreateReservationRequest beyond = new CreateReservationRequest("request-1", 1L, "超时段预约",
-                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 10, 0), 4, null, null);
+                LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 10, 0), 4, null, null, null);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(beyond));
 
@@ -210,7 +214,7 @@ class ReservationServiceTest {
     void reservationBeforeWindowStartIsRejected() {
         when(bookingWindowService.get()).thenReturn(new BookingWindowResponse(600, 1080));
         CreateReservationRequest early = new CreateReservationRequest("request-1", 1L, "过早预约",
-                LocalDateTime.of(2026, 9, 12, 9, 0), LocalDateTime.of(2026, 9, 12, 10, 0), 4, null, null);
+                LocalDateTime.of(2026, 9, 12, 9, 0), LocalDateTime.of(2026, 9, 12, 10, 0), 4, null, null, null);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.createReservation(early));
 
@@ -295,7 +299,7 @@ class ReservationServiceTest {
 
     private CreateReservationRequest recurringRequest(int weeks) {
         return new CreateReservationRequest("request-1", 1L, "周期例会",
-                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, null, weeks);
+                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, null, weeks, null);
     }
 
     @Test
@@ -343,6 +347,40 @@ class ReservationServiceTest {
         assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(BusinessException.class,
                 () -> service.createReservation(recurringRequest(9))).getCode());
         verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
+
+    @Test
+    void initialAttendeesAttachedToEveryOccurrence() {
+        // 每周 ×3 + 初始参与人：适配器对每一场（含周期展开）各登记同一批参与人。
+        CreateReservationRequest withAttendees = new CreateReservationRequest("request-1", 1L, "周期例会",
+                LocalDateTime.of(2026, 9, 12, 10, 0), LocalDateTime.of(2026, 9, 12, 11, 0), 6, null, 3,
+                List.of(3L, 4L));
+
+        assertEquals("CONFIRMED", service.createReservation(withAttendees).status());
+        verify(reservationMapper, times(3)).insert(any(Reservation.class));
+        verify(attendeePort, times(3)).attachInitialAttendees(any(Reservation.class), eq(List.of(3L, 4L)));
+    }
+
+    @Test
+    void noInitialAttendeesSkipsAttendeePort() {
+        service.createReservation(request());
+
+        verify(attendeePort, never()).attachInitialAttendees(any(Reservation.class), any());
+    }
+
+    @Test
+    void initialAttendeesFailureRollsBackWholeBatch() {
+        // 适配器校验失败（如超出申报人数）抛业务异常：创建整体失败，不产生半场预约。
+        CreateReservationRequest withAttendees = new CreateReservationRequest("request-1", 1L, "课程讨论",
+                request().startTime(), request().endTime(), 6, null, null, List.of(3L));
+        doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR, "初始参与人数超过预约申报上限"))
+                .when(attendeePort).attachInitialAttendees(any(Reservation.class), eq(List.of(3L)));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.createReservation(withAttendees));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, exception.getCode());
+        verify(notificationPort, never()).notifyCreated(anyLong(), any(), any(), any(), any(), any());
     }
 
     private Reservation ownedReservation(Long ownerId) {

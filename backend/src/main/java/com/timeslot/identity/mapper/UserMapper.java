@@ -5,6 +5,7 @@
 package com.timeslot.identity.mapper;
 
 import com.timeslot.identity.domain.User;
+import com.timeslot.identity.dto.UserDirectoryResponse;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -63,6 +64,19 @@ public interface UserMapper {
             SELECT id FROM sys_user WHERE role = #{role} AND status = 1
             """)
     List<Long> findIdsByRole(@Param("role") String role);
+
+    /**
+     * 用户目录：活跃（status=1）用户的最小信息集 + 部门名（LEFT JOIN 冗余），
+     * 按部门名、真实名排序供前端下拉直接分组；不含密码与治理字段。
+     */
+    @Select("""
+            SELECT u.id, u.username, u.real_name, u.department_id, d.dept_name AS department_name
+            FROM sys_user u
+            LEFT JOIN department d ON u.department_id = d.id
+            WHERE u.status = 1
+            ORDER BY d.dept_name, u.real_name, u.id
+            """)
+    List<UserDirectoryResponse> findDirectory();
 
     @Insert("""
             INSERT INTO sys_user (username, password, real_name, email, phone, role, status,

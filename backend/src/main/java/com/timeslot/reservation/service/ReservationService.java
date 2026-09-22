@@ -22,6 +22,7 @@ import com.timeslot.reservation.dto.CreateReservationRequest;
 import com.timeslot.reservation.dto.ReservationResponse;
 import com.timeslot.reservation.dto.UpdateReservationRequest;
 import com.timeslot.reservation.mapper.ReservationMapper;
+import com.timeslot.reservation.spi.ReservationAttendeePort;
 import com.timeslot.reservation.spi.ReservationNotificationPort;
 import com.timeslot.resource.dto.BookableRoomProfile;
 import com.timeslot.resource.service.ResourceBookingQueryService;
@@ -50,18 +51,21 @@ public class ReservationService {
     private final CurrentUserProvider currentUserProvider;
     private final BookingWindowService bookingWindowService;
     private final ReservationNotificationPort notificationPort;
+    private final ReservationAttendeePort attendeePort;
     private final Clock clock;
 
     public ReservationService(ReservationMapper reservationMapper, ResourceBookingQueryService resourceBookingQueryService,
                               BookingQualificationService bookingQualificationService,
                               CurrentUserProvider currentUserProvider, BookingWindowService bookingWindowService,
-                              ReservationNotificationPort notificationPort, Clock clock) {
+                              ReservationNotificationPort notificationPort, ReservationAttendeePort attendeePort,
+                              Clock clock) {
         this.reservationMapper = reservationMapper;
         this.resourceBookingQueryService = resourceBookingQueryService;
         this.bookingQualificationService = bookingQualificationService;
         this.currentUserProvider = currentUserProvider;
         this.bookingWindowService = bookingWindowService;
         this.notificationPort = notificationPort;
+        this.attendeePort = attendeePort;
         this.clock = clock;
     }
 
@@ -127,6 +131,10 @@ public class ReservationService {
                 anchor = reservation;
             } else {
                 reservationMapper.insert(reservation);
+            }
+            // 初始参与人随每场（含周期性每周）登记；校验失败抛业务异常，整批随事务回滚。
+            if (request.attendeeIds() != null && !request.attendeeIds().isEmpty()) {
+                attendeePort.attachInitialAttendees(reservation, request.attendeeIds());
             }
             // 出站通知：本人收到“创建成功”，受控分类还需广播管理员“待审批”。
             notifyReservationLifecycle(reservation);

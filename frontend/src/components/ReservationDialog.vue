@@ -11,6 +11,8 @@ import { useSystemTimeStore } from '@/stores/systemTime'
 import { useBookingWindowStore } from '@/stores/bookingWindow'
 import { useMonitorStore } from '@/stores/monitor'
 import { ApiError } from '@/shared/api'
+import { userDirectoryApi } from '@/shared/api'
+import type { UserDirectoryResponse } from '@/shared/api'
 import { hourLabel, timeLabel } from '@/utils/datetime'
 import type { MeetingRoom, Reservation, ReservationDraft } from '@/types'
 
@@ -91,13 +93,56 @@ const form = reactive<ReservationDraft>({
   participantCount: 4,
   remark: '',
   repeatWeeks: 1,
+  attendeeIds: [],
 })
+
+/* —— 参会人选择：用户目录按部门分组，创建时随预约一并登记 —— */
+const directory = ref<UserDirectoryResponse[]>([])
+const directoryLoading = ref(false)
+
+async function loadDirectory() {
+  directoryLoading.value = true
+  try {
+    directory.value = await userDirectoryApi.list()
+  } catch {
+    // 目录加载失败不阻断预约：选择器显示为空，用户仍可提交后到「参与人」里补充
+    directory.value = []
+  } finally {
+    directoryLoading.value = false
+  }
+}
+
+interface DirectoryGroup {
+  label: string
+  options: UserDirectoryResponse[]
+}
+
+/** 后端已按部门名排序；这里仅做相邻分组，保持稳定顺序 */
+const groupedDirectory = computed<DirectoryGroup[]>(() => {
+  const groups: DirectoryGroup[] = []
+  for (const user of directory.value) {
+    const label = user.departmentName || '未分配部门'
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) last.options.push(user)
+    else groups.push({ label, options: [user] })
+  }
+  return groups
+})
+
+/** 申报人数（含组织者）必须 ≥ 已选参与人 + 1 */
+function syncParticipantCount() {
+  const needed = (form.attendeeIds?.length ?? 0) + 1
+  if (form.participantCount < needed) {
+    form.participantCount = Math.min(needed, selectedRoom.value?.capacity ?? 200)
+  }
+}
 
 watch(visible, (open) => {
   if (!open) return
   conflictResult.value = null
   serverConflictMessage.value = ''
   createRequestId.value = props.editing ? null : crypto.randomUUID()
+  void loadDirectory()
   // 编辑模式预填现有预约；新建模式回退到看板预填信息，再退到窗口起点+1小时。
   // 看板可能框选到维护中/停用的会议室，这类房间不在可预约选项里，roomId 置空让用户自选。
   const initialRoomId = props.initial?.roomId
@@ -113,6 +158,8 @@ watch(visible, (open) => {
   form.participantCount = props.editing?.participantCount ?? 4
   form.remark = props.editing?.remark ?? ''
   form.repeatWeeks = 1
+  // 编辑模式不提供选人（参与人经「参与人」抽屉管理），始终清空避免旧选择残留
+  form.attendeeIds = []
 })
 
 const selectedRoom = computed(() => roomStore.getRoom(form.roomId))
@@ -135,7 +182,20 @@ const rules: FormRules = {
       trigger: 'change',
     },
   ],
-  participantCount: [{ required: true, message: '请输入参会人数', trigger: 'change' }],
+  participantCount: [
+    { required: true, message: '请输入参会人数', trigger: 'change' },
+    {
+      validator: (_rule, value: number, callback) => {
+        const needed = (form.attendeeIds?.length ?? 0) + 1
+        if (value < needed) {
+          callback(new Error(`需容纳组织者与已选参与人，至少 ${needed} 人`))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'change',
+    },
+  ],
 }
 
 /** 表单变化后清除旧的冲突提示 */
@@ -333,6 +393,31 @@ async function handleSubmit() {
         <span v-if="selectedRoom" class="capacity-hint">
           {{ selectedRoom.name }} 容量 {{ selectedRoom.capacity }} 人
         </span>
+      </el-form-item>
+
+      <el-form-item v-if="!props.editing" label="参会人员" prop="attendeeIds">
+        <el-select
+          v-model="form.attendeeIds"
+          multiple
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          :loading="directoryLoading"
+          :multiple-limit="(selectedRoom?.capacity ?? 200) - 1"
+          placeholder="按部门选择参会人员（可留空，稍后在「参与人」中添加）"
+          style="width: 100%"
+          @change="syncParticipantCount(); clearConflict()"
+        >
+          <el-option-group v-for="group in groupedDirectory" :key="group.label" :label="group.label">
+            <el-option
+              v-for="user in group.options"
+              :key="user.id"
+              :value="user.id"
+              :label="`${user.realName}（@${user.username}）`"
+            />
+          </el-option-group>
+        </el-select>
+        <span class="capacity-hint">组织者自动参会；人数上限为申报人数，超出时自动上调参会人数</span>
       </el-form-item>
 
       <el-form-item v-if="!props.editing" label="重复">

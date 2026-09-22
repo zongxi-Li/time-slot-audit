@@ -11,11 +11,14 @@ import com.timeslot.common.security.JwtService;
 import com.timeslot.identity.domain.User;
 import com.timeslot.identity.dto.LoginRequest;
 import com.timeslot.identity.dto.LoginResponse;
+import com.timeslot.identity.dto.UserDirectoryResponse;
 import com.timeslot.identity.dto.UserResponse;
 import com.timeslot.identity.mapper.UserMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class AuthService {
@@ -44,5 +47,10 @@ public class AuthService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, HttpStatus.UNAUTHORIZED, "当前账号不可用");
         }
         return UserResponse.from(user);
+    }
+
+    /** 用户目录（仅活跃账号）：供登录用户选择会议参与人，最小信息集不含治理字段。 */
+    public List<UserDirectoryResponse> listDirectory() {
+        return userMapper.findDirectory();
     }
 }
