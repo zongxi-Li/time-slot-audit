@@ -7,9 +7,9 @@
 --              2) 按外键依赖逆序重建全部 17 张业务表（含主键、索引、外键与 CHECK 约束）；
 --              3) 写入演示/测试种子数据。
 -- 覆盖范围   : 等价于 sql/schema.sql（完整快照）+ sql/data.sql（种子数据），
---              并补齐 V1_6 迁移增加、而快照遗漏的 4 个运营查询索引。
+--              并包含完整的运营查询索引。
 -- 适用场景   : 从零搭建本地或演示数据库。脚本会 DROP 并重建全部业务表，
---              已有业务数据的库请勿执行，应改用 sql/migrations/ 下的增量脚本。
+--              已有业务数据的库请勿直接执行；本仓库不提供增量迁移脚本。
 -- 执行方式   : mysql --default-character-set=utf8mb4 -u<user> -p -e "source sql/init.sql"
 --              也可在 MySQL 客户端内执行：source C:/path/to/sql/init.sql
 --              （Windows PowerShell 下不要用 Get-Content ... | mysql 管道，
@@ -166,7 +166,7 @@ CREATE TABLE room_facility (
 -- =============================================================================
 -- 7. room_open_rule 会议室开放时间表
 --    weekday 使用 ISO-8601：1=周一 ... 7=周日。
---    节假日和特殊日期不在 v1.1 范围内，未来通过独立 migration 扩展。
+--    节假日和特殊日期不在 v1.1 范围内，未来扩展时同步更新初始化脚本。
 -- =============================================================================
 CREATE TABLE room_open_rule (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',

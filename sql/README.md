@@ -1,6 +1,6 @@
 # TimeSlot 数据库脚本
 
-sql/ 保存 meeting_room 数据库的 MySQL 8.x 建库脚本和增量迁移。数据库采用 InnoDB、utf8mb4、snake_case、BIGINT 主键和 DATETIME；状态机取值由应用层维护，数据库保存字符串事实。当前结构版本为 **v1.11，共 17 张业务表**。
+sql/ 保存 meeting_room 数据库的 MySQL 8.x 建库脚本和初始化数据。数据库采用 InnoDB、utf8mb4、snake_case、BIGINT 主键和 DATETIME；状态机取值由应用层维护，数据库保存字符串事实。当前结构版本为 **v1.11，共 17 张业务表**。仓库只保留从零初始化所需脚本，不再维护增量迁移目录。
 
 ## 文件职责
 
@@ -9,9 +9,8 @@ sql/ 保存 meeting_room 数据库的 MySQL 8.x 建库脚本和增量迁移。�
 | **init.sql** | **一体化建库脚本**：建库 + 17 张表 + 索引/外键/CHECK 约束 + 种子数据 | 推荐入口。会 DROP 并重建全部业务表，不能用于需要保留数据的数据库 |
 | schema.sql | 仅表结构（完整快照），供分步执行或结构比对 | 需再执行 data.sql 才有演示数据 |
 | data.sql | 仅演示/测试种子数据 | 会清空并重建演示数据，密码为 BCrypt 摘要对应的 123456 |
-| migrations/V1_*.sql | 存量数据库增量升级 | 按文件名顺序执行，当前到 V1_11__meeting_execution_record.sql |
 
-init.sql 是 schema.sql 与 data.sql 的合并结果，并补齐了 V1_6 迁移增加、而快照与种子脚本都遗漏的 4 个运营查询索引（`idx_reservation_status_period`、`idx_approval_created_at`、`idx_operation_business_created`、`idx_operation_user_created`），同时修正了 schema.sql 的 DROP 列表漏掉两张单例配置表、导致无法重复执行的问题。
+init.sql 是 schema.sql 与 data.sql 的合并结果，包含完整的 4 个运营查询索引（`idx_reservation_status_period`、`idx_approval_created_at`、`idx_operation_business_created`、`idx_operation_user_created`），同时修正了 schema.sql 的 DROP 列表漏掉两张单例配置表、导致无法重复执行的问题。
 
 ## 表关系
 
@@ -30,7 +29,7 @@ meeting_room ──< reservation
 sys_user ──< operation_log
 ~~~
 
-实际表结构以 init.sql（或 schema.sql + 对应迁移）为准；执行前请检查当前数据库版本，避免把 reset-style 脚本用于生产或已存在业务数据的数据库。
+实际表结构以 init.sql（或 schema.sql + data.sql）为准；执行前请检查当前数据库版本，避免把 reset-style 脚本用于生产或已存在业务数据的数据库。
 
 ## 初始化新数据库（推荐：一条命令）
 
@@ -51,17 +50,9 @@ mysql --default-character-set=utf8mb4 -u<user> -p -e "source sql/data.sql"
 
 脚本会创建 meeting_room 数据库。若 MySQL 用户没有创建数据库权限，请先由管理员创建数据库并授予权限。
 
-## 升级已有数据库
+## 已有数据库
 
-不要对已有数据库重新执行 init.sql 或 data.sql。按版本顺序执行迁移：
-
-~~~powershell
-Get-ChildItem sql/migrations/V1_*.sql |
-  Sort-Object Name |
-  ForEach-Object { mysql --default-character-set=utf8mb4 -u<user> -p -e "source $($_.FullName)" }
-~~~
-
-迁移当前覆盖：团队基线、预约强化、身份治理、资源管理、会议执行、会议实际使用记录、管理运营、状态检查、乐观锁、系统时间和预约窗口。
+本仓库不再提供增量迁移脚本。已有数据库请先备份；如需使用当前完整结构，请在可重建的数据库上执行 `sql/init.sql`，或按需分别执行 `sql/schema.sql` 与 `sql/data.sql`。
 
 ## 关键数据库约定
 
@@ -72,4 +63,3 @@ Get-ChildItem sql/migrations/V1_*.sql |
 - reservation.start_time/end_time 是计划时间；meeting_execution 只记录实际起止时间与实际参会人数，一条预约最多一条记录。
 - 业务时间配置保存在 system_time_config；JWT 安全时间不由该表控制。
 - 数据库账号、密码和 JWT 密钥只放在 .env.local 或环境变量中。
-

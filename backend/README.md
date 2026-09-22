@@ -101,7 +101,7 @@ reservation/controller/ReservationController.java
   → reservation/service/ReservationService.java
   → reservation/service/ReservationLifecycleService.java
   → reservation/mapper/ReservationMapper.java
-  → sql/init.sql（一体化建库脚本）+ sql/migrations/（增量演进）
+  → sql/init.sql（一体化建库脚本）
 ~~~
 
 领域包边界和跨域调用规则见 [com.timeslot 领域边界](src/main/java/com/timeslot/README.md)。

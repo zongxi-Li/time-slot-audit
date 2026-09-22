@@ -5,8 +5,7 @@
 -- 版本       : v1.11（V1_1 Team-Ready Baseline 2026-09-11 + V1_3 身份治理 + V1_4 资源管理
 --              V1_5 会议执行 2026-09-21 + V1_11 实际使用记录 2026-09-21）
 --              本文件始终表示从零初始化后的最新完整结构，已含全部 17 张表，
---              从零初始化只需 schema.sql + data.sql；存量库升级请按序执行
---              sql/migrations/ 下的增量脚本（见 docs/development/database-evolution.md）
+--              从零初始化只需 schema.sql + data.sql；本仓库不再提供增量迁移脚本
 -- 设计约定   : InnoDB / utf8mb4 / snake_case / BIGINT 主键 / DATETIME 时间
 --              不使用 ENUM / 存储过程 / 触发器；
 --              状态机取值(PENDING/CONFIRMED/...)由应用层维护，DB 只存字符串
@@ -158,7 +157,7 @@ CREATE TABLE room_facility (
 -- =============================================================================
 -- 7. room_open_rule 会议室开放时间表
 --    weekday 使用 ISO-8601：1=周一 ... 7=周日。
---    节假日和特殊日期不在 v1.1 范围内，未来通过独立 migration 扩展。
+--    节假日和特殊日期不在 v1.1 范围内，未来扩展时同步更新初始化脚本。
 -- =============================================================================
 CREATE TABLE room_open_rule (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',

@@ -72,7 +72,7 @@ administration  审批、强制取消、审计和运营统计
 TimeSlot/
 ├─ frontend/       Vue 3 + TypeScript + Vite 前端
 ├─ backend/        Spring Boot + MyBatis 后端
-├─ sql/            schema、种子数据和 V1_1~V1_11 迁移
+├─ sql/            schema、种子数据和一体化初始化脚本
 ├─ scripts/        开发启动与并发验证脚本
 ├─ docs/           开发契约、交付文档、图表和个人文档
 ├─ start-dev.cmd   Windows 一键启动入口
@@ -103,13 +103,8 @@ mysql --default-character-set=utf8mb4 -u<user> -p -e "source sql/init.sql"
 
 若需要分步执行结构脚本与种子脚本，可分别执行 `sql/schema.sql`（仅结构）与 `sql/data.sql`（仅演示数据）。
 
-已有数据库只执行迁移，并按文件名顺序执行当前 V1_1 至 V1_11：
+已有数据库请先备份；当前仓库仅保留初始化建库脚本，不再提供增量迁移脚本。
 
-~~~powershell
-Get-ChildItem sql/migrations/V1_*.sql |
-  Sort-Object Name |
-  ForEach-Object { mysql --default-character-set=utf8mb4 -u<user> -p -e "source $($_.FullName)" }
-~~~
 
 种子数据包含 6 个部门、11 个账号、16 间会议室和 47 条预约（覆盖 PENDING / CONFIRMED / REJECTED / CANCELLED 四种状态，并含周期性会议、跨天预约、已结束会议的实际使用记录与出勤数据）。所有账号密码均为 123456，仅适用于本地开发：
 
@@ -233,5 +228,5 @@ python scripts/concurrency-test.py --base-url http://localhost:8081/api --token 
 1. 先确认业务事实的所属领域，再通过公开 Service 或 SPI 跨域调用。
 2. 不把数据库 Row/Write、Domain、DTO 和 Projection 混为同一概念。
 3. 前端组件通过 store 和 API adapter 访问数据，不在组件内复制后端业务规则。
-4. 修改数据库时同步迁移脚本、数据说明和 API 契约。
+4. 修改数据库时同步更新 init.sql、schema.sql、data.sql、数据说明和 API 契约。
 5. 不提交 .env.local、真实密码、JWT 密钥和本地生成产物。
