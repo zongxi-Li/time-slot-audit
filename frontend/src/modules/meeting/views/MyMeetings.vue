@@ -148,94 +148,105 @@ function openExecutionRecord(m: MeetingExecutionView) {
         <el-button text type="primary" @click="load">刷新</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="filteredList" style="width: 100%" empty-text="暂无会议记录">
-        <el-table-column prop="title" label="会议主题" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="roomName" label="会议室" width="90" />
-        <el-table-column label="时间" min-width="150">
-          <template #default="{ row }">{{ formatDateTime(row.startTime) }} - {{ row.endTime.slice(11, 16) }}</template>
-        </el-table-column>
-        <el-table-column label="我的角色" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.myRole === 'ORGANIZER' ? 'warning' : 'primary'" size="small" effect="light">
-              {{ row.myRole === 'ORGANIZER' ? '组织者' : '参与人' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="我的出勤" width="100">
-          <template #default="{ row }">
-            <el-tag
-              :type="attendanceTagType[row.myAttendanceStatus] ?? 'info'"
-              size="small"
-              effect="light"
-            >
-              {{ attendanceText[row.myAttendanceStatus] ?? '—' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="实际使用记录" min-width="190">
-          <template #default="{ row }">
-            <template v-if="row.actualStartTime && row.actualEndTime">
-              <div>{{ formatDateTime(row.actualStartTime) }} - {{ row.actualEndTime.slice(11, 16) }}</div>
-              <div class="muted-text">实际参会 {{ row.actualAttendeeCount ?? 0 }} 人</div>
+      <div class="meetings-table-scroll">
+        <el-table
+          v-loading="loading"
+          class="meetings-table"
+          :data="filteredList"
+          style="width: 100%"
+          empty-text="暂无会议记录"
+        >
+          <el-table-column prop="title" label="会议主题" min-width="170" show-overflow-tooltip />
+          <el-table-column prop="roomName" label="会议室" width="90" />
+          <el-table-column label="时间" min-width="150">
+            <template #default="{ row }">{{ formatDateTime(row.startTime) }} - {{ row.endTime.slice(11, 16) }}</template>
+          </el-table-column>
+          <el-table-column label="我的角色" width="90">
+            <template #default="{ row }">
+              <el-tag :type="row.myRole === 'ORGANIZER' ? 'warning' : 'primary'" size="small" effect="light">
+                {{ row.myRole === 'ORGANIZER' ? '组织者' : '参与人' }}
+              </el-tag>
             </template>
-            <span v-else class="muted-text">未登记</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="阶段" width="90">
-          <template #default="{ row }">
-            <el-tag :type="phaseTagType[phaseOf(row)]" size="small" effect="light">
-              {{ row.reservationStatus === 'PENDING' ? RESERVATION_STATUS_TEXT.PENDING : phaseOf(row) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              v-if="canRecordExecution(row)"
-              link
-              type="success"
-              size="small"
-              @click="openExecutionRecord(row)"
-            >
-              {{ row.actualStartTime ? '修改使用记录' : '登记使用记录' }}
-            </el-button>
-            <el-button
-              v-if="canCheckIn(row)"
-              type="success"
-              size="small"
-              @click="doCheckIn(row)"
-            >
-              签到
-            </el-button>
-            <el-button
-              v-if="canCheckOut(row)"
-              type="warning"
-              plain
-              size="small"
-              @click="doCheckOut(row)"
-            >
-              签退
-            </el-button>
-            <el-button
-              v-if="row.reservationStatus === 'CONFIRMED' || row.reservationStatus === 'PENDING'"
-              link
-              type="primary"
-              size="small"
-              @click="openManager(row)"
-            >
-              参与人
-            </el-button>
-            <el-button
-              v-if="row.reservationStatus === 'CANCELLED' || row.reservationStatus === 'REJECTED' || phaseOf(row) === '已结束'"
-              link
-              size="small"
-              @click="openManager(row)"
-            >
-              出勤记录
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </el-table-column>
+          <el-table-column label="我的出勤" width="100">
+            <template #default="{ row }">
+              <el-tag
+                :type="attendanceTagType[row.myAttendanceStatus] ?? 'info'"
+                size="small"
+                effect="light"
+              >
+                {{ attendanceText[row.myAttendanceStatus] ?? '—' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际使用记录" min-width="190">
+            <template #default="{ row }">
+              <template v-if="row.actualStartTime && row.actualEndTime">
+                <div>{{ formatDateTime(row.actualStartTime) }} - {{ row.actualEndTime.slice(11, 16) }}</div>
+                <div class="muted-text">实际参会 {{ row.actualAttendeeCount ?? 0 }} 人</div>
+              </template>
+              <span v-else class="muted-text">未登记</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="阶段" width="90">
+            <template #default="{ row }">
+              <el-tag :type="phaseTagType[phaseOf(row)]" size="small" effect="light">
+                {{ row.reservationStatus === 'PENDING' ? RESERVATION_STATUS_TEXT.PENDING : phaseOf(row) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <!-- 不固定操作列：窄宽下让整张表横向滚动，避免固定列覆盖其他列。 -->
+          <el-table-column label="操作" width="210">
+            <template #default="{ row }">
+              <div class="meeting-actions">
+                <el-button
+                  v-if="canRecordExecution(row)"
+                  link
+                  type="success"
+                  size="small"
+                  @click="openExecutionRecord(row)"
+                >
+                  {{ row.actualStartTime ? '修改使用记录' : '登记使用记录' }}
+                </el-button>
+                <el-button
+                  v-if="canCheckIn(row)"
+                  type="success"
+                  size="small"
+                  @click="doCheckIn(row)"
+                >
+                  签到
+                </el-button>
+                <el-button
+                  v-if="canCheckOut(row)"
+                  type="warning"
+                  plain
+                  size="small"
+                  @click="doCheckOut(row)"
+                >
+                  签退
+                </el-button>
+                <el-button
+                  v-if="row.reservationStatus === 'CONFIRMED' || row.reservationStatus === 'PENDING'"
+                  link
+                  type="primary"
+                  size="small"
+                  @click="openManager(row)"
+                >
+                  参与人
+                </el-button>
+                <el-button
+                  v-if="row.reservationStatus === 'CANCELLED' || row.reservationStatus === 'REJECTED' || phaseOf(row) === '已结束'"
+                  link
+                  size="small"
+                  @click="openManager(row)"
+                >
+                  出勤记录
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </div>
 
     <AttendeeManager
@@ -261,6 +272,16 @@ function openExecutionRecord(m: MeetingExecutionView) {
 <style scoped>
 .table-panel {
   padding: 16px;
+  overflow: hidden;
+}
+
+.meetings-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.meetings-table {
+  min-width: 1090px;
 }
 
 .filter-bar {
@@ -273,5 +294,30 @@ function openExecutionRecord(m: MeetingExecutionView) {
 .muted-text {
   color: var(--text-muted, #8b96a5);
   font-size: 12px;
+}
+
+.meeting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.meeting-actions .el-button {
+  margin-left: 0;
+}
+
+@media (max-width: 760px) {
+  .table-panel {
+    padding: 12px;
+  }
+
+  .filter-bar {
+    align-items: flex-start;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
 }
 </style>

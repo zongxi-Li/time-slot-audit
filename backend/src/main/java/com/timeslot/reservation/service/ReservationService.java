@@ -69,6 +69,7 @@ public class ReservationService {
         this.clock = clock;
     }
 
+    // 创建预约先开启事务
     @Transactional(isolation = Isolation.READ_COMMITTED, noRollbackFor = DuplicateKeyException.class)
     public ReservationResponse createReservation(CreateReservationRequest request) {
         AuthenticatedUser user = currentUserProvider.getRequired();

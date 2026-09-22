@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Close, WarningFilled } from '@element-plus/icons-vue'
 import { notificationsApi } from '../api'
 import type { NotificationView } from '../api'
+import { useAutoRefresh } from '@/shared/composables/useAutoRefresh'
 
 const visible = ref(false)
 const items = ref<NotificationView[]>([])
@@ -14,7 +15,7 @@ const items = ref<NotificationView[]>([])
 const latest = computed(() => items.value[0] ?? null)
 const extraCount = computed(() => Math.max(0, items.value.length - 1))
 
-onMounted(async () => {
+async function load() {
   try {
     const unread = await notificationsApi.list(true)
     items.value = unread.filter((n) => n.type === 'RESERVATION_REJECTED')
@@ -22,7 +23,12 @@ onMounted(async () => {
   } catch {
     /* 加载失败静默：通知列表里仍可查看，不打扰用户 */
   }
-})
+}
+
+onMounted(() => void load())
+
+// 管理员可能在用户已打开页面后才完成驳回；轮询保证横幅能在不刷新页面的情况下出现。
+useAutoRefresh(load, 1_000)
 
 /** 用户已通过横幅知晓结果：关闭时把这几条标记为已读，避免下次登录重复弹出 */
 async function dismiss() {

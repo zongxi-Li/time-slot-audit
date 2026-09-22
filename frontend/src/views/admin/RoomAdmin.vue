@@ -514,97 +514,103 @@ async function finishMaintenance(plan: MaintenanceResponse) {
         </div>
         <el-button type="primary" plain @click="openCategoryCreate">+ 新增分类</el-button>
       </div>
-      <el-table :data="categories" size="small" style="width: 100%">
-        <el-table-column prop="name" label="分类" width="120" />
-        <el-table-column label="容量范围" width="110">
-          <template #default="{ row }">{{ row.minCapacity }}~{{ row.maxCapacity }} 人</template>
-        </el-table-column>
-        <el-table-column label="审批" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.approvalRequired ? 'warning' : 'success'" size="small" effect="light">
-              {{ row.approvalRequired ? '需审批' : '免审批' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="单次最长时长" width="120">
-          <template #default="{ row }">{{ formatDuration(row.maxDurationMinutes) }}</template>
-        </el-table-column>
-        <el-table-column label="可提前预约" width="110">
-          <template #default="{ row }">{{ row.advanceDays }} 天</template>
-        </el-table-column>
-        <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
-        <el-table-column label="操作" width="80" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openCategoryEdit(row)">编辑</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="admin-table-scroll">
+        <el-table class="category-table" :data="categories" size="small" style="width: 100%">
+          <el-table-column prop="name" label="分类" width="120" />
+          <el-table-column label="容量范围" width="110">
+            <template #default="{ row }">{{ row.minCapacity }}~{{ row.maxCapacity }} 人</template>
+          </el-table-column>
+          <el-table-column label="审批" width="90">
+            <template #default="{ row }">
+              <el-tag :type="row.approvalRequired ? 'warning' : 'success'" size="small" effect="light">
+                {{ row.approvalRequired ? '需审批' : '免审批' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="单次最长时长" width="120">
+            <template #default="{ row }">{{ formatDuration(row.maxDurationMinutes) }}</template>
+          </el-table-column>
+          <el-table-column label="可提前预约" width="110">
+            <template #default="{ row }">{{ row.advanceDays }} 天</template>
+          </el-table-column>
+          <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
+          <!-- 不固定操作列：窄宽下让整张表横向滚动，避免固定列覆盖说明列。 -->
+          <el-table-column label="操作" width="80">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openCategoryEdit(row)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </div>
 
     <div class="panel table-panel" v-loading="loading">
-      <el-table :data="roomStore.rooms" style="width: 100%">
-        <el-table-column prop="name" label="名称" width="100">
-          <template #default="{ row }">
-            <span class="room-name-cell">{{ row.name }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="location" label="位置" min-width="140" />
-        <el-table-column prop="capacity" label="容量" width="80">
-          <template #default="{ row }">{{ row.capacity }} 人</template>
-        </el-table-column>
-        <el-table-column prop="category" label="分类" width="110">
-          <template #default="{ row }">{{ row.category || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="设施" min-width="220">
-          <template #default="{ row }">
-            <el-tag
-              v-for="eq in row.equipment"
-              :key="eq"
-              size="small"
-              type="info"
-              effect="plain"
-              class="eq-tag"
-            >
-              {{ eq }}
-            </el-tag>
-            <span v-if="row.equipment.length === 0" class="muted">无</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="96">
-          <template #default="{ row }">
-            <el-tag :type="STATUS_TAG[row.status as RoomFlag]" size="small" effect="light">
-              {{ STATUS_TEXT[row.status as RoomFlag] ?? '未知' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" :width="340" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)">
-              编辑
-            </el-button>
-            <el-button link type="primary" size="small" @click="openFacilities(row)">设施</el-button>
-            <el-button link type="primary" size="small" @click="openMaintenance(row)">维护</el-button>
-            <el-dropdown class="status-dropdown" @command="(cmd: RoomFlag) => handleStatus(row, cmd)">
-              <el-button link size="small" :type="row.status === 'AVAILABLE' ? 'danger' : 'success'">
-                状态
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="opt in statusOptions"
-                    :key="opt.value"
-                    :command="opt.value"
-                    :disabled="opt.value === row.status"
-                  >
-                    {{ opt.label }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="admin-table-scroll">
+        <el-table class="room-table" :data="roomStore.rooms" style="width: 100%">
+          <el-table-column prop="name" label="名称" width="100">
+            <template #default="{ row }">
+              <span class="room-name-cell">{{ row.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="location" label="位置" min-width="140" />
+          <el-table-column prop="capacity" label="容量" width="80">
+            <template #default="{ row }">{{ row.capacity }} 人</template>
+          </el-table-column>
+          <el-table-column prop="category" label="分类" width="110">
+            <template #default="{ row }">{{ row.category || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="设施" min-width="220">
+            <template #default="{ row }">
+              <el-tag
+                v-for="eq in row.equipment"
+                :key="eq"
+                size="small"
+                type="info"
+                effect="plain"
+                class="eq-tag"
+              >
+                {{ eq }}
+              </el-tag>
+              <span v-if="row.equipment.length === 0" class="muted">无</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="96">
+            <template #default="{ row }">
+              <el-tag :type="STATUS_TAG[row.status as RoomFlag]" size="small" effect="light">
+                {{ STATUS_TEXT[row.status as RoomFlag] ?? '未知' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <!-- 不固定操作列：窄宽下让整张表横向滚动，避免固定列覆盖状态列。 -->
+          <el-table-column label="操作" :width="340">
+            <template #default="{ row }">
+              <div class="room-actions">
+                <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+                <el-button link type="primary" size="small" @click="openFacilities(row)">设施</el-button>
+                <el-button link type="primary" size="small" @click="openMaintenance(row)">维护</el-button>
+                <el-dropdown class="status-dropdown" @command="(cmd: RoomFlag) => handleStatus(row, cmd)">
+                  <el-button link size="small" :type="row.status === 'AVAILABLE' ? 'danger' : 'success'">
+                    状态
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="opt in statusOptions"
+                        :key="opt.value"
+                        :command="opt.value"
+                        :disabled="opt.value === row.status"
+                      >
+                        {{ opt.label }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </div>
 
     <el-dialog
@@ -803,6 +809,19 @@ async function finishMaintenance(plan: MaintenanceResponse) {
   padding: 16px;
 }
 
+.admin-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.category-table {
+  min-width: 830px;
+}
+
+.room-table {
+  min-width: 1086px;
+}
+
 .room-name-cell {
   font-weight: 600;
 }
@@ -833,7 +852,18 @@ async function finishMaintenance(plan: MaintenanceResponse) {
 }
 
 .status-dropdown {
-  margin-left: 12px;
+  margin-left: 0;
+}
+
+.room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.room-actions .el-button {
+  margin-left: 0;
 }
 
 .facility-row {
