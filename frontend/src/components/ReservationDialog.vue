@@ -13,7 +13,7 @@ import { useMonitorStore } from '@/stores/monitor'
 import { ApiError } from '@/shared/api'
 import { userDirectoryApi } from '@/shared/api'
 import type { UserDirectoryResponse } from '@/shared/api'
-import { hourLabel, timeLabel } from '@/utils/datetime'
+import { timeLabel } from '@/utils/datetime'
 import type { MeetingRoom, Reservation, ReservationDraft } from '@/types'
 
 const visible = defineModel<boolean>({ default: false })
@@ -45,16 +45,22 @@ interface TimeOption {
   label: string
 }
 
-function hourValue(h: number): string {
-  return `${String(h).padStart(2, '0')}:00`
+/** 预约弹窗按 15 分钟一档（quarter）展示，后端仍以 LocalDateTime 负责最终校验。 */
+const TIME_STEP_MINUTES = 15
+
+function timeValue(totalMinutes: number): string {
+  const hour = Math.floor(totalMinutes / 60)
+  const minute = totalMinutes % 60
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
-/** 开始时间选项：窗口起点到当天 24 点前（次日晨间时段只能作为前一天预约的结束） */
+/** 开始时间选项：窗口起点到当天 24 点前（次日晨间时段只能作为前一天预约的结束）。 */
 const startOptions = computed<TimeOption[]>(() => {
   const list: TimeOption[] = []
-  for (let h = bookingWindow.startHour; h < Math.min(bookingWindow.endHour, 24); h++) {
-    const value = hourValue(h)
-    list.push({ value, label: hourLabel(h) })
+  const lastStartMinute = Math.min(bookingWindow.endMinute, 24 * 60) - TIME_STEP_MINUTES
+  for (let minute = bookingWindow.startMinute; minute <= lastStartMinute; minute += TIME_STEP_MINUTES) {
+    const value = timeValue(minute)
+    list.push({ value, label: timeLabel(value) })
   }
   return list
 })
@@ -62,10 +68,12 @@ const startOptions = computed<TimeOption[]>(() => {
 /** 结束时间选项：晚于已选开始，可到窗口终点（含次日） */
 const endOptions = computed<TimeOption[]>(() => {
   const list: TimeOption[] = []
-  for (let h = bookingWindow.startHour + 1; h <= bookingWindow.endHour; h++) {
-    const value = hourValue(h)
+  for (let minute = bookingWindow.startMinute + TIME_STEP_MINUTES;
+    minute <= bookingWindow.endMinute;
+    minute += TIME_STEP_MINUTES) {
+    const value = timeValue(minute)
     if (form.startTime && value <= form.startTime) continue
-    list.push({ value, label: hourLabel(h) })
+    list.push({ value, label: timeLabel(value) })
   }
   return list
 })
@@ -146,8 +154,8 @@ watch(visible, (open) => {
   // 编辑模式预填现有预约；新建模式回退到看板预填信息，再退到窗口起点+1小时。
   // 看板可能框选到维护中/停用的会议室，这类房间不在可预约选项里，roomId 置空让用户自选。
   const initialRoomId = props.initial?.roomId
-  const fallbackStart = hourValue(bookingWindow.startHour)
-  const fallbackEnd = hourValue(Math.min(bookingWindow.startHour + 1, bookingWindow.endHour))
+  const fallbackStart = timeValue(bookingWindow.startMinute)
+  const fallbackEnd = timeValue(Math.min(bookingWindow.startMinute + 60, bookingWindow.endMinute))
   form.title = props.editing?.title ?? ''
   form.roomId =
     props.editing?.roomId ??

@@ -1,0 +1,65 @@
+-- 重建 SET 变量
+SET @m23 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n23');
+SET @m24 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n24');
+SET @m25 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n25');
+SET @m26 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n26');
+SET @m27 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n27');
+SET @m28 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n28');
+SET @m29 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n29');
+SET @m30 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n30');
+SET @m31 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n31');
+SET @m32 = (SELECT id FROM reservation WHERE request_id = 'seed3-rsv-n32');
+-- 通知
+INSERT INTO notification
+       (user_id, type, title, content, reservation_id, dedup_key, is_read, read_at, created_at)
+VALUES
+(8, 'RESERVATION_CREATED', '预约创建成功', '你创建的预约「科研团队月度例会」(B201,2026-09-18T14:00 开始)已确认,请准时参会并签到。', @m23, CONCAT('RESERVATION_CREATED:', @m23), 1, '2026-09-16 15:00:00', '2026-09-16 14:20:00'),
+(3, 'ATTENDEE_ADDED', '被加入会议', '你被加入「科研团队月度例会」。', @m23, CONCAT('ATTENDEE_ADDED:', @m23, ':3'), 1, '2026-09-16 18:00:00', '2026-09-16 14:22:00'),
+(5, 'ATTENDEE_ADDED', '被加入会议', '你被加入「科研团队月度例会」。', @m23, CONCAT('ATTENDEE_ADDED:', @m23, ':5'), 1, '2026-09-17 09:00:00', '2026-09-16 14:22:00'),
+(9, 'ATTENDEE_ADDED', '被加入会议', '你被加入「科研团队月度例会」。', @m23, CONCAT('ATTENDEE_ADDED:', @m23, ':9'), 1, '2026-09-16 20:00:00', '2026-09-16 14:22:00'),
+(8, 'MEETING_REMINDER', '会议即将开始', '「科研团队月度例会」将在 30 分钟后开始(B201)。', @m23, CONCAT('MEETING_REMINDER:', @m23, ':8'), 1, '2026-09-18 13:59:00', '2026-09-18 13:30:00'),
+(3,  'RESERVATION_CREATED', '预约创建成功', '你创建的预约「毕业设计中期检查沟通」(A301,2026-09-18T16:00 开始)已确认,请准时参会并签到。', @m24, CONCAT('RESERVATION_CREATED:', @m24), 1, '2026-09-17 10:00:00', '2026-09-17 09:40:00'),
+(9,  'ATTENDEE_ADDED', '被加入会议', '你被加入「毕业设计中期检查沟通」。', @m24, CONCAT('ATTENDEE_ADDED:', @m24, ':9'), 1, '2026-09-17 14:00:00', '2026-09-17 09:42:00'),
+(10, 'ATTENDEE_ADDED', '被加入会议', '你被加入「毕业设计中期检查沟通」。', @m24, CONCAT('ATTENDEE_ADDED:', @m24, ':10'), 1, '2026-09-17 16:00:00', '2026-09-17 09:42:00'),
+(3,  'MEETING_REMINDER', '会议即将开始', '「毕业设计中期检查沟通」将在 30 分钟后开始(A301)。', @m24, CONCAT('MEETING_REMINDER:', @m24, ':3'), 1, '2026-09-18 15:35:00', '2026-09-18 15:30:00'),
+(2,  'RESERVATION_CREATED', '预约创建成功', '你创建的预约「算法竞赛集训」(C201,2026-09-18T18:30 开始)已确认,请准时参会并签到。', @m25, CONCAT('RESERVATION_CREATED:', @m25), 1, '2026-09-16 12:00:00', '2026-09-16 11:30:00'),
+(6,  'ATTENDEE_ADDED', '被加入会议', '你被加入「算法竞赛集训」。', @m25, CONCAT('ATTENDEE_ADDED:', @m25, ':6'), 1, '2026-09-16 17:00:00', '2026-09-16 11:32:00'),
+(9,  'ATTENDEE_ADDED', '被加入会议', '你被加入「算法竞赛集训」。', @m25, CONCAT('ATTENDEE_ADDED:', @m25, ':9'), 1, '2026-09-16 19:00:00', '2026-09-16 11:32:00'),
+(10, 'ATTENDEE_ADDED', '被加入会议', '你被加入「算法竞赛集训」。', @m25, CONCAT('ATTENDEE_ADDED:', @m25, ':10'), 1, '2026-09-17 09:30:00', '2026-09-16 11:32:00'),
+(11, 'ATTENDEE_ADDED', '被加入会议', '你被加入「算法竞赛集训」。', @m25, CONCAT('ATTENDEE_ADDED:', @m25, ':11'), 0, NULL, '2026-09-16 11:32:00'),
+(2,  'MEETING_REMINDER', '会议即将开始', '「算法竞赛集训」将在 30 分钟后开始(C201)。', @m25, CONCAT('MEETING_REMINDER:', @m25, ':2'), 1, '2026-09-18 18:02:00', '2026-09-18 18:00:00'),
+(11, 'RESERVATION_CREATED', '预约创建成功', '你创建的预约「社团联合筹备会」(E201,2026-09-19T14:00 开始)已确认,请准时参会并签到。', @m26, CONCAT('RESERVATION_CREATED:', @m26), 1, '2026-09-17 17:00:00', '2026-09-17 16:10:00'),
+(8,  'ATTENDEE_ADDED', '被加入会议', '你被加入「社团联合筹备会」。', @m26, CONCAT('ATTENDEE_ADDED:', @m26, ':8'), 1, '2026-09-17 20:00:00', '2026-09-17 16:12:00'),
+(10, 'ATTENDEE_ADDED', '被加入会议', '你被加入「社团联合筹备会」。', @m26, CONCAT('ATTENDEE_ADDED:', @m26, ':10'), 1, '2026-09-18 09:00:00', '2026-09-17 16:12:00'),
+(11, 'MEETING_REMINDER', '会议即将开始', '「社团联合筹备会」将在 30 分钟后开始(E201)。', @m26, CONCAT('MEETING_REMINDER:', @m26, ':11'), 1, '2026-09-19 13:32:00', '2026-09-19 13:30:00'),
+(6,  'RESERVATION_CREATED', '预约创建成功', '你创建的预约「周末编程沙龙」(C101,2026-09-19T19:00 开始)已确认,请准时参会并签到。', @m27, CONCAT('RESERVATION_CREATED:', @m27), 1, '2026-09-18 10:30:00', '2026-09-18 10:00:00'),
+(9,  'ATTENDEE_ADDED', '被加入会议', '你被加入「周末编程沙龙」。', @m27, CONCAT('ATTENDEE_ADDED:', @m27, ':9'), 1, '2026-09-18 14:00:00', '2026-09-18 10:02:00'),
+(11, 'ATTENDEE_ADDED', '被加入会议', '你被加入「周末编程沙龙」。', @m27, CONCAT('ATTENDEE_ADDED:', @m27, ':11'), 1, '2026-09-18 16:00:00', '2026-09-18 10:02:00'),
+(6,  'MEETING_REMINDER', '会议即将开始', '「周末编程沙龙」将在 30 分钟后开始(C101)。', @m27, CONCAT('MEETING_REMINDER:', @m27, ':6'), 1, '2026-09-19 18:32:00', '2026-09-19 18:30:00'),
+(5,  'RESERVATION_CREATED', '预约创建成功', '你创建的预约「考研复习小组学习」(E202,2026-09-20T10:00 开始)已确认,请准时参会并签到。', @m28, CONCAT('RESERVATION_CREATED:', @m28), 1, '2026-09-18 16:00:00', '2026-09-18 15:30:00'),
+(9,  'ATTENDEE_ADDED', '被加入会议', '你被加入「考研复习小组学习」。', @m28, CONCAT('ATTENDEE_ADDED:', @m28, ':9'), 1, '2026-09-18 19:00:00', '2026-09-18 15:32:00'),
+(10, 'ATTENDEE_ADDED', '被加入会议', '你被加入「考研复习小组学习」。', @m28, CONCAT('ATTENDEE_ADDED:', @m28, ':10'), 1, '2026-09-18 20:00:00', '2026-09-18 15:32:00'),
+(5,  'MEETING_REMINDER', '会议即将开始', '「考研复习小组学习」将在 30 分钟后开始(E202)。', @m28, CONCAT('MEETING_REMINDER:', @m28, ':5'), 1, '2026-09-20 09:32:00', '2026-09-20 09:30:00'),
+(8,  'RESERVATION_CREATED', '预约创建成功', '你创建的预约「迎新晚会第二次彩排」(B202,2026-09-20T19:00 开始)已确认,请准时参会并签到。', @m29, CONCAT('RESERVATION_CREATED:', @m29), 1, '2026-09-18 21:00:00', '2026-09-18 20:15:00'),
+(2,  'ATTENDEE_ADDED', '被加入会议', '你被加入「迎新晚会第二次彩排」。', @m29, CONCAT('ATTENDEE_ADDED:', @m29, ':2'), 1, '2026-09-19 09:00:00', '2026-09-18 20:17:00'),
+(10, 'ATTENDEE_ADDED', '被加入会议', '你被加入「迎新晚会第二次彩排」。', @m29, CONCAT('ATTENDEE_ADDED:', @m29, ':10'), 1, '2026-09-19 10:00:00', '2026-09-18 20:17:00'),
+(9,  'ATTENDEE_ADDED', '被加入会议', '你被加入「迎新晚会第二次彩排」。', @m29, CONCAT('ATTENDEE_ADDED:', @m29, ':9'), 1, '2026-09-19 11:00:00', '2026-09-18 20:17:00'),
+(8,  'MEETING_REMINDER', '会议即将开始', '「迎新晚会第二次彩排」将在 30 分钟后开始(B202)。', @m29, CONCAT('MEETING_REMINDER:', @m29, ':8'), 1, '2026-09-20 18:33:00', '2026-09-20 18:30:00'),
+(2,  'MEETING_REMINDER', '会议即将开始', '「迎新晚会第二次彩排」将在 30 分钟后开始(B202)。', @m29, CONCAT('MEETING_REMINDER:', @m29, ':2'), 1, '2026-09-20 19:00:00', '2026-09-20 18:30:00'),
+(10, 'RESERVATION_CREATED', '预约创建成功', '你创建的预约「奖学金评定小组会议」(C201,2026-09-21T14:00 开始)已确认,请准时参会并签到。', @m30, CONCAT('RESERVATION_CREATED:', @m30), 1, '2026-09-19 12:00:00', '2026-09-19 11:00:00'),
+(3,  'ATTENDEE_ADDED', '被加入会议', '你被加入「奖学金评定小组会议」。', @m30, CONCAT('ATTENDEE_ADDED:', @m30, ':3'), 1, '2026-09-19 15:00:00', '2026-09-19 11:02:00'),
+(6,  'ATTENDEE_ADDED', '被加入会议', '你被加入「奖学金评定小组会议」。', @m30, CONCAT('ATTENDEE_ADDED:', @m30, ':6'), 1, '2026-09-20 09:00:00', '2026-09-19 11:02:00'),
+(10, 'MEETING_REMINDER', '会议即将开始', '「奖学金评定小组会议」将在 30 分钟后开始(C201)。', @m30, CONCAT('MEETING_REMINDER:', @m30, ':10'), 1, '2026-09-21 13:32:00', '2026-09-21 13:30:00'),
+(11, 'RESERVATION_CREATED', '预约创建成功', '你创建的预约「社团干部周例会」(A301,2026-09-21T19:00 开始)已确认,请准时参会并签到。', @m31, CONCAT('RESERVATION_CREATED:', @m31), 1, '2026-09-20 10:00:00', '2026-09-20 09:30:00'),
+(6,  'ATTENDEE_ADDED', '被加入会议', '你被加入「社团干部周例会」。', @m31, CONCAT('ATTENDEE_ADDED:', @m31, ':6'), 1, '2026-09-20 14:00:00', '2026-09-20 09:32:00'),
+(8,  'ATTENDEE_ADDED', '被加入会议', '你被加入「社团干部周例会」。', @m31, CONCAT('ATTENDEE_ADDED:', @m31, ':8'), 1, '2026-09-20 16:00:00', '2026-09-20 09:32:00'),
+(11, 'MEETING_REMINDER', '会议即将开始', '「社团干部周例会」将在 30 分钟后开始(A301)。', @m31, CONCAT('MEETING_REMINDER:', @m31, ':11'), 1, '2026-09-21 18:32:00', '2026-09-21 18:30:00'),
+(3, 'RESERVATION_CREATED', '预约创建成功', '你创建的预约「技术分享:MySQL 索引优化实践」(E201,2026-09-22T18:00 开始)已确认,请准时参会并签到。', @m32, CONCAT('RESERVATION_CREATED:', @m32), 0, NULL, '2026-09-21 17:20:00'),
+(2, 'ATTENDEE_ADDED', '被加入会议', '你被加入「技术分享:MySQL 索引优化实践」。', @m32, CONCAT('ATTENDEE_ADDED:', @m32, ':2'), 0, NULL, '2026-09-21 17:22:00'),
+(5, 'ATTENDEE_ADDED', '被加入会议', '你被加入「技术分享:MySQL 索引优化实践」。', @m32, CONCAT('ATTENDEE_ADDED:', @m32, ':5'), 0, NULL, '2026-09-21 17:22:00'),
+(8, 'ATTENDEE_ADDED', '被加入会议', '你被加入「技术分享:MySQL 索引优化实践」。', @m32, CONCAT('ATTENDEE_ADDED:', @m32, ':8'), 0, NULL, '2026-09-21 17:22:00');
+
+-- 与新 NO_SHOW 对应的信用扣分
+INSERT INTO user_violation (user_id, violation_type, credit_change, reason, operator_id, created_at) VALUES
+(10, 'CREDIT_DEDUCT', -10, '9月18日算法竞赛集训预约后未签到,记缺席一次', 1, '2026-09-18 20:35:00'),
+(9,  'CREDIT_DEDUCT', -10, '9月20日迎新晚会第二次彩排预约后未到场,记缺席一次', 4, '2026-09-20 21:05:00');
