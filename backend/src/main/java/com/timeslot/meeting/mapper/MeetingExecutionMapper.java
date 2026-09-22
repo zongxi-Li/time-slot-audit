@@ -55,11 +55,11 @@ public interface MeetingExecutionMapper {
     @Delete("DELETE FROM reservation_attendee WHERE id = #{id}")
     int deleteById(Long id);
 
-    /** 仅 EXPECTED 行允许状态推进，SQL 条件兜底防止并发越权转换。 */
+    /** 窗口内签到：EXPECTED 正常推进；NO_SHOW 仅在测试时钟回拨后出现（窗口内翻案），同样放行。 */
     @Update("""
             UPDATE reservation_attendee
             SET attendance_status = 'CHECKED_IN', check_in_at = #{time}
-            WHERE id = #{id} AND attendance_status = 'EXPECTED'
+            WHERE id = #{id} AND attendance_status IN ('EXPECTED', 'NO_SHOW')
             """)
     int markCheckedIn(@Param("id") Long id, @Param("time") LocalDateTime time);
 

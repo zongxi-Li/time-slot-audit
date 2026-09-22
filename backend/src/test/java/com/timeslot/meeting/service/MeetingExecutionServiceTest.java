@@ -260,6 +260,20 @@ class MeetingExecutionServiceTest {
     }
 
     @Test
+    void checkInOverridesNoShowInsideWindow() {
+        // NO_SHOW 仅应在会议结束后判定；测试时钟回拨后窗口内会残留 NO_SHOW 行，签到需能翻案
+        Attendee checkedIn = row(ORGANIZER_ID, AttendeeRole.ORGANIZER, AttendeeStatus.CHECKED_IN);
+        checkedIn.setCheckInAt(now);
+        when(attendeeMapper.findRow(RESERVATION_ID, ORGANIZER_ID))
+                .thenReturn(row(ORGANIZER_ID, AttendeeRole.ORGANIZER, AttendeeStatus.NO_SHOW), checkedIn);
+
+        AttendeeView view = service.checkIn(RESERVATION_ID);
+
+        assertEquals("CHECKED_IN", view.attendanceStatus());
+        verify(attendeeMapper).markCheckedIn(eq(ORGANIZER_ID * 10), eq(now));
+    }
+
+    @Test
     void checkInRejectedBeforeWindowOpens() {
         when(reservationQueryService.requireReservation(RESERVATION_ID))
                 .thenReturn(reservation(ReservationStatus.CONFIRMED, now.plusMinutes(30), now.plusMinutes(90)));
