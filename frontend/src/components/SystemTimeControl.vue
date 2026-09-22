@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSystemTimeStore } from '@/stores/systemTime'
 import { formatDateTime } from '@/utils/datetime'
@@ -10,13 +10,16 @@ const draft = ref('')
 
 const displayTime = computed(() => formatDateTime(systemTime.snapshot?.currentTime))
 
-watch(
-  () => systemTime.snapshot,
-  (value) => {
-    if (value) draft.value = value.currentTime.slice(0, 19)
-  },
-  { immediate: true },
-)
+/**
+ * 只在弹层打开瞬间带出当前业务时间。
+ * 不能持续 watch snapshot 回写：30s 轮询会在用户编辑过程中覆盖 draft，
+ * 导致“应用并刷新”提交的是旧时间，看起来像测试时间没生效。
+ */
+function syncDraft() {
+  const current = systemTime.snapshot?.currentTime ?? ''
+  // 后端 ISO 输出在整点时会省略秒，补齐到 picker 期望的 yyyy-MM-ddTHH:mm:ss
+  draft.value = current.length === 16 ? `${current}:00` : current.slice(0, 19)
+}
 
 async function applyFixedTime() {
   if (!draft.value) return
@@ -45,7 +48,7 @@ async function resetTime() {
 </script>
 
 <template>
-  <el-popover placement="bottom-end" :width="330" trigger="click">
+  <el-popover placement="bottom-end" :width="330" trigger="click" @show="syncDraft">
     <template #reference>
       <el-button class="time-trigger" text>
         <span class="time-trigger-label">业务时间</span>
