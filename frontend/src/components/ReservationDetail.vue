@@ -3,7 +3,7 @@
   接口：通过 props、emits 与父页面通信，必要时通过 store 间接访问 API。
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useMeetingRoomStore } from '@/stores/meetingRoom'
@@ -12,6 +12,7 @@ import { useSystemTimeStore } from '@/stores/systemTime'
 import { useAuthStore } from '@/stores/auth'
 import { useMonitorStore } from '@/stores/monitor'
 import { administrationApi } from '@/modules/administration/api'
+import { meetingsApi, type AttendanceView } from '@/modules/meeting/api'
 import {
   RESERVATION_PHASE_TAG,
   RESERVATION_PHASE_TEXT,
@@ -80,6 +81,119 @@ const pendingStarted = computed(
 const timePhase = computed(() =>
   reservation.value ? reservationTimePhase(reservation.value, systemTime.now) : null,
 )
+
+/* —— 签到 / 出勤：与「我的会议」同一套窗口规则（开始前 15 分钟 ~ 结束；签退宽限 60 分钟）—— */
+const CHECK_IN_EARLY_MINUTES = 15
+const CHECK_OUT_GRACE_MINUTES = 60
+
+const attendanceView = ref<AttendanceView | null>(null)
+const attendanceLoading = ref(false)
+const checkInBusy = ref(false)
+
+const mine = computed(() => attendanceView.value?.mine ?? null)
+
+/** 窗口内允许签到；最终以后端校验为准 */
+const canCheckIn = computed(() => {
+  const r = reservation.value
+  if (!r || r.status !== 'CONFIRMED' || mine.value?.attendanceStatus !== 'EXPECTED') return false
+  const now = systemTime.now.getTime()
+  const start = reservationMoment(r.date, r.startTime).getTime()
+  const end = reservationMoment(r.date, r.endTime).getTime()
+  return now >= start - CHECK_IN_EARLY_MINUTES * 60_000 && now < end
+})
+
+const canCheckOut = computed(() => {
+  const r = reservation.value
+  if (!r || mine.value?.attendanceStatus !== 'CHECKED_IN') return false
+  const end = reservationMoment(r.date, r.endTime).getTime()
+  return systemTime.now.getTime() <= end + CHECK_OUT_GRACE_MINUTES * 60_000
+})
+
+const attendanceTextMap: Record<string, string> = {
+  EXPECTED: '待签到',
+  CHECKED_IN: '已签到',
+  CHECKED_OUT: '已签退',
+  NO_SHOW: '缺席',
+}
+const attendanceTagMap: Record<string, 'info' | 'success' | 'primary' | 'danger'> = {
+  EXPECTED: 'info',
+  CHECKED_IN: 'success',
+  CHECKED_OUT: 'primary',
+  NO_SHOW: 'danger',
+}
+
+/** 按钮不出现时给出解释，避免“找不到签到入口” */
+const attendanceHint = computed(() => {
+  const r = reservation.value
+  const status = mine.value?.attendanceStatus
+  if (!r || !mine.value) return ''
+  if (r.status === 'PENDING') return '预约审批通过后开放签到'
+  if (status === 'CHECKED_IN') return `已签到 ${mine.value.checkInAt?.slice(11, 16) ?? ''}`
+  if (status === 'CHECKED_OUT') return `已签退 ${mine.value.checkOutAt?.slice(11, 16) ?? ''}`
+  if (status === 'NO_SHOW') return '会议已结束且未签到，已记录缺席'
+  // EXPECTED
+  const now = systemTime.now.getTime()
+  const start = reservationMoment(r.date, r.startTime).getTime()
+  const end = reservationMoment(r.date, r.endTime).getTime()
+  if (now >= end) return '会议已结束，签到窗口已关闭'
+  if (now < start - CHECK_IN_EARLY_MINUTES * 60_000) {
+    return `会议开始前 ${CHECK_IN_EARLY_MINUTES} 分钟开放签到（${r.startTime} 开始）`
+  }
+  return ''
+})
+
+/** 出勤接口仅参与人/创建人/管理员可见；他人预约静默隐藏本区块 */
+async function loadAttendance() {
+  const r = reservation.value
+  if (!r) return
+  attendanceLoading.value = true
+  try {
+    attendanceView.value = await meetingsApi.attendance(r.id)
+  } catch {
+    attendanceView.value = null
+  } finally {
+    attendanceLoading.value = false
+  }
+}
+
+watch(
+  [visible, () => props.reservationId],
+  ([open, id]) => {
+    if (open && id) void loadAttendance()
+    if (!open) attendanceView.value = null
+  },
+  { immediate: true },
+)
+
+async function handleCheckIn() {
+  const r = reservation.value
+  if (!r) return
+  checkInBusy.value = true
+  try {
+    await meetingsApi.checkIn(r.id)
+    ElMessage.success('签到成功')
+    await loadAttendance()
+  } catch (error) {
+    ElMessage.error((error as Error).message || '签到失败')
+  } finally {
+    checkInBusy.value = false
+  }
+}
+
+async function handleCheckOut() {
+  const r = reservation.value
+  if (!r) return
+  checkInBusy.value = true
+  try {
+    await meetingsApi.checkOut(r.id)
+    ElMessage.success('签退成功')
+    await loadAttendance()
+  } catch (error) {
+    ElMessage.error((error as Error).message || '签退失败')
+  } finally {
+    checkInBusy.value = false
+  }
+}
 
 /* panel 模式：侧栏为固定定位的整条右栏，打开时让页面布局为其让位（见文件底部全局样式） */
 const INSPECTOR_OPEN_CLASS = 'reservation-inspector-open'
@@ -236,6 +350,24 @@ async function handleAudit(approve: boolean) {
 
       <div v-if="isMine" class="mine-note">这是我创建的预约</div>
       <div v-if="pendingStarted" class="audit-hint">该预约已开始，不能再审批；如需撤销可在「预约审批」页强制取消。</div>
+
+      <div v-if="mine" v-loading="attendanceLoading" class="attendance-card">
+        <div class="attendance-head">
+          <span class="attendance-title">签到 / 出勤</span>
+          <el-tag :type="attendanceTagMap[mine.attendanceStatus]" size="small" effect="light">
+            {{ attendanceTextMap[mine.attendanceStatus] }}
+          </el-tag>
+        </div>
+        <p v-if="attendanceHint" class="attendance-hint">{{ attendanceHint }}</p>
+        <div v-if="canCheckIn || canCheckOut" class="attendance-actions">
+          <el-button v-if="canCheckIn" type="success" size="small" :loading="checkInBusy" @click="handleCheckIn">
+            签到
+          </el-button>
+          <el-button v-if="canCheckOut" type="warning" plain size="small" :loading="checkInBusy" @click="handleCheckOut">
+            签退
+          </el-button>
+        </div>
+      </div>
     </template>
 
     <template #footer>
@@ -305,6 +437,24 @@ async function handleAudit(approve: boolean) {
 
         <div v-if="isMine" class="mine-note">这是我创建的预约</div>
         <div v-if="pendingStarted" class="audit-hint">该预约已开始，不能再审批；如需撤销可在「预约审批」页强制取消。</div>
+
+        <div v-if="mine" v-loading="attendanceLoading" class="attendance-card">
+          <div class="attendance-head">
+            <span class="attendance-title">签到 / 出勤</span>
+            <el-tag :type="attendanceTagMap[mine.attendanceStatus]" size="small" effect="light">
+              {{ attendanceTextMap[mine.attendanceStatus] }}
+            </el-tag>
+          </div>
+          <p v-if="attendanceHint" class="attendance-hint">{{ attendanceHint }}</p>
+          <div v-if="canCheckIn || canCheckOut" class="attendance-actions">
+            <el-button v-if="canCheckIn" type="success" size="small" :loading="checkInBusy" @click="handleCheckIn">
+              签到
+            </el-button>
+            <el-button v-if="canCheckOut" type="warning" plain size="small" :loading="checkInBusy" @click="handleCheckOut">
+              签退
+            </el-button>
+          </div>
+        </div>
       </template>
       <el-empty v-else description="暂无预约详情" :image-size="64" />
     </div>
@@ -361,6 +511,39 @@ async function handleAudit(approve: boolean) {
   font-size: 12px;
   line-height: 18px;
   color: var(--el-color-warning);
+}
+
+.attendance-card {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface-subtle, #f7f9fc);
+}
+
+.attendance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.attendance-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.attendance-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-muted);
+}
+
+.attendance-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .drawer-footer {
