@@ -80,24 +80,6 @@ public interface ResourceMapper {
             """)
     int updateRoomStatus(@Param("id") Long id, @Param("status") int status);
 
-    /** 未结束的有效预约数（PENDING/CONFIRMED 且 end_time > now）：删除保护的判定依据。 */
-    @Select("""
-            SELECT COUNT(*)
-            FROM reservation
-            WHERE room_id = #{roomId}
-              AND status IN ('PENDING', 'CONFIRMED')
-              AND end_time > #{now}
-            """)
-    int countFutureReservations(@Param("roomId") Long roomId, @Param("now") java.time.LocalDateTime now);
-
-    /** 全状态预约数：仅剩历史预约的会议室同样不能物理删除，保住使用记录与 FK 完整性。 */
-    @Select("""
-            SELECT COUNT(*)
-            FROM reservation
-            WHERE room_id = #{roomId}
-            """)
-    int countAllReservations(@Param("roomId") Long roomId);
-
     @Delete("""
             DELETE FROM facility_repair_ticket
             WHERE room_id = #{roomId}

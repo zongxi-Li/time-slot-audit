@@ -7,6 +7,7 @@ package com.timeslot.resource.service;
 import com.timeslot.common.api.ErrorCode;
 import com.timeslot.common.exception.BusinessException;
 import com.timeslot.resource.mapper.ResourceMapper;
+import com.timeslot.resource.spi.RoomReservationGuardPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class RoomAdminServiceTest {
     @Mock ResourceMapper mapper;
+    @Mock RoomReservationGuardPort reservationGuardPort;
 
     /** 业务时钟固定在 2026-09-21 10:00（Asia/Shanghai）。 */
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-21T02:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -43,7 +45,7 @@ class RoomAdminServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RoomAdminService(mapper, clock);
+        service = new RoomAdminService(mapper, reservationGuardPort, clock);
         ResourceMapper.RoomRow room = new ResourceMapper.RoomRow();
         room.setId(9L);
         room.setRoomName("C909");
@@ -52,7 +54,7 @@ class RoomAdminServiceTest {
 
     @Test
     void deleteRoomBlockedByFutureReservation() {
-        when(mapper.countFutureReservations(9L, LocalDateTime.of(2026, 9, 21, 10, 0))).thenReturn(2);
+        when(reservationGuardPort.hasFutureActiveReservation(9L, LocalDateTime.of(2026, 9, 21, 10, 0))).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.deleteRoom(9L));
 
@@ -60,13 +62,15 @@ class RoomAdminServiceTest {
         // 业务规则阻止必须返回 409 业务错误，不能落到 500 兜底
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertTrue(exception.getMessage().contains("未来预约"));
+        verify(reservationGuardPort).hasFutureActiveReservation(9L, LocalDateTime.of(2026, 9, 21, 10, 0));
+        verify(reservationGuardPort, never()).hasAnyReservation(9L);
         verify(mapper, never()).deleteRoom(anyLong());
     }
 
     @Test
     void deleteRoomBlockedByHistoricalReservationOnly() {
-        when(mapper.countFutureReservations(anyLong(), any())).thenReturn(0);
-        when(mapper.countAllReservations(9L)).thenReturn(3);
+        when(reservationGuardPort.hasFutureActiveReservation(anyLong(), any())).thenReturn(false);
+        when(reservationGuardPort.hasAnyReservation(9L)).thenReturn(true);
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.deleteRoom(9L));
 
@@ -77,8 +81,8 @@ class RoomAdminServiceTest {
 
     @Test
     void deleteRemovesChildrenThenRoomWhenNoReservations() {
-        when(mapper.countFutureReservations(anyLong(), any())).thenReturn(0);
-        when(mapper.countAllReservations(9L)).thenReturn(0);
+        when(reservationGuardPort.hasFutureActiveReservation(anyLong(), any())).thenReturn(false);
+        when(reservationGuardPort.hasAnyReservation(9L)).thenReturn(false);
 
         service.deleteRoom(9L);
 

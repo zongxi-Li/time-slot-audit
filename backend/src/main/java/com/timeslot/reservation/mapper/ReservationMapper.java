@@ -17,6 +17,24 @@ import java.util.List;
 
 @Mapper
 public interface ReservationMapper {
+    /** 未结束的有效预约数（PENDING/CONFIRMED 且 end_time > now）：供会议室删除保护使用。 */
+    @Select("""
+            SELECT COUNT(*)
+            FROM reservation
+            WHERE room_id = #{roomId}
+              AND status IN ('PENDING', 'CONFIRMED')
+              AND end_time > #{now}
+            """)
+    int countFutureActiveReservations(@Param("roomId") Long roomId, @Param("now") LocalDateTime now);
+
+    /** 全状态预约数：历史预约也必须阻止会议室物理删除，以保持使用记录与 FK 完整性。 */
+    @Select("""
+            SELECT COUNT(*)
+            FROM reservation
+            WHERE room_id = #{roomId}
+            """)
+    int countAllReservationsByRoomId(@Param("roomId") Long roomId);
+
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,

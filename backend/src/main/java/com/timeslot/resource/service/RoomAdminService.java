@@ -18,6 +18,7 @@ import com.timeslot.resource.dto.SaveOpenRuleRequest;
 import com.timeslot.resource.dto.SaveOpenRulesRequest;
 import com.timeslot.resource.dto.SaveRoomRequest;
 import com.timeslot.resource.mapper.ResourceMapper;
+import com.timeslot.resource.spi.RoomReservationGuardPort;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,10 +34,12 @@ import java.util.Set;
 @Service
 public class RoomAdminService {
     private final ResourceMapper mapper;
+    private final RoomReservationGuardPort reservationGuardPort;
     private final Clock clock;
 
-    public RoomAdminService(ResourceMapper mapper, Clock clock) {
+    public RoomAdminService(ResourceMapper mapper, RoomReservationGuardPort reservationGuardPort, Clock clock) {
         this.mapper = mapper;
+        this.reservationGuardPort = reservationGuardPort;
         this.clock = clock;
     }
 
@@ -101,11 +104,11 @@ public class RoomAdminService {
         if (room == null) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND, "会议室不存在");
         }
-        if (mapper.countFutureReservations(roomId, LocalDateTime.now(clock)) > 0) {
+        if (reservationGuardPort.hasFutureActiveReservation(roomId, LocalDateTime.now(clock))) {
             throw new BusinessException(ErrorCode.ROOM_DELETE_BLOCKED,
                     "该会议室存在未来预约，不能删除；请先取消相关预约或等待其结束");
         }
-        if (mapper.countAllReservations(roomId) > 0) {
+        if (reservationGuardPort.hasAnyReservation(roomId)) {
             throw new BusinessException(ErrorCode.ROOM_DELETE_BLOCKED,
                     "该会议室存在历史预约记录，不能删除；如需下线可将其停用");
         }
