@@ -233,6 +233,10 @@ public class MeetingExecutionService {
             throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
                     "只有已确认的预约可以登记会议实际使用记录");
         }
+        if (LocalDateTime.now(clock).isBefore(reservation.getEndTime())) {
+            throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
+                    "会议尚未结束，不能登记实际使用记录");
+        }
         if (request.actualEndTime().isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException(ErrorCode.RESERVATION_INVALID_STATE,
                     "实际结束时间不能晚于当前业务时间");

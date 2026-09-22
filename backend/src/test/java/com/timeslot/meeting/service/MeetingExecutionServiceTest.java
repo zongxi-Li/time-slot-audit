@@ -480,6 +480,8 @@ class MeetingExecutionServiceTest {
     void organizerCanSaveActualMeetingExecutionRecordIdempotently() {
         LocalDateTime actualStart = now.minusHours(1);
         LocalDateTime actualEnd = now.minusMinutes(10);
+        when(reservationQueryService.requireReservation(RESERVATION_ID))
+                .thenReturn(reservation(ReservationStatus.CONFIRMED, now.minusHours(2), now.minusMinutes(5)));
         MeetingExecutionRecord saved = new MeetingExecutionRecord();
         saved.setReservationId(RESERVATION_ID);
         saved.setActualStartTime(actualStart);
@@ -495,6 +497,21 @@ class MeetingExecutionServiceTest {
         assertEquals(actualEnd, view.actualEndTime());
         assertEquals(2, view.actualAttendeeCount());
         verify(attendeeMapper).upsertExecutionRecord(RESERVATION_ID, actualStart, actualEnd, 2, ORGANIZER_ID);
+    }
+
+    @Test
+    void meetingNotEndedCannotSaveExecutionRecord() {
+        when(reservationQueryService.requireReservation(RESERVATION_ID))
+                .thenReturn(reservation(ReservationStatus.CONFIRMED, now.minusHours(1), now.plusHours(1)));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.saveExecutionRecord(RESERVATION_ID,
+                        new SaveMeetingExecutionRequest(now.minusMinutes(30), now.minusMinutes(5), 1)));
+
+        assertEquals(ErrorCode.RESERVATION_INVALID_STATE, exception.getCode());
+        assertEquals("会议尚未结束，不能登记实际使用记录", exception.getMessage());
+        verify(attendeeMapper, never()).upsertExecutionRecord(anyLong(), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(), anyLong());
     }
 
     @Test
