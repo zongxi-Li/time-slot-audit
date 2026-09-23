@@ -35,6 +35,7 @@ public interface ReservationMapper {
             """)
     int countAllReservationsByRoomId(@Param("roomId") Long roomId);
 
+    /** 按用户和幂等请求号查找已创建预约，避免重试时重复写入。 */
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
@@ -46,6 +47,7 @@ public interface ReservationMapper {
             """)
     Reservation findByUserIdAndRequestId(@Param("userId") Long userId, @Param("requestId") String requestId);
 
+    /** 按预约 ID 查询详情，并关联会议室名称和创建人姓名。 */
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
@@ -57,6 +59,7 @@ public interface ReservationMapper {
             """)
     Reservation findById(Long id);
 
+    /** 查询并锁定预约行，供审批、取消等状态变更在事务中串行处理。 */
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
@@ -111,6 +114,7 @@ public interface ReservationMapper {
                                 @Param("expectedStatus") String expectedStatus,
                                 @Param("expectedVersion") int expectedVersion);
 
+    /** 新建一条预约记录，并由数据库生成主键回填到对象。 */
     @Insert("""
             INSERT INTO reservation
               (request_id, reservation_no, room_id, user_id, title, start_time, end_time,
@@ -122,6 +126,7 @@ public interface ReservationMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Reservation reservation);
 
+    /** 查询指定用户创建的预约，按开始时间倒序返回。 */
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,
@@ -134,6 +139,7 @@ public interface ReservationMapper {
             """)
     List<Reservation> findByUserId(Long userId);
 
+    /** 查询时间范围内日历要展示的有效预约，可选按会议室筛选。 */
     @Select("""
             SELECT r.id, r.request_id, r.reservation_no, r.room_id, r.user_id,
                    mr.room_name, u.real_name AS user_name, r.title, r.start_time, r.end_time,

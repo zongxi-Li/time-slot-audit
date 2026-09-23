@@ -9,12 +9,14 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface BookingWindowMapper {
 
+    /** 初始化唯一的预约时间窗口配置行；已有设置时保持不变。 */
     @Insert("""
             INSERT IGNORE INTO booking_window_config (id, start_minute, end_minute)
             VALUES (1, 480, 1920)
             """)
     int ensureConfigRow();
 
+    /** 读取当前可预约时间窗口的起止分钟数。 */
     @Select("""
             SELECT start_minute, end_minute
             FROM booking_window_config
@@ -22,6 +24,7 @@ public interface BookingWindowMapper {
             """)
     BookingWindowResponse findWindow();
 
+    /** 更新预约时间窗口的开始和结束分钟数。 */
     @Update("""
             UPDATE booking_window_config
             SET start_minute = #{startMinute}, end_minute = #{endMinute}

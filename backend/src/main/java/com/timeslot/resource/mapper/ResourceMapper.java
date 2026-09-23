@@ -17,10 +17,12 @@ import java.util.List;
 
 @Mapper
 public interface ResourceMapper {
+    /** 房间列表查询复用的会议室基础字段。 */
     String ROOM_COLUMNS = """
             id, category_id, room_name, location, capacity, status, description
             """;
 
+    /** 查询全部会议室，并关联类别、设施名称供管理页面展示。 */
     @Select("""
             SELECT r.id, r.category_id, r.room_name, r.location, r.capacity, r.status, r.description,
                    c.category_name,
@@ -33,6 +35,7 @@ public interface ResourceMapper {
             """)
     List<RoomRow> listRooms();
 
+    /** 按 ID 查询并锁定会议室行，预约并发校验时用于串行化同一会议室的写入。 */
     @Select("""
             SELECT
             """ + ROOM_COLUMNS + """
@@ -42,6 +45,7 @@ public interface ResourceMapper {
             """)
     RoomRow findRoomForUpdate(@Param("roomId") Long roomId);
 
+    /** 按会议室 ID 查询会议室基础信息。 */
     @Select("""
             SELECT
             """ + ROOM_COLUMNS + """
@@ -50,6 +54,7 @@ public interface ResourceMapper {
             """)
     RoomRow findRoomById(@Param("roomId") Long roomId);
 
+    /** 按会议室名称查询会议室，用于名称重复检查。 */
     @Select("""
             SELECT
             """ + ROOM_COLUMNS + """
@@ -58,6 +63,7 @@ public interface ResourceMapper {
             """)
     RoomRow findRoomByName(@Param("roomName") String roomName);
 
+    /** 新增会议室并回填数据库生成的主键。 */
     @Insert("""
             INSERT INTO meeting_room (category_id, room_name, location, capacity, status, description)
             VALUES (#{categoryId}, #{roomName}, #{location}, #{capacity}, #{status}, #{description})
@@ -65,6 +71,7 @@ public interface ResourceMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertRoom(RoomWrite room);
 
+    /** 更新会议室的类别、名称、位置、容量和描述。 */
     @Update("""
             UPDATE meeting_room
             SET category_id = #{categoryId}, room_name = #{roomName}, location = #{location},
@@ -73,6 +80,7 @@ public interface ResourceMapper {
             """)
     int updateRoom(RoomWrite room);
 
+    /** 单独更新会议室开放或停用状态。 */
     @Update("""
             UPDATE meeting_room
             SET status = #{status}
@@ -80,24 +88,28 @@ public interface ResourceMapper {
             """)
     int updateRoomStatus(@Param("id") Long id, @Param("status") int status);
 
+    /** 删除指定会议室关联的报修工单记录。 */
     @Delete("""
             DELETE FROM facility_repair_ticket
             WHERE room_id = #{roomId}
             """)
     int deleteRepairTicketsByRoom(@Param("roomId") Long roomId);
 
+    /** 删除指定会议室的维护计划记录。 */
     @Delete("""
             DELETE FROM room_maintenance
             WHERE room_id = #{roomId}
             """)
     int deleteMaintenanceByRoom(@Param("roomId") Long roomId);
 
+    /** 删除指定会议室主记录；调用前由 Service 处理关联数据和预约约束。 */
     @Delete("""
             DELETE FROM meeting_room
             WHERE id = #{roomId}
             """)
     int deleteRoom(@Param("roomId") Long roomId);
 
+    /** 按类别 ID 查询容量范围、审批要求和预约时长等规则。 */
     @Select("""
             SELECT id, category_name, min_capacity, max_capacity, approval_required,
                    max_duration_minutes, advance_days, description
@@ -106,6 +118,7 @@ public interface ResourceMapper {
             """)
     CategoryRow findCategory(@Param("categoryId") Long categoryId);
 
+    /** 查询会议室在指定星期几的开放时间规则。 */
     @Select("""
             SELECT open_time, close_time, enabled
             FROM room_open_rule
@@ -113,6 +126,7 @@ public interface ResourceMapper {
             """)
     OpenRuleRow findOpenRule(@Param("roomId") Long roomId, @Param("weekday") Integer weekday);
 
+    /** 查询会议室配置的全部开放时间规则，按星期排序。 */
     @Select("""
             SELECT id, room_id, weekday, open_time, close_time, enabled
             FROM room_open_rule
@@ -121,12 +135,14 @@ public interface ResourceMapper {
             """)
     List<OpenRuleRow> listOpenRulesByRoom(@Param("roomId") Long roomId);
 
+    /** 替换开放时间规则前，删除该会议室现有的全部规则。 */
     @Delete("""
             DELETE FROM room_open_rule
             WHERE room_id = #{roomId}
             """)
     int deleteOpenRulesByRoom(@Param("roomId") Long roomId);
 
+    /** 批量写入会议室每周开放时间规则。 */
     @Insert("""
             <script>
             INSERT INTO room_open_rule (room_id, weekday, open_time, close_time, enabled) VALUES
@@ -137,12 +153,14 @@ public interface ResourceMapper {
             """)
     int insertOpenRules(@Param("roomId") Long roomId, @Param("rules") List<OpenRuleWrite> rules);
 
+    /** 替换设施清单前，删除该会议室现有的全部设施记录。 */
     @Delete("""
             DELETE FROM room_facility
             WHERE room_id = #{roomId}
             """)
     int deleteFacilitiesByRoom(@Param("roomId") Long roomId);
 
+    /** 批量写入会议室设施及其数量、描述。 */
     @Insert("""
             <script>
             INSERT INTO room_facility (room_id, facility_name, quantity, description) VALUES
@@ -153,6 +171,7 @@ public interface ResourceMapper {
             """)
     int insertFacilities(@Param("roomId") Long roomId, @Param("facilities") List<FacilityWrite> facilities);
 
+    /** 按设施记录 ID 查询设施详情。 */
     @Select("""
             SELECT id, room_id, facility_name, quantity, description
             FROM room_facility
@@ -160,6 +179,7 @@ public interface ResourceMapper {
             """)
     FacilityRow findFacilityById(@Param("facilityId") Long facilityId);
 
+    /** 新增会议室维护计划并回填生成的主键。 */
     @Insert("""
             INSERT INTO room_maintenance (room_id, reason, start_time, end_time, status, created_by)
             VALUES (#{roomId}, #{reason}, #{startTime}, #{endTime}, #{status}, #{createdBy})
@@ -167,6 +187,7 @@ public interface ResourceMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertMaintenance(MaintenanceWrite maintenance);
 
+    /** 查询会议室的维护计划，按开始时间从新到旧排列。 */
     @Select("""
             SELECT id, room_id, reason, start_time, end_time, status, created_by, created_at
             FROM room_maintenance
@@ -175,6 +196,7 @@ public interface ResourceMapper {
             """)
     List<MaintenanceRow> listMaintenanceByRoom(@Param("roomId") Long roomId);
 
+    /** 按维护计划 ID 查询维护详情。 */
     @Select("""
             SELECT id, room_id, reason, start_time, end_time, status, created_by, created_at
             FROM room_maintenance
@@ -182,6 +204,7 @@ public interface ResourceMapper {
             """)
     MaintenanceRow findMaintenanceById(@Param("planId") Long planId);
 
+    /** 将指定维护计划标记为已完成。 */
     @Update("""
             UPDATE room_maintenance
             SET status = 'FINISHED'
@@ -189,6 +212,7 @@ public interface ResourceMapper {
             """)
     int finishMaintenance(@Param("planId") Long planId);
 
+    /** 新增会议室设施报修工单并回填生成的主键。 */
     @Insert("""
             INSERT INTO facility_repair_ticket (room_id, facility_id, facility_name, issue, status,
                                                 reporter_id, reporter_name)
@@ -197,6 +221,7 @@ public interface ResourceMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertRepairTicket(RepairWrite ticket);
 
+    /** 查询报修工单，可选按会议室筛选，并优先显示未处理工单。 */
     @Select("""
             SELECT t.id, t.room_id, r.room_name, t.facility_id, t.facility_name, t.issue, t.status,
                    t.reporter_id, t.reporter_name, t.created_at, t.resolved_at, t.resolve_remark
@@ -207,6 +232,7 @@ public interface ResourceMapper {
             """)
     List<RepairTicketRow> listRepairTickets(@Param("roomId") Long roomId);
 
+    /** 按工单 ID 查询报修详情及关联会议室名称。 */
     @Select("""
             SELECT t.id, t.room_id, r.room_name, t.facility_id, t.facility_name, t.issue, t.status,
                    t.reporter_id, t.reporter_name, t.created_at, t.resolved_at, t.resolve_remark
@@ -216,6 +242,7 @@ public interface ResourceMapper {
             """)
     RepairTicketRow findRepairTicketById(@Param("ticketId") Long ticketId);
 
+    /** 仅将未处理工单标记为已解决，并记录解决时间和备注。 */
     @Update("""
             UPDATE facility_repair_ticket
             SET status = 'RESOLVED', resolved_at = NOW(), resolve_remark = #{remark}
@@ -223,6 +250,7 @@ public interface ResourceMapper {
             """)
     int resolveRepairTicket(@Param("ticketId") Long ticketId, @Param("remark") String remark);
 
+    /** 查询全部会议室类别，供管理页面展示。 */
     @Select("""
             SELECT id, category_name, min_capacity, max_capacity, approval_required,
                    max_duration_minutes, advance_days, description
@@ -231,6 +259,7 @@ public interface ResourceMapper {
             """)
     List<CategoryRow> listCategories();
 
+    /** 新增会议室类别并回填数据库生成的主键。 */
     @Insert("""
             INSERT INTO room_category (category_name, min_capacity, max_capacity, approval_required,
                                        max_duration_minutes, advance_days, description)
@@ -240,6 +269,7 @@ public interface ResourceMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertCategory(CategoryWrite category);
 
+    /** 更新会议室类别及对应的预约规则。 */
     @Update("""
             UPDATE room_category
             SET category_name = #{categoryName}, min_capacity = #{minCapacity}, max_capacity = #{maxCapacity},
@@ -306,6 +336,7 @@ public interface ResourceMapper {
         public void setDescription(String description) { this.description = description; }
     }
 
+    /** 查询指定会议室配置的全部设施，按设施记录 ID 排序。 */
     @Select("""
             SELECT id, room_id, facility_name, quantity, description
             FROM room_facility

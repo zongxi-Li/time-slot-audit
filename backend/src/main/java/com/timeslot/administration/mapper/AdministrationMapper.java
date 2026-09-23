@@ -19,6 +19,7 @@ import java.util.List;
 
 @Mapper
 public interface AdministrationMapper {
+    /** 管理员预约列表和详情查询共用的预约字段及用户、会议室名称。 */
     String RESERVATION_COLUMNS = """
             SELECT r.id, r.reservation_no, r.room_id, mr.room_name, r.user_id,
                    u.real_name AS user_name, r.title, r.start_time, r.end_time,
@@ -28,6 +29,7 @@ public interface AdministrationMapper {
             JOIN sys_user u ON u.id = r.user_id
             """;
 
+    /** 按状态筛选预约管理列表；状态为空时返回全部预约。 */
     @Select("""
             <script>
             """ + RESERVATION_COLUMNS + """
@@ -39,9 +41,11 @@ public interface AdministrationMapper {
             """)
     List<AdminReservationRow> findReservations(@Param("status") String status);
 
+    /** 按预约 ID 查询管理员查看所需的预约详情。 */
     @Select(RESERVATION_COLUMNS + " WHERE r.id = #{id}")
     AdminReservationRow findReservationById(Long id);
 
+    /** 查询指定预约的审批记录，按审批时间从新到旧排列。 */
     @Select("""
             SELECT ar.id, ar.reservation_id, ar.approver_id,
                    u.real_name AS approver_name, ar.action, ar.remark, ar.created_at
@@ -52,6 +56,7 @@ public interface AdministrationMapper {
             """)
     List<ApprovalRecordResponse> findApprovalHistory(Long reservationId);
 
+    /** 新增一次预约审批动作及审批备注。 */
     @Insert("""
             INSERT INTO approval_record (reservation_id, approver_id, action, remark)
             VALUES (#{reservationId}, #{approverId}, #{action}, #{remark})
@@ -61,6 +66,7 @@ public interface AdministrationMapper {
                              @Param("action") String action,
                              @Param("remark") String remark);
 
+    /** 新增管理员操作审计记录。 */
     @Insert("""
             INSERT INTO operation_log
               (user_id, operation_type, business_type, business_id, content, ip_address)
@@ -74,6 +80,7 @@ public interface AdministrationMapper {
                            @Param("content") String content,
                            @Param("ipAddress") String ipAddress);
 
+    /** 按操作人、业务类型和时间范围筛选审计日志。 */
     @Select("""
             <script>
             SELECT ol.id, ol.user_id, u.real_name AS operator_name, ol.operation_type,
@@ -98,18 +105,21 @@ public interface AdministrationMapper {
                                          @Param("end") LocalDateTime end,
                                          @Param("limit") int limit);
 
+    /** 统计时间范围内与区间重叠的预约总数。 */
     @Select("""
             SELECT COUNT(*) FROM reservation
             WHERE start_time < #{end} AND end_time > #{start}
             """)
     long countReservations(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    /** 统计时间范围内已取消且与区间重叠的预约数。 */
     @Select("""
             SELECT COUNT(*) FROM reservation
             WHERE status = 'CANCELLED' AND start_time < #{end} AND end_time > #{start}
             """)
     long countCancelledReservations(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    /** 统计已确认预约的会议室使用次数和时长，并返回使用量最高的会议室。 */
     @Select("""
             SELECT r.room_id, mr.room_name, COUNT(*) AS booking_count,
                    ROUND(SUM(TIMESTAMPDIFF(MINUTE,
@@ -126,6 +136,7 @@ public interface AdministrationMapper {
                                              @Param("end") LocalDateTime end,
                                              @Param("limit") int limit);
 
+    /** 按预约开始小时统计已确认会议的数量，用于高峰时段分析。 */
     @Select("""
             SELECT HOUR(start_time) AS hour, COUNT(*) AS booking_count
             FROM reservation

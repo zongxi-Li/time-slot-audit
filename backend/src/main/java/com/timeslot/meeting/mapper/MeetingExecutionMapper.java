@@ -27,6 +27,7 @@ import java.util.List;
  */
 @Mapper
 public interface MeetingExecutionMapper {
+    /** 参与人列表查询共用的参与人、签到状态和用户展示字段。 */
     String ATTENDEE_COLUMNS = """
             a.id, a.reservation_id, a.user_id, a.attendee_role, a.attendance_status,
             a.check_in_at, a.check_out_at, a.created_at, u.username, u.real_name
@@ -52,6 +53,7 @@ public interface MeetingExecutionMapper {
             """)
     int insertAttendee(@Param("reservationId") Long reservationId, @Param("userId") Long userId);
 
+    /** 按参与人记录 ID 删除预约参与人关系。 */
     @Delete("DELETE FROM reservation_attendee WHERE id = #{id}")
     int deleteById(Long id);
 
@@ -63,6 +65,7 @@ public interface MeetingExecutionMapper {
             """)
     int markCheckedIn(@Param("id") Long id, @Param("time") LocalDateTime time);
 
+    /** 为已签到的参与人登记签退状态和签退时间。 */
     @Update("""
             UPDATE reservation_attendee
             SET attendance_status = 'CHECKED_OUT', check_out_at = #{time}
@@ -82,6 +85,7 @@ public interface MeetingExecutionMapper {
     // 会议级实际使用记录（仅 meeting_execution）
     // ---------------------------------------------------------------------
 
+    /** 查询指定预约的会议级实际使用记录。 */
     @Select("""
             SELECT reservation_id, actual_start_time, actual_end_time, actual_attendee_count,
                    recorded_by, created_at, updated_at
@@ -113,6 +117,7 @@ public interface MeetingExecutionMapper {
     // 参与人查询
     // ---------------------------------------------------------------------
 
+    /** 查询预约的全部参与人，并带出账号和姓名。 */
     @Select("""
             SELECT
             """ + ATTENDEE_COLUMNS + """
@@ -121,6 +126,7 @@ public interface MeetingExecutionMapper {
             """)
     List<Attendee> findByReservationId(Long reservationId);
 
+    /** 查询指定用户在指定预约中的参与人记录。 */
     @Select("""
             SELECT
             """ + ATTENDEE_COLUMNS + """
@@ -128,6 +134,7 @@ public interface MeetingExecutionMapper {
             """)
     Attendee findRow(@Param("reservationId") Long reservationId, @Param("userId") Long userId);
 
+    /** 统计指定预约登记的参与人数。 */
     @Select("SELECT COUNT(*) FROM reservation_attendee WHERE reservation_id = #{reservationId}")
     int countByReservationId(Long reservationId);
 
@@ -172,9 +179,11 @@ public interface MeetingExecutionMapper {
     // 跨域只读解析（identity：参与人身份解析，不写 sys_user）
     // ---------------------------------------------------------------------
 
+    /** 根据用户 ID 查询参与人身份展示信息。 */
     @Select("SELECT id AS user_id, username, real_name FROM sys_user WHERE id = #{userId}")
     UserRef findUserById(Long userId);
 
+    /** 根据用户名查询参与人身份展示信息。 */
     @Select("SELECT id AS user_id, username, real_name FROM sys_user WHERE username = #{username}")
     UserRef findUserByUsername(String username);
 }

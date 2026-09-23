@@ -15,6 +15,7 @@ import java.util.List;
 
 @Mapper
 public interface DepartmentMapper {
+    /** 查询全部部门，按主键顺序排列。 */
     @Select("""
             SELECT id, dept_name, description, created_at
             FROM department
@@ -22,6 +23,7 @@ public interface DepartmentMapper {
             """)
     List<Department> findAll();
 
+    /** 根据部门 ID 查询单个部门。 */
     @Select("""
             SELECT id, dept_name, description, created_at
             FROM department
@@ -29,11 +31,13 @@ public interface DepartmentMapper {
             """)
     Department findById(@Param("id") Long id);
 
+    /** 检查除指定部门外是否已有同名部门，供重命名时校验唯一性。 */
     @Select("""
             SELECT COUNT(*) FROM department WHERE dept_name = #{deptName} AND id != #{excludeId}
             """)
     int countByNameExcluding(@Param("deptName") String deptName, @Param("excludeId") Long excludeId);
 
+    /** 根据部门名称查询部门，用于创建时检查重名。 */
     @Select("""
             SELECT id, dept_name, description, created_at
             FROM department
@@ -41,11 +45,13 @@ public interface DepartmentMapper {
             """)
     Department findByDeptName(@Param("deptName") String deptName);
 
+    /** 新增部门并保存名称和描述。 */
     @Insert("""
             INSERT INTO department (dept_name, description) VALUES (#{deptName}, #{description})
             """)
     int insert(@Param("deptName") String deptName, @Param("description") String description);
 
+    /** 更新指定部门的名称和描述。 */
     @Update("""
             UPDATE department SET dept_name = #{deptName}, description = #{description} WHERE id = #{id}
             """)

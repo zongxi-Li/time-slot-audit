@@ -30,6 +30,7 @@ public interface NotificationMapper {
     int insertIgnore(Notification notification);
 
     /* is_read 驼峰映射后的属性名是 isRead，与实体的 read 对不上，MyBatis 会静默跳过导致 read 恒为 false，需显式映射 */
+    /** 查询用户通知，可选仅看未读项，最多返回最近 100 条。 */
     @Results(@Result(property = "read", column = "is_read"))
     @Select("""
             SELECT id, user_id, type, title, content, reservation_id, dedup_key,
@@ -42,10 +43,11 @@ public interface NotificationMapper {
             """)
     List<Notification> findByUser(@Param("userId") Long userId, @Param("unreadOnly") boolean unreadOnly);
 
+    /** 统计指定用户尚未阅读的通知数量。 */
     @Select("SELECT COUNT(*) FROM notification WHERE user_id = #{userId} AND is_read = 0")
     int countUnread(Long userId);
 
-    /** 归属校验在 SQL 内完成，非本人通知影响行数为 0。 */
+    /** 将指定用户的一条未读通知标记为已读；非本人通知不会被更新。 */
     @Update("""
             UPDATE notification
             SET is_read = 1, read_at = #{readAt}
@@ -53,6 +55,7 @@ public interface NotificationMapper {
             """)
     int markRead(@Param("id") Long id, @Param("userId") Long userId, @Param("readAt") LocalDateTime readAt);
 
+    /** 将指定用户的全部未读通知标记为已读。 */
     @Update("""
             UPDATE notification
             SET is_read = 1, read_at = #{readAt}
