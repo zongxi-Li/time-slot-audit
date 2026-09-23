@@ -1,3 +1,7 @@
+/**
+ * 文件职责：返回当前业务时间、运行模式等系统时钟状态。
+ * 方法：无显式业务方法；record 组件定义时间状态响应字段。
+ */
 package com.timeslot.common.time;
 
 import com.fasterxml.jackson.annotation.JsonFormat;

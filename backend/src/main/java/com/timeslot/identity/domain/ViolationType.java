@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的实体、值对象或枚举。
+ * 文件职责：定义用户违规记录可使用的违规类型。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
- */
+ * 方法：无显式业务方法；枚举常量用于标识违规场景。
+*/
+
 package com.timeslot.identity.domain;
 
 /** user_violation.violation_type 的取值常量（与 migration V1_3 注释保持一致）。 */

@@ -1,7 +1,9 @@
 /**
- * 文件职责：实现会议室分类的管理员新增和修改。
+ * 文件职责：维护会议室分类及其容量范围、审批要求。
  * 接口：由 CategoryAdminController 调用。
- */
+ * 方法：listCategories/createCategory/updateCategory 查询或维护分类；applyRequest 映射请求字段；validateRange 校验容量区间；requireCategory/requireCategoryNameFree 检查存在性和名称唯一。
+*/
+
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

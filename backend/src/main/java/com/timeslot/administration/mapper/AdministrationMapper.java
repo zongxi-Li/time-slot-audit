@@ -1,7 +1,11 @@
 /**
- * 文件职责：定义 管理员运营 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：管理领域 MyBatis 数据访问接口，SQL 注解逐条说明其用途。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
+ * 方法：findReservations/findReservationById 查询预约；findApprovalHistory/insertApprovalRecord 读取或写入审批历史；
+ *        insertOperationLog/findAuditLogs 写入或查询审计日志；countReservations/countCancelledReservations/countAttendees/countNoShowAttendees 汇总数量；
+ *        findPopularRooms/findPeakHours/findRoomUsageStats 统计热门会议室、高峰时段和房间使用情况。SQL 细节见方法注释。
  */
+
 package com.timeslot.administration.mapper;
 
 import com.timeslot.administration.dto.AdminReservationRow;

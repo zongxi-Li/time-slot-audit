@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的实体、值对象或枚举。
+ * 文件职责：表达某用户当前是否具备预约资格及判定原因。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
- */
+ * 方法：allow/deny 构造通过或拒绝结果；formattedRestrictedUntil/format 将限制截止时间格式化为展示文本。
+*/
+
 package com.timeslot.identity.domain;
 
 import java.time.LocalDateTime;

@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议执行 的实体、值对象或枚举。
+ * 文件职责：表示发给用户的通知及其已读状态。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
- */
+ * 方法：无显式业务方法；实体访问器用于读取和更新通知字段。
+*/
+
 package com.timeslot.meeting.domain;
 
 import java.time.LocalDateTime;

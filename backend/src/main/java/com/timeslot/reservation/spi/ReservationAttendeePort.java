@@ -1,11 +1,13 @@
 /**
- * 文件职责：预约创建时登记初始参与人的出端口（outbound port）。
+ * 文件职责：reservation 领域用于登记新预约初始参与人的抽象端口。
  * 接口：由 reservation 域在创建预约时调用，实现由 meeting 域提供。
  *
  * 设计动机：reservation_attendee 属于 meeting 执行域，且 meeting 已单向依赖 reservation；
  * 若 reservation 直接写参与人表会跨域写他人领域数据并形成模块级循环依赖。
  * 与 {@link ReservationNotificationPort} 同构：本模块仅持接口，实现由适配器注入。
+ * 方法：attachInitialAttendees 将预约及参与人 ID 列表交由 meeting 领域适配实现。
  */
+
 package com.timeslot.reservation.spi;
 
 import com.timeslot.reservation.domain.Reservation;

@@ -1,7 +1,11 @@
 /**
- * 文件职责：定义 会议执行 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：会议执行、参与人、考勤和执行记录的 MyBatis 数据访问接口。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
- */
+ * 方法：insertOrganizerIgnore/insertAttendee/deleteById 维护参与人；markCheckedIn/markCheckedOut/markNoShowForExpected 更新签到状态；
+ *        findExecutionRecord/upsertExecutionRecord 读取或保存执行记录；findByReservationId/findRow/countByReservationId/findMyMeetings 查询会议参与信息；
+ *        findUserById/findUserByUsername 只读取得用户标识信息。SQL 细节见各方法上方注释。
+*/
+
 package com.timeslot.meeting.mapper;
 
 import com.timeslot.meeting.domain.Attendee;

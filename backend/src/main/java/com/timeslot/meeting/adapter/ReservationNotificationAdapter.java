@@ -1,10 +1,12 @@
 /**
- * 文件职责：把预约域通知出端口适配到 meeting 域通知能力。
+ * 文件职责：把预约生命周期事件转换为 meeting 领域中的用户通知。
  * 接口：实现 ReservationNotificationPort。
  *
  * 边界：仅调用本域 NotificationService 与 identity 的 UserMapper；不写 reservation 表。
  * 待审批通知向所有活跃 ADMIN 广播，新增管理员亦会自动覆盖，无需硬编码账号。
- */
+ * 方法：notifyCreated/notifyPendingApproval/notifyApproved/notifyRejected/notifyCancelled 分别发送创建、待审批、通过、驳回和取消通知。
+*/
+
 package com.timeslot.meeting.adapter;
 
 import com.timeslot.identity.mapper.UserMapper;

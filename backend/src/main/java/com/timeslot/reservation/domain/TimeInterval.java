@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 预约核心 的实体、值对象或枚举。
+ * 文件职责：表示经过起止时间合法性校验的时间区间。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
+ * 方法：构造时校验时间边界；overlaps 判断本区间与另一区间是否重叠。
  */
+
 package com.timeslot.reservation.domain;
 
 import java.time.LocalDateTime;

@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议执行 的请求或响应 DTO。
+ * 文件职责：通知列表 API 的展示数据。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：from 将 Notification 领域对象转换为通知视图。
+*/
+
 package com.timeslot.meeting.dto;
 
 import com.timeslot.meeting.domain.Notification;

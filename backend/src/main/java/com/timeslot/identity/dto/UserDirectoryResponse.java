@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的请求或响应 DTO。
+ * 文件职责：用于用户选择器/目录查询的精简用户响应。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
+ * 方法：无显式业务方法；record 组件承载目录展示所需的标识和姓名信息。
  */
+
 package com.timeslot.identity.dto;
 
 /**

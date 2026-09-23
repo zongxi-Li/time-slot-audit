@@ -1,10 +1,12 @@
 /**
- * 文件职责：提供 会议室资源 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：用户侧会议室查询、空闲查询和报修提交 HTTP 接口。
  * 接口：GET /api/rooms（支持 location/minCapacity/facility 条件筛选）；
  *        GET /api/rooms/available（指定日期与时段内空闲会议室）；
  *        GET /api/rooms/{roomId}；
  *        POST /api/rooms/{roomId}/repair-tickets。
- */
+ * 方法：listRooms 查询会议室；availableRooms 按条件查询可用会议室；getRoom 查询详情；createRepairTicket 提交报修。
+*/
+
 package com.timeslot.resource.controller;
 
 import com.timeslot.common.api.ApiResponse;

@@ -1,6 +1,7 @@
 /*
  * 文件职责：审批超时自动失效的定时触发器。
  * 接口：由 Spring Scheduler 定时调用，业务逻辑全部在 ReservationExpirationService。
+ * 方法：execute 在调度时读取业务时钟并调用过期服务处理到期预约。
  */
 package com.timeslot.reservation.scheduler;
 

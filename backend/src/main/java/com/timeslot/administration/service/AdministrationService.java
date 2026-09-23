@@ -1,7 +1,9 @@
 /**
- * 文件职责：实现预约审批、强制取消、审计日志和运营统计。
+ * 文件职责：编排管理端预约审批、审计日志查询/导出和运营统计。
  * 接口：由 AdministrationController 调用。
- */
+ * 方法：reservations/reservation 查询预约；approve/reject/forceCancel 执行管理操作；auditLogs/exportAuditLogs 查询并导出审计记录；dashboard 汇总看板数据；其余校验与格式化方法支撑上述流程。
+*/
+
 package com.timeslot.administration.service;
 
 import com.timeslot.administration.domain.ApprovalAction;

@@ -1,7 +1,10 @@
 /**
- * 文件职责：定义 身份与用户 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：用户账户与部门关联数据的 MyBatis 访问接口。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
- */
+ * 方法：findByUsername/findById/search/findDirectory 查询用户，countByUsername/findIdsByRole 查询唯一性和角色用户；
+ *        insert/updateProfile/updateStatus/updatePassword/updateCreditScore/updateRestrictedUntil 新增或维护用户资料、状态、密码、信用分和限制期限。
+*/
+
 package com.timeslot.identity.mapper;
 
 import com.timeslot.identity.domain.User;

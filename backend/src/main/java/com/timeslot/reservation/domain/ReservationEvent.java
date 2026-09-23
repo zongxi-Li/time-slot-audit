@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义预约生命周期的业务事件，与展示状态无关。
+ * 文件职责：定义预约生命周期中可触发状态变化的事件。
  * 接口：供 ReservationStateMachine 计算合法目标状态使用。
+ * 方法：label 返回事件对应的可读标签。
  */
+
 package com.timeslot.reservation.domain;
 
 public enum ReservationEvent {

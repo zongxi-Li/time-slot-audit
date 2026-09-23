@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 管理员运营 的请求或响应 DTO。
+ * 文件职责：运营分析看板的聚合响应数据。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：无显式业务方法；record 组件承载预约总量、状态分布、会议室利用率和高峰时段等统计结果。
+*/
+
 package com.timeslot.administration.dto;
 
 import java.math.BigDecimal;

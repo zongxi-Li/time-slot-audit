@@ -1,7 +1,9 @@
 /**
- * 文件职责：提供会议室、分类和资源详情的只读查询。
+ * 文件职责：为用户侧提供会议室列表、条件检索和空闲时段查询。
  * 接口：被 RoomController 和管理服务调用。
- */
+ * 方法：listRooms 查询全部可展示会议室；searchRooms 按地点/容量/设施筛选；findAvailableRooms 按日期时段查空闲房间；其余方法校验容量并规范化可选条件。
+*/
+
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

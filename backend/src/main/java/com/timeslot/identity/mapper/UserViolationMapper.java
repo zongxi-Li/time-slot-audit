@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：用户违规和信用变动记录的 MyBatis 访问接口。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
- */
+ * 方法：findByUserId/findLatestByType 查询违规历史或最新指定类型记录；insert 写入违规及信用变化记录。
+*/
+
 package com.timeslot.identity.mapper;
 
 import com.timeslot.identity.domain.UserViolation;

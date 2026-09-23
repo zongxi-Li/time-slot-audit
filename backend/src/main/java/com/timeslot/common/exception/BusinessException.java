@@ -1,7 +1,9 @@
 /**
- * 文件职责：表示可预期的业务异常，携带错误码和 HTTP 状态。
+ * 文件职责：携带业务错误码和 HTTP 状态的统一运行时异常。
  * 接口：由 Service 抛出并交给全局处理器。
+ * 方法：构造方法支持默认或指定 HTTP 状态；getCode/getStatus 暴露错误信息；defaultStatus 为错误码选择默认状态。
  */
+
 package com.timeslot.common.exception;
 
 import com.timeslot.common.api.ErrorCode;

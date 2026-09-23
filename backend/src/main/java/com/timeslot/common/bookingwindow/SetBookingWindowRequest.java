@@ -1,3 +1,7 @@
+/**
+ * 文件职责：设置预约开放时间窗口的请求 DTO。
+ * 方法：无显式业务方法；record 组件承载开放起止分钟并声明输入校验。
+ */
 package com.timeslot.common.bookingwindow;
 
 import jakarta.validation.constraints.Max;

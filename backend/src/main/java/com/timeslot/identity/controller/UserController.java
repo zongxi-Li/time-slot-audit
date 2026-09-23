@@ -1,9 +1,11 @@
 /**
- * 文件职责：提供 身份与用户 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：当前登录用户的个人资料、目录、预约资格和违规记录接口。
  * 接口：GET /api/users/me；
  *        GET /api/users/me/qualification；
  *        GET /api/users/me/violations。
- */
+ * 方法：me 查询本人；directory 查询用户目录；myQualification/myViolations 查询本人预约资格及违规记录。
+*/
+
 package com.timeslot.identity.controller;
 
 import com.timeslot.common.api.ApiResponse;

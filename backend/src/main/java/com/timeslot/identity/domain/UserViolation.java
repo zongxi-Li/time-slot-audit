@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的实体、值对象或枚举。
+ * 文件职责：表示用户的一条违规及其信用分变化记录。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
- */
+ * 方法：autoTriggered 判断记录是否由系统自动规则触发；record 访问器由 Java 自动生成。
+*/
+
 package com.timeslot.identity.domain;
 
 import java.time.LocalDateTime;

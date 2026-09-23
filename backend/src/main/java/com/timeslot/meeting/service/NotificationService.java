@@ -1,7 +1,9 @@
 /**
- * 文件职责：创建、查询和标记用户通知。
+ * 文件职责：创建并维护用户通知及其已读状态。
  * 接口：由 NotificationController 和会议服务调用。
- */
+ * 方法：notify 创建通知；list/unreadCount 查询通知和未读数；markRead/markAllRead 更新已读状态。
+*/
+
 package com.timeslot.meeting.service;
 
 import com.timeslot.common.api.ErrorCode;

@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的请求或响应 DTO。
+ * 文件职责：用户资料查询和管理接口的响应 DTO。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：from 将 User 领域对象转换为 API 响应；record 组件定义对外用户字段。
+*/
+
 package com.timeslot.identity.dto;
 
 import com.timeslot.identity.domain.User;

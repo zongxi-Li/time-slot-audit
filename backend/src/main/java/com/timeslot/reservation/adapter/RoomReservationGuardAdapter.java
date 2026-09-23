@@ -1,7 +1,9 @@
 /**
- * 文件职责：将 resource 域的会议室删除保护端口适配到 reservation 域查询。
+ * 文件职责：适配 reservation 领域对会议室占用情况的防护查询。
  * 接口：实现 RoomReservationGuardPort；只调用 reservation 域自己的 Mapper。
+ * 方法：hasFutureActiveReservation 检查未来是否有有效预约；hasAnyReservation 检查是否存在关联预约。
  */
+
 package com.timeslot.reservation.adapter;
 
 import com.timeslot.reservation.mapper.ReservationMapper;

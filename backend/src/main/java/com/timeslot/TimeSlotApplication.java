@@ -1,7 +1,9 @@
 /**
- * 文件职责：Spring Boot 应用启动入口，装配并启动 TimeSlot 后端。
+ * 文件职责：Spring Boot 应用启动入口。
  * 接口：无直接 HTTP 接口。
- */
+ * 方法：main(args) 创建并启动 TimeSlot 后端应用上下文。
+*/
+
 package com.timeslot;
 
 import org.mybatis.spring.annotation.MapperScan;

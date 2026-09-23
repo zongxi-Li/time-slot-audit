@@ -1,7 +1,9 @@
 /**
- * 文件职责：管理会议执行记录、参会人、签到和签退。
+ * 文件职责：编排参与人管理、签到签退、考勤、执行记录及自动会议处理。
  * 接口：由 MeetingExecutionController 调用。
- */
+ * 方法：listAttendees/addAttendee/removeAttendee 管理参与人；checkIn/checkOut/attendance 处理与查询考勤；saveExecutionRecord/executionRecord 保存和查询实况；myMeetings 查询本人会议；processDueExecutions/sendStartReminders/markNoShows 执行定时流程；其余方法校验操作者、预约和目标用户。
+*/
+
 package com.timeslot.meeting.service;
 
 import com.timeslot.common.api.ErrorCode;

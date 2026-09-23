@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 预约核心 的请求或响应 DTO。
+ * 文件职责：预约查询、创建和修改接口共用的响应 DTO。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
+ * 方法：from 将 Reservation 领域数据转换为对外响应；record 组件定义返回字段。
  */
+
 package com.timeslot.reservation.dto;
 
 import com.timeslot.reservation.domain.Reservation;

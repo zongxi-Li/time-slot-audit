@@ -1,3 +1,7 @@
+/**
+ * 文件职责：系统业务时间配置的 MyBatis 数据访问接口。
+ * 方法：ensureConfigRow 确保单例配置行存在；findFixedTime 读取固定时间；saveFixedTime 保存固定业务时间。
+ */
 package com.timeslot.common.time;
 
 import org.apache.ibatis.annotations.Insert;

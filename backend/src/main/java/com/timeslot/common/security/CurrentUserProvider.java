@@ -1,7 +1,9 @@
 /**
- * 文件职责：从 Spring Security 上下文获取当前用户。
+ * 文件职责：从当前安全上下文取得已认证用户。
  * 接口：供各业务 Service 读取用户 ID 和角色。
+ * 方法：getRequired 返回当前 AuthenticatedUser；不存在认证用户时按实现约定报错。
  */
+
 package com.timeslot.common.security;
 
 import com.timeslot.common.api.ErrorCode;

@@ -1,5 +1,5 @@
 /**
- * 文件职责：提供 会议执行 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：会议参与人、签到签退、执行情况和本人会议列表 HTTP 接口。
  * 接口：GET /api/meetings/{reservationId}/attendees；
  *        POST /api/meetings/{reservationId}/attendees；
  *        DELETE /api/meetings/{reservationId}/attendees/{userId}；
@@ -7,7 +7,9 @@
  *        POST /api/meetings/{reservationId}/check-out；
  *        GET/PUT /api/meetings/{reservationId}/execution；
  *        …。
- */
+ * 方法：attendees 查询参与人；addAttendee/removeAttendee 管理参与人；checkIn/checkOut 登记到场；attendance/execution 查询执行数据；saveExecution 保存实际执行记录；myMeetings 查询本人会议。
+*/
+
 package com.timeslot.meeting.controller;
 
 import com.timeslot.common.api.ApiResponse;

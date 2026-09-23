@@ -1,3 +1,7 @@
+/**
+ * 文件职责：向前端返回预约开放窗口的分钟值及可读时间标签。
+ * 方法：startLabel/endLabel 将分钟转换为起止时间文本；label 格式化单个分钟值。
+ */
 package com.timeslot.common.bookingwindow;
 
 /**

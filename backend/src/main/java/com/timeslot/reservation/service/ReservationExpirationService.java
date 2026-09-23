@@ -1,6 +1,7 @@
 /*
  * 文件职责：审批超时自动失效的调度编排——把已结束仍未审批的 PENDING 迁移为 REJECTED 并通知预约人。
  * 接口：由 ReservationExpirationScheduler 每分钟触发，也可在测试中直接驱动。
+ * 方法：processDueExpirations 查询并推进已结束或超时预约的生命周期。
  */
 package com.timeslot.reservation.service;
 

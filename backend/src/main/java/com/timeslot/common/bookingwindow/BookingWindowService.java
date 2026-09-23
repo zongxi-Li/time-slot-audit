@@ -1,7 +1,9 @@
 /**
- * 文件职责：提供全局可预约时段的读取与管理员设置，供预约校验与管理端接口使用。
+ * 文件职责：读取和维护系统级预约开放时间范围。
  * 接口：由 BookingWindowController 与预约域调用。
+ * 方法：initialize 确保单例配置行存在；get 获取当前配置；set 校验起止分钟并保存新配置。
  */
+
 package com.timeslot.common.bookingwindow;
 
 import com.timeslot.common.api.ErrorCode;

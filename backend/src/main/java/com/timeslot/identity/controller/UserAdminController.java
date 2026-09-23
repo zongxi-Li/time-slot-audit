@@ -1,12 +1,14 @@
 /**
- * 文件职责：提供 身份与用户 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：管理员维护用户、信用分、限制状态和密码的 HTTP 接口。
  * 接口：GET /api/admin/users；
  *        GET /api/admin/users/{id}；
  *        GET /api/admin/users/{id}/qualification；
  *        GET /api/admin/users/{id}/violations；
  *        PUT /api/admin/users/{id}/credit；
  *        …。
- */
+ * 方法：list/detail 查询用户；qualification/violations 查询资格和违规；adjustCredit/setRestriction 调整信用与限制；create/update/updateStatus/resetPassword 管理用户资料、状态和密码。
+*/
+
 package com.timeslot.identity.controller;
 
 import com.timeslot.common.api.ApiResponse;

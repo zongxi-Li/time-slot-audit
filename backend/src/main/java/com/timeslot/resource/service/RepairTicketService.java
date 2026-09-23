@@ -1,7 +1,9 @@
 /**
- * 文件职责：处理会议室报修工单的创建、查询和解决。
+ * 文件职责：创建、查询和处理会议室报修工单。
  * 接口：由 RoomController 和 RepairTicketAdminController 调用。
- */
+ * 方法：create 提交报修；list 查询工单；resolve 处理工单；requireTicket/requireRoom 校验目标记录；toResponse 转换为 API 响应。
+*/
+
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

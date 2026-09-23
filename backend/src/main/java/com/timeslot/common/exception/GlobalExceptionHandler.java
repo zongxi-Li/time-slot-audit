@@ -1,7 +1,9 @@
 /**
- * 文件职责：统一处理参数校验、业务和系统异常。
+ * 文件职责：把控制器、校验、业务和数据库异常统一转换为 ApiResponse。
  * 接口：向前端输出统一 ApiResponse 错误结构。
- */
+ * 方法：各 handle* 方法分别处理权限拒绝、业务异常、参数校验/解析错误、重复键和未预期异常。
+*/
+
 package com.timeslot.common.exception;
 
 import com.timeslot.common.api.ApiResponse;

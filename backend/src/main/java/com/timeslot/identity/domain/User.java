@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的实体、值对象或枚举。
+ * 文件职责：表示用户账户及部门、信用分、限制期限等身份领域数据。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
- */
+ * 方法：enabled 判断用户账号是否处于可用状态；record 访问器由 Java 自动生成。
+*/
+
 package com.timeslot.identity.domain;
 
 import java.time.LocalDateTime;

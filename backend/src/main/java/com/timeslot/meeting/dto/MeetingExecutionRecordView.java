@@ -1,7 +1,9 @@
 /**
- * 文件职责：返回会议级实际使用记录。
+ * 文件职责：返回会议实际执行记录和出勤情况。
  * 接口：由会议执行接口返回给前端和其他只读调用方。
+ * 方法：from 将领域执行记录转换为 API 视图。
  */
+
 package com.timeslot.meeting.dto;
 
 import com.timeslot.meeting.domain.MeetingExecutionRecord;

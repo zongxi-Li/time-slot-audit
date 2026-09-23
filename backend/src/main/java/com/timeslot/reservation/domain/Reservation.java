@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 预约核心 的实体、值对象或枚举。
+ * 文件职责：表示一条预约领域数据及其房间、时间、申请人和生命周期状态。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
+ * 方法：无显式业务流程方法；字段访问由实体访问器提供，状态转换集中在 ReservationStateMachine。
  */
+
 package com.timeslot.reservation.domain;
 
 import java.time.LocalDateTime;

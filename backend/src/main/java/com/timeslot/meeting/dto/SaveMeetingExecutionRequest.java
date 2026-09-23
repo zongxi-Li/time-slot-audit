@@ -1,7 +1,9 @@
 /**
- * 文件职责：接收会议实际使用记录的保存请求。
+ * 文件职责：保存实际会议执行结果接口的请求 DTO 及输入校验。
  * 接口：由 MeetingExecutionController 接收并交给 Service 校验。
+ * 方法：无显式业务方法；record 组件接收实际起止时间、出勤和总结等数据。
  */
+
 package com.timeslot.meeting.dto;
 
 import jakarta.validation.constraints.Min;

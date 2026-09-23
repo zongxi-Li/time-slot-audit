@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的请求或响应 DTO。
+ * 文件职责：向前端返回用户预约资格、信用分和限制状态。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：from 将领域资格结果转换为 API 响应。
+*/
+
 package com.timeslot.identity.dto;
 
 import com.timeslot.identity.domain.BookingQualification;

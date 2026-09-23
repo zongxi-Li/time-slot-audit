@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 预约核心 的请求或响应 DTO。
+ * 文件职责：创建预约接口的请求 DTO，承载幂等键、会议室、标题、时间、人数及可选周期/参与人。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
+ * 方法：无显式业务方法；record 组件是请求字段，校验注解负责基础格式和范围验证。
  */
+
 package com.timeslot.reservation.dto;
 
 import jakarta.validation.constraints.Max;

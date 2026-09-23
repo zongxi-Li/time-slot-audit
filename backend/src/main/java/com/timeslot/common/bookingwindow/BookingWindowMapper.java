@@ -1,3 +1,7 @@
+/**
+ * 文件职责：预约开放时间窗口的 MyBatis 数据访问接口。
+ * 方法：ensureConfigRow 确保单例配置行存在；findWindow 读取预约开放窗口；saveWindow 写入或更新窗口。
+ */
 package com.timeslot.common.bookingwindow;
 
 import org.apache.ibatis.annotations.Insert;

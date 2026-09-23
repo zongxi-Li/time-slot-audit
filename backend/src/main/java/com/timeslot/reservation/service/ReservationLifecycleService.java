@@ -1,7 +1,9 @@
 /**
- * 文件职责：集中处理预约审批、拒绝和强制取消等生命周期变化。
+ * 文件职责：集中处理审批、驳回、强制取消、普通取消和过期等预约状态迁移。
  * 接口：被 administration 通过生命周期端口调用。
- */
+ * 方法：approve/reject/forceCancel/expireIfEnded/cancel 执行生命周期动作；lockForTransition 锁定并读取预约；其余方法检查理由、时间、状态及更新结果。
+*/
+
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;

@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：部门数据的 MyBatis 查询和写入接口。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
- */
+ * 方法：findAll/findById/findByDeptName 查询部门；countByNameExcluding 检查名称是否重复；insert/update 新增或修改部门。
+*/
+
 package com.timeslot.identity.mapper;
 
 import com.timeslot.identity.domain.Department;

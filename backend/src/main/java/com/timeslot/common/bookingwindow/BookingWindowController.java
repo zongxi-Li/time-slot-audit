@@ -1,3 +1,7 @@
+/**
+ * 文件职责：提供系统预约开放时间窗口的 HTTP 查询和设置接口。
+ * 方法：current 查询当前窗口；set 校验请求并更新窗口。
+ */
 package com.timeslot.common.bookingwindow;
 
 import com.timeslot.common.api.ApiResponse;

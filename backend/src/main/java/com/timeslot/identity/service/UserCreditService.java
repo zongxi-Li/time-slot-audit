@@ -1,7 +1,9 @@
 /**
- * 文件职责：维护用户信用分、违规记录和限制状态。
+ * 文件职责：管理用户信用分、预约限制和违规记录。
  * 接口：被管理员用户管理服务调用。
- */
+ * 方法：listViolations 查询违规；adjustCredit 调整信用分；setRestriction 设置限制；applyAutoBlacklistRules 应用自动限制规则；requireUser 校验用户存在。
+*/
+
 package com.timeslot.identity.service;
 
 import com.timeslot.common.api.ErrorCode;

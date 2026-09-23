@@ -1,9 +1,11 @@
 /**
- * 文件职责：提供 身份与用户 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：管理员维护部门信息的 HTTP 接口。
  * 接口：GET /api/admin/departments；
  *        POST /api/admin/departments；
  *        PUT /api/admin/departments/{id}。
- */
+ * 方法：list 查询部门；create 新建部门；update 修改指定部门。
+*/
+
 package com.timeslot.identity.controller;
 
 import com.timeslot.common.api.ApiResponse;

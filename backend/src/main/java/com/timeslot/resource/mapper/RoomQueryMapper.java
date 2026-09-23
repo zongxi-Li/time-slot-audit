@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议室条件筛选与时段空闲查询 的 MyBatis 数据访问接口，执行只读查询 SQL。
+ * 文件职责：执行会议室检索、可预约时段等只读组合查询的 MyBatis 接口。
  * 接口：供 ResourceQueryService 使用，不直接暴露 HTTP。
+ * 方法：searchRooms 按位置、容量、设施和状态筛选会议室；findOccupiedRoomIds 查询指定时段已占用的房间 ID。
  */
+
 package com.timeslot.resource.mapper;
 
 import com.timeslot.resource.mapper.ResourceMapper.RoomRow;

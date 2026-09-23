@@ -1,7 +1,9 @@
 /**
- * 文件职责：把管理员域生命周期操作适配到 reservation 域公开服务。
+ * 文件职责：把管理领域的生命周期端口接到 reservation 领域服务。
  * 接口：实现 ReservationLifecyclePort。
+ * 方法：approve、reject、forceCancel 分别转发审批通过、驳回和强制取消。
  */
+
 package com.timeslot.administration.spi;
 
 import com.timeslot.reservation.service.ReservationLifecycleService;

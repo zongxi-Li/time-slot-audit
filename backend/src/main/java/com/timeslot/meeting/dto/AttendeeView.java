@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议执行 的请求或响应 DTO。
+ * 文件职责：向前端展示参与人身份、角色和签到状态。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：from 将参与人及关联用户信息组合为响应视图。
+*/
+
 package com.timeslot.meeting.dto;
 
 import com.timeslot.meeting.domain.Attendee;

@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议执行 的实体、值对象或枚举。
+ * 文件职责：保存 meeting 领域所需的最小用户引用信息，避免直接依赖 identity 实体。
  * 接口：供本域 Service、Mapper 和 DTO 转换使用。
- */
+ * 方法：无显式业务方法；访问器用于读写引用字段。
+*/
+
 package com.timeslot.meeting.domain;
 
 /** 跨域只读引用的用户最小信息（来源 sys_user，仅用于参与人解析与展示）。 */

@@ -1,7 +1,9 @@
 /**
- * 文件职责：负责 JWT 的签发、解析和校验。
+ * 文件职责：负责 JWT 的签发和验证解析。
  * 接口：被 AuthService 和认证过滤器调用。
- */
+ * 方法：issue(用户) 生成登录令牌；parse(token) 校验令牌并还原认证用户。
+*/
+
 package com.timeslot.common.security;
 
 import io.jsonwebtoken.Claims;

@@ -1,11 +1,13 @@
 /**
- * 文件职责：预约域对外通知出端口（outbound port）。
+ * 文件职责：reservation 领域发布预约生命周期通知所依赖的抽象端口。
  * 接口：由 reservation / administration 域在生命周期关键节点调用，实现由 meeting 域提供。
  *
  * 设计动机：meeting 域已单向依赖 reservation（MeetingExecutionService -> ReservationQueryService），
  * 若 reservation 直接注入 meeting 的 NotificationService 会形成模块级循环依赖。改为 reservation
  * 定义本端口（仅接口，本模块自持），由 meeting 提供适配器实现，彻底解耦。
- */
+ * 方法：通知创建、待审批、审批通过、驳回和取消等预约事件；具体方法参数定义见接口签名。
+*/
+
 package com.timeslot.reservation.spi;
 
 import com.timeslot.reservation.domain.ReservationStatus;

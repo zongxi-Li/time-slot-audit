@@ -1,7 +1,9 @@
 /**
- * 文件职责：保存单场会议的实际执行结果。
+ * 文件职责：保存会议实际开始/结束时间、出勤人数和总结等执行记录。
  * 接口：供 meeting 域 Service、Mapper 和 DTO 转换使用。
+ * 方法：无显式流程方法；实体访问器用于读写执行记录字段。
  */
+
 package com.timeslot.meeting.domain;
 
 import java.time.LocalDateTime;

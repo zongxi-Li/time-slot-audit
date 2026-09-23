@@ -1,7 +1,11 @@
 /**
- * 文件职责：定义 预约核心 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：预约领域的 MyBatis 数据访问接口，SQL 语句已在各方法前逐条说明。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
+ * 方法：countFutureActiveReservations/countAllReservationsByRoomId 查询房间占用；findByUserIdAndRequestId/findById/findByIdForUpdate/findByUserId/findCalendar 查询预约；
+ *        findFirstConflict 检查时段冲突；insert 新增；updateScheduleAndStatus/transitionStatusExpected/cancelExpected 更新预约或状态；
+ *        findPendingEndedBefore/expirePendingEnded 处理审批超时。SQL 细节见各方法注释。
  */
+
 package com.timeslot.reservation.mapper;
 
 import com.timeslot.reservation.domain.Reservation;

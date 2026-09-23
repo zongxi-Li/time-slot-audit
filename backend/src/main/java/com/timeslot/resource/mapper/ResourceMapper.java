@@ -1,7 +1,12 @@
 /**
- * 文件职责：定义 会议室资源 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：会议室、分类、设施、开放规则、维护计划和报修工单的 MyBatis 数据访问接口。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
+ * 方法：listRooms/findRoomForUpdate/findRoomById/findRoomByName 查询或锁定会议室，insertRoom/updateRoom/updateRoomStatus/deleteRoom 维护会议室；
+ *        findCategory/listCategories/insertCategory/updateCategory 维护分类；findOpenRule/listOpenRulesByRoom/deleteOpenRulesByRoom/insertOpenRules 维护开放规则；
+ *        findFacilityById/listFacilitiesByRoom/deleteFacilitiesByRoom/insertFacilities 维护设施；insertMaintenance/listMaintenanceByRoom/findMaintenanceById/finishMaintenance 维护计划；
+ *        insertRepairTicket/listRepairTickets/findRepairTicketById/resolveRepairTicket 维护报修工单。SQL 细节见各方法上方注释。
  */
+
 package com.timeslot.resource.mapper;
 
 import com.timeslot.resource.mapper.ResourceMapper.RoomRow;

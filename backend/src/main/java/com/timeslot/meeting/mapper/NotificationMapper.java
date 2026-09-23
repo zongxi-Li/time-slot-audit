@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议执行 的 MyBatis 数据访问接口，执行查询、插入和更新 SQL。
+ * 文件职责：用户通知数据的 MyBatis 查询和状态更新接口。
  * 接口：供本域 Service 使用，不直接暴露 HTTP。
- */
+ * 方法：insertIgnore 写入通知并避免重复；findByUser 查询用户通知；countUnread 统计未读数；markRead/markAllRead 更新单条或全部已读状态。
+*/
+
 package com.timeslot.meeting.mapper;
 
 import com.timeslot.meeting.domain.Notification;

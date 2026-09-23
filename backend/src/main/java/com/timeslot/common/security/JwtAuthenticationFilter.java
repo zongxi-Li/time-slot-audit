@@ -1,7 +1,9 @@
 /**
- * 文件职责：解析 Authorization Bearer Token 并建立登录上下文。
+ * 文件职责：在每个 HTTP 请求中解析 JWT 并建立 Spring Security 身份上下文。
  * 接口：处理每个受保护 /api 请求。
+ * 方法：doFilterInternal 提取令牌、验证并设置认证信息，然后继续过滤链。
  */
+
 package com.timeslot.common.security;
 
 import jakarta.servlet.FilterChain;

@@ -1,3 +1,7 @@
+/**
+ * 文件职责：统一提供可切换实时/固定模式的业务时钟，并持久化模拟时间。
+ * 方法：instant/now 读取业务时间；isFixed 查询模式；setFixedTime/resetToRealtime 切换模式；snapshot/apply 读取或应用持久化状态。
+ */
 package com.timeslot.common.time;
 
 import jakarta.annotation.PostConstruct;

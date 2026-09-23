@@ -1,7 +1,10 @@
 /**
- * 文件职责：配置 Spring Security、JWT 过滤器和管理员路由权限。
+ * 文件职责：配置 Spring Security 的认证、授权规则和 JWT 过滤链。
  * 接口：放行登录接口并保护 /api 接口。
+ * 方法：securityFilterChain 配置无状态 JWT 认证、登录放行和管理员路由授权；
+ *        passwordEncoder 提供 BCrypt 密码编码器；userDetailsService 提供认证框架适配 Bean。
  */
+
 package com.timeslot.common.config;
 
 import com.timeslot.common.security.JwtAuthenticationFilter;

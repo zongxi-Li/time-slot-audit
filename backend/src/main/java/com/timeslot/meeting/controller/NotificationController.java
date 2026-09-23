@@ -1,10 +1,12 @@
 /**
- * 文件职责：提供 会议执行 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：当前用户通知列表、未读数和已读状态 HTTP 接口。
  * 接口：GET /api/notifications；
  *        GET /api/notifications/unread-count；
  *        POST /api/notifications/{id}/read；
  *        POST /api/notifications/read-all。
- */
+ * 方法：list 查询通知；unreadCount 查询未读数；markRead/markAllRead 将单条或全部通知标为已读。
+*/
+
 package com.timeslot.meeting.controller;
 
 import com.timeslot.common.api.ApiResponse;

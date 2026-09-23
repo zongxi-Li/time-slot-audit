@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 管理员运营 的请求或响应 DTO。
+ * 文件职责：会议室利用率统计的响应数据。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
+ * 方法：of 根据会议室及统计值创建规范化响应；record 访问器由 Java 自动生成。
  */
+
 package com.timeslot.administration.dto;
 
 import java.math.BigDecimal;

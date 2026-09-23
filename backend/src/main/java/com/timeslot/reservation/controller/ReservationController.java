@@ -1,12 +1,14 @@
 /**
- * 文件职责：提供 预约核心 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：预约日历、本人预约及预约创建/修改/取消 HTTP 接口。
  * 接口：GET /api/reservations/calendar；
  *        GET /api/reservations/my；
  *        POST /api/reservations；
  *        GET /api/reservations/{id}；
  *        PUT /api/reservations/{id}；
  *        …。
- */
+ * 方法：calendar 查询日历；mine 查询本人预约；create/detail/update/cancel 分别创建、查看、修改和取消预约。
+*/
+
 package com.timeslot.reservation.controller;
 
 import com.timeslot.common.api.ApiResponse;

@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 身份与用户 的请求或响应 DTO。
+ * 文件职责：管理员重置用户密码接口的请求 DTO 及密码校验。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：无显式业务方法；record 组件接收新密码。
+*/
+
 package com.timeslot.identity.dto;
 
 import jakarta.validation.constraints.NotBlank;

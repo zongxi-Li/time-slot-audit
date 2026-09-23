@@ -1,3 +1,7 @@
+/**
+ * 文件职责：提供业务时钟查询、设置固定时间和恢复实时钟的管理接口。
+ * 方法：current 查询时钟状态；set 设置模拟时间；reset 恢复实时系统时间。
+ */
 package com.timeslot.common.time;
 
 import com.timeslot.common.api.ApiResponse;

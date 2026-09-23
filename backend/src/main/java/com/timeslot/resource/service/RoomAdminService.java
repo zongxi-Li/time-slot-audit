@@ -1,7 +1,11 @@
 /**
- * 文件职责：实现会议室、设施、开放时间和分类的管理员维护。
+ * 文件职责：编排会议室基础资料、开放时段和设施的管理及业务校验。
  * 接口：由资源管理 Controller 调用。
+ * 方法：createRoom/updateRoom/changeStatus/deleteRoom 管理房间；getRoomDetail/getRoomResponse 查询信息；
+ *        listOpenRules/replaceOpenRules 与 listFacilities/replaceFacilities 查询或替换配置；
+ *        其余方法校验房间、分类、容量、名称和状态并转换响应。
  */
+
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

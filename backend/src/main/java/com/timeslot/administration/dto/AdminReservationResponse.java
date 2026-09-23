@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 管理员运营 的请求或响应 DTO。
+ * 文件职责：管理端预约详情/列表响应，携带预约信息及审批历史。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：withHistory 在保留预约字段的基础上生成带审批记录的响应；record 访问器由 Java 自动生成。
+*/
+
 package com.timeslot.administration.dto;
 
 import java.time.LocalDateTime;

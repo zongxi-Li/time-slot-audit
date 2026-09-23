@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义管理员域调用预约生命周期变更的端口。
+ * 文件职责：管理领域调用预约生命周期能力的接口边界。
  * 接口：供 ReservationLifecycleAdapter 实现。
- */
+ * 方法：approve/reject/forceCancel 将管理员动作交给 reservation 领域处理。
+*/
+
 package com.timeslot.administration.spi;
 
 /**

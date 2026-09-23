@@ -1,7 +1,9 @@
 /**
- * 文件职责：提供 身份与用户 HTTP 接口，将请求交给 Service 处理并返回统一响应。
+ * 文件职责：身份认证 HTTP 接口。
  * 接口：POST /api/auth/login。
+ * 方法：login 接收登录 DTO，调用认证服务并返回令牌和用户信息。
  */
+
 package com.timeslot.identity.controller;
 
 import com.timeslot.common.api.ApiResponse;

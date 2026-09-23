@@ -1,10 +1,12 @@
 /**
- * 文件职责：把预约创建时的初始参与人登记适配到 meeting 域参与人能力。
+ * 文件职责：实现 reservation 领域的参与人端口，由 meeting 领域登记预约参与人。
  * 接口：实现 ReservationAttendeePort。
  *
  * 边界：仅写本域 reservation_attendee 表；用户解析复用 MeetingExecutionMapper 的
  * 跨域只读查询，不写 reservation 表。校验失败抛业务异常，随调用方事务整体回滚。
+ * 方法：attachInitialAttendees 为新预约登记初始参与人并补齐组织者。
  */
+
 package com.timeslot.meeting.adapter;
 
 import com.timeslot.common.api.ErrorCode;

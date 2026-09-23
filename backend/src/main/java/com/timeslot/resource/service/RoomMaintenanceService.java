@@ -1,7 +1,9 @@
 /**
- * 文件职责：登记、查询和完成会议室维护计划。
+ * 文件职责：管理会议室维护计划及维护期间的资源占用信息。
  * 接口：由 RoomAdminController 调用。
- */
+ * 方法：createPlan 新建计划；listPlans 查询计划；finishPlan 完成计划；requirePlan/requireRoom 校验关联记录；toResponse 转换响应。
+*/
+
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

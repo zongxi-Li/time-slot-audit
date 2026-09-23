@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 管理员运营 的请求或响应 DTO。
+ * 文件职责：承接管理员预约列表的数据库查询投影。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：toResponse 将查询行转换为对外返回的 AdminReservationResponse；record 访问器由 Java 自动生成。
+*/
+
 package com.timeslot.administration.dto;
 
 import java.time.LocalDateTime;

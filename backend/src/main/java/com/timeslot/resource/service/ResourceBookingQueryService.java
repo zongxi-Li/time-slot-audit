@@ -1,7 +1,9 @@
 /**
- * 文件职责：为预约域提供可预约会议室、开放规则查询和会议室行锁。
+ * 文件职责：为预约流程读取并锁定可预约会议室的资源信息。
  * 接口：被 ReservationService 调用。
- */
+ * 方法：lockBookableRoom 在预约事务中锁定会议室行并校验其可预订条件。
+*/
+
 package com.timeslot.resource.service;
 
 import com.timeslot.common.api.ErrorCode;

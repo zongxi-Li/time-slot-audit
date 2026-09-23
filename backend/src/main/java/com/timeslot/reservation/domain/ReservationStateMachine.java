@@ -1,7 +1,9 @@
 /**
- * 文件职责：预约生命周期状态迁移矩阵的唯一权威实现。
+ * 文件职责：集中约束预约状态的初始值及合法流转规则。
  * 接口：供 reservation 域 Service 调用；业务 Guard（身份、时间、原因、冲突）不在此处。
+ * 方法：initialStatus 依据是否需审批决定初始状态；transition 计算事件后的状态；requirePending/requireActive 校验当前状态；illegal 创建非法流转异常。
  */
+
 package com.timeslot.reservation.domain;
 
 import com.timeslot.common.api.ErrorCode;

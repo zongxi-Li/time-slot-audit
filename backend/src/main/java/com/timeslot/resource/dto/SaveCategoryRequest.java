@@ -1,7 +1,9 @@
 /**
- * 文件职责：定义 会议室资源 的请求或响应 DTO。
+ * 文件职责：新建或修改会议室分类的请求 DTO 及字段校验。
  * 接口：在 Controller、Service 和前端 API 之间传递结构化数据。
- */
+ * 方法：无显式业务方法；record 组件接收分类名称、容量范围和审批配置。
+*/
+
 package com.timeslot.resource.dto;
 
 import jakarta.validation.constraints.Min;

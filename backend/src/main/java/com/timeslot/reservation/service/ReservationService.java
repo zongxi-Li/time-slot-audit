@@ -1,7 +1,9 @@
 /**
- * 文件职责：执行预约创建、修改和取消，校验资格、容量、开放时间和时间冲突。
+ * 文件职责：实现用户预约的创建、修改、查询、取消及预约规则校验。
  * 接口：由 ReservationController 调用。
- */
+ * 方法：createReservation 执行单次/周期预约创建；update/detail/calendar/mine 查询或修改预约；cancel 取消预约；notifyReservationLifecycle 发送生命周期通知；其余方法完成时段、开放窗口、冲突、容量和重复周数校验。
+*/
+
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;

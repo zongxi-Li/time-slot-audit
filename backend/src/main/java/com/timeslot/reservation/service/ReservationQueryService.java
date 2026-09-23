@@ -1,7 +1,9 @@
 /**
- * 文件职责：提供预约域对外的只读查询，避免其他领域直接访问预约表。
+ * 文件职责：封装预约领域供其他服务复用的只读查询。
  * 接口：被 meeting 和 administration 调用。
- */
+ * 方法：requireReservation 按 ID 查询并要求记录存在；findConfirmedStartingBetween 查询区间内开始的已确认预约；findConfirmedEndedBefore/findPendingEndedBefore 查询已结束或超时待审批记录。
+*/
+
 package com.timeslot.reservation.service;
 
 import com.timeslot.common.api.ErrorCode;

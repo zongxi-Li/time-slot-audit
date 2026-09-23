@@ -1,7 +1,9 @@
 /**
- * 文件职责：实现部门查询和管理员部门维护。
+ * 文件职责：维护部门信息并执行名称唯一性校验。
  * 接口：由 DepartmentController 调用。
- */
+ * 方法：list 查询部门；create 新建；update 修改；ensureNameAvailable 校验部门名称未被占用。
+*/
+
 package com.timeslot.identity.service;
 
 import com.timeslot.common.api.ErrorCode;
