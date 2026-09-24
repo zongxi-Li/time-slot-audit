@@ -72,8 +72,8 @@ class ReservationServiceTest {
     /** Small normal room: no approval required, max 120 minutes, 7 days in advance. */
     private final BookableRoomProfile room = new BookableRoomProfile(1L, "A301", 8, "AVAILABLE",
             false, 120, 7);
-    /** 默认全局可预约窗口 08:00 - 次日 08:00（480..1920 分钟）。 */
-    private static final BookingWindowResponse DEFAULT_WINDOW = new BookingWindowResponse(480, 1920);
+    /** 默认全局可预约窗口 06:00 - 次日 06:00（360..1800 分钟）。 */
+    private static final BookingWindowResponse DEFAULT_WINDOW = new BookingWindowResponse(360, 1800);
 
     @BeforeEach
     void setUp() {
@@ -188,7 +188,7 @@ class ReservationServiceTest {
 
     @Test
     void overnightReservationInsideWindowIsAllowed() {
-        // 18:00 至次日 01:00（1500 分钟）仍在默认窗口 480..1920 内；房间时长上限放开以聚焦窗口规则
+        // 18:00 至次日 01:00（1500 分钟）仍在默认窗口 360..1800 内；房间时长上限放开以聚焦窗口规则
         when(resourceBookingQueryService.lockBookableRoom(1L)).thenReturn(
                 new BookableRoomProfile(1L, "A301", 8, "AVAILABLE", false, 24 * 60, 7));
         CreateReservationRequest overnight = new CreateReservationRequest("request-1", 1L, "通宵研讨",
@@ -199,8 +199,29 @@ class ReservationServiceTest {
     }
 
     @Test
+    void reservationAtSixAmWindowStartIsAllowed() {
+        CreateReservationRequest early = new CreateReservationRequest("request-1", 1L, "清晨会议",
+                LocalDateTime.of(2026, 9, 12, 6, 0), LocalDateTime.of(2026, 9, 12, 7, 0),
+                4, null, null, null);
+
+        assertEquals("CONFIRMED", service.createReservation(early).status());
+        verify(reservationMapper).insert(any(Reservation.class));
+    }
+
+    @Test
+    void reservationBeforeSixAmWindowStartIsRejected() {
+        CreateReservationRequest tooEarly = new CreateReservationRequest("request-1", 1L, "过早会议",
+                LocalDateTime.of(2026, 9, 12, 5, 0), LocalDateTime.of(2026, 9, 12, 6, 0),
+                4, null, null, null);
+
+        assertEquals(ErrorCode.VALIDATION_ERROR,
+                assertThrows(BusinessException.class, () -> service.createReservation(tooEarly)).getCode());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
+
+    @Test
     void reservationBeyondWindowEndIsRejected() {
-        // 结束落到次日 10:00（2040 分钟），超出默认窗口 1920 分钟
+        // 结束落到次日 10:00（2040 分钟），超出默认窗口 1800 分钟
         CreateReservationRequest beyond = new CreateReservationRequest("request-1", 1L, "超时段预约",
                 LocalDateTime.of(2026, 9, 12, 18, 0), LocalDateTime.of(2026, 9, 13, 10, 0), 4, null, null, null);
 

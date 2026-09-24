@@ -3,12 +3,12 @@
 """Repeatable 100-request baseline check for one room/time interval.
 
 Usage:
-  python scripts/concurrency-test.py --token <JWT> --room-id 1
-  python scripts/concurrency-test.py --token <JWT> --room-id 1 --second-room-id 2
+  python scripts/concurrency-test.py --token <JWT>
+  python scripts/concurrency-test.py --token <JWT> --room-id 2 --second-room-id 1
 
 The script expects the backend to be running and uses only Python's standard library.
-It reports HTTP results and then queries the calendar endpoint to verify that the returned
-PENDING/CONFIRMED intervals do not overlap. It does not mutate schema or delete data.
+It checks that the target interval is free before sending requests, then queries the calendar
+to verify that the resulting PENDING/CONFIRMED intervals do not overlap. It does not clean up data.
 """
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ import uuid
 from datetime import datetime, timedelta
 
 # 修改这里可以调整默认测试配置；命令行参数会覆盖这些默认值。
-DEFAULT_BASE_URL = "http://localhost:8080/api"
-DEFAULT_ROOM_ID = "1"
+DEFAULT_BASE_URL = "http://localhost:8081/api"
+DEFAULT_ROOM_ID = "2"  # A302
 DEFAULT_SECOND_ROOM_ID = None
 DEFAULT_DATE = None  # None 表示明天，或填写 YYYY-MM-DD
 DEFAULT_START_TIME = "10:00"
@@ -107,6 +107,30 @@ def main() -> int:
     room_ids = [str(args.room_id)]
     if args.second_room_id is not None and str(args.second_room_id) not in room_ids:
         room_ids.append(str(args.second_room_id))
+
+    for room_id in room_ids:
+        status, payload = call(
+            f"{base_url}/reservations/calendar?start={start_text}&end={end_text}&roomId={room_id}",
+            args.token,
+            "GET",
+        )
+        if status != 200:
+            print(f"room {room_id} preflight calendar query failed: HTTP {status} {payload}")
+            return 1
+        existing = payload.get("data") or []
+        conflicts = [
+            item for item in existing
+            if item["status"] in {"PENDING", "CONFIRMED"}
+            and datetime.fromisoformat(item["startTime"]) < end
+            and datetime.fromisoformat(item["endTime"]) > start
+        ]
+        if conflicts:
+            print(
+                f"room {room_id} test interval is already occupied; "
+                f"no test requests were sent: {start_text}..{end_text}"
+            )
+            return 1
+
     results: list[tuple[str, int, dict]] = []
     lock = threading.Lock()
     started_at = time.perf_counter()

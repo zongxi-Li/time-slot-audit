@@ -342,6 +342,7 @@ function onGripDblClick(index: number) {
         >
           {{ hourLabel(h) }}
         </div>
+        <div class="time-end-label">{{ hourLabel(bookingWindow.endHour) }}</div>
       </div>
 
       <!-- 滚动窗口的每一天一列 -->
@@ -508,6 +509,14 @@ function onGripDblClick(index: number) {
   font-size: 11px;
   color: var(--text-muted);
   box-sizing: border-box;
+}
+
+.time-end-label {
+  position: absolute;
+  right: 8px;
+  bottom: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .week-day-col {

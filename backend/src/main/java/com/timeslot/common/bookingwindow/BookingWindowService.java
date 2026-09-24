@@ -29,8 +29,8 @@ public class BookingWindowService {
     public BookingWindowResponse get() {
         BookingWindowResponse window = mapper.findWindow();
         if (window == null) {
-            // 行被外部删除时 fail-open 回落到默认 08:00-次日08:00，保证预约主流程可用。
-            return new BookingWindowResponse(480, 1920);
+            // 行被外部删除时回落到默认 06:00-次日06:00，保证预约主流程可用。
+            return new BookingWindowResponse(360, 1800);
         }
         return window;
     }

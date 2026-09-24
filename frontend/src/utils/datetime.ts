@@ -1,6 +1,6 @@
-/** 营业时段兜底值：08:00 - 次日 08:00；实际以 bookingWindow store（后端配置）为准 */
-export const BUSINESS_START_HOUR = 8
-export const BUSINESS_END_HOUR = 32
+/** 营业时段兜底值：06:00 - 次日 06:00；实际以 bookingWindow store（后端配置）为准 */
+export const BUSINESS_START_HOUR = 6
+export const BUSINESS_END_HOUR = 30
 export const PX_PER_HOUR = 64
 
 /** 小时数（可 ≥24，表示次日）-> 展示标签，如 26 -> "次日 02:00" */

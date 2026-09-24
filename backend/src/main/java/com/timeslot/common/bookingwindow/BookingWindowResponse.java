@@ -6,7 +6,7 @@ package com.timeslot.common.bookingwindow;
 
 /**
  * 全局可预约时段（管理员可调）。分钟数相对预约日期 00:00 计；
- * endMinute 超过 1440 表示延伸到次日（如 480-1920 = 08:00 至次日 08:00）。
+ * endMinute 超过 1440 表示延伸到次日（如 360-1800 = 06:00 至次日 06:00）。
  */
 public record BookingWindowResponse(int startMinute, int endMinute) {
 

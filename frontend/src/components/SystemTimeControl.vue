@@ -66,6 +66,8 @@ async function resetTime() {
         v-model="draft"
         type="datetime"
         value-format="YYYY-MM-DDTHH:mm:ss"
+        placement="left-start"
+        :fallback-placements="['right-start', 'left-end', 'right-end']"
         placeholder="选择业务时间"
         :clearable="false"
         style="width: 100%"

@@ -254,7 +254,7 @@ async function saveFacilities() {
 }
 
 /* —— 全局可预约时段（对所有会议室生效；结束可到次日） —— */
-const windowForm = reactive({ startHour: 8, endHour: 32 })
+const windowForm = reactive({ startHour: 6, endHour: 30 })
 const windowSaving = ref(false)
 
 const windowStartOptions = computed(() => {
@@ -480,7 +480,7 @@ async function finishMaintenance(plan: MaintenanceResponse) {
     <div class="panel window-panel">
       <div class="window-info">
         <h3 class="window-title">全局可预约时段</h3>
-        <p class="muted">对所有会议室生效；结束时间可选到次日，如 08:00 至 次日 08:00 即全天 24 小时可预约</p>
+        <p class="muted">对所有会议室生效；结束时间可选到次日，如 06:00 至 次日 06:00 即全天 24 小时可预约</p>
       </div>
       <div class="window-controls">
         <el-select v-model="windowForm.startHour" style="width: 140px">

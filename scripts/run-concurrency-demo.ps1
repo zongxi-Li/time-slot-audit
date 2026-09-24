@@ -10,19 +10,19 @@
     .\scripts\run-concurrency-demo.ps1
 
 .EXAMPLE
-    .\scripts\run-concurrency-demo.ps1 -BaseUrl http://localhost:8081 -RoomId 1 -Count 10
+    .\scripts\run-concurrency-demo.ps1 -RoomId 2 -Count 10
 
 .EXAMPLE
-    .\scripts\run-concurrency-demo.ps1 -BaseUrl http://localhost:8081 -RoomId 1 `
+    .\scripts\run-concurrency-demo.ps1 -BaseUrl http://localhost:8081 -RoomId 2 `
         -Date 2026-09-22 -StartTime 14:00 -EndTime 15:30
 #>
 
 [CmdletBinding()]
 param(
-    [string]$BaseUrl = 'http://localhost:8080',
+    [string]$BaseUrl = 'http://localhost:8081',
     [string]$Username = 'zhangsan',
     [string]$Password = '123456',
-    [string]$RoomId = '1',
+    [string]$RoomId = '2',
     [int]$Count = 10,
     [string]$SecondRoomId,
     [string]$Date,
@@ -30,7 +30,8 @@ param(
     [string]$EndTime,
     [string]$Title,
     [int]$ParticipantCount = 1,
-    [string]$Remark
+    [string]$Remark,
+    [switch]$StartBackendIfMissing
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,6 +47,62 @@ if ($Count -le 0) {
 }
 
 $apiRoot = $BaseUrl.TrimEnd('/')
+$roomsUrl = "$apiRoot/api/rooms"
+
+function Get-EndpointStatusCode {
+    param([string]$Uri)
+
+    try {
+        $response = Invoke-WebRequest -Method Get -Uri $Uri -TimeoutSec 3 -UseBasicParsing
+        return [int]$response.StatusCode
+    } catch {
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            return [int]$_.Exception.Response.StatusCode
+        }
+        return 0
+    }
+}
+
+$backendStatus = Get-EndpointStatusCode -Uri $roomsUrl
+$backendReady = $backendStatus -in @(200, 401, 403)
+if (-not $backendReady) {
+    $serverUri = [Uri]$apiRoot
+    $listener = Get-NetTCPConnection -LocalPort $serverUri.Port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($listener) {
+        throw "Port $($serverUri.Port) is occupied, but the TimeSlot API is not ready (HTTP $backendStatus)."
+    }
+    if (-not $StartBackendIfMissing) {
+        throw "TimeSlot backend is not running at $apiRoot. Start it with .\start-dev.cmd and run this script again."
+    }
+
+    $startupCommand = Join-Path $repoRoot 'start-dev.cmd'
+    if (-not (Test-Path -LiteralPath $startupCommand)) {
+        throw "Startup command was not found: $startupCommand"
+    }
+
+    Write-Host 'Backend is not running. Starting the local development environment ...' -ForegroundColor Cyan
+    & $startupCommand
+
+    $deadline = (Get-Date).AddMinutes(3)
+    do {
+        Start-Sleep -Seconds 2
+        $backendStatus = Get-EndpointStatusCode -Uri $roomsUrl
+        $backendReady = $backendStatus -in @(200, 401, 403)
+    } while (-not $backendReady -and (Get-Date) -lt $deadline)
+
+    if (-not $backendReady) {
+        throw "TimeSlot backend did not become ready at $apiRoot within 3 minutes (last HTTP status: $backendStatus). Check the backend window and MySQL."
+    }
+}
+
+Write-Host "Backend ready at $apiRoot" -ForegroundColor Green
+$roomLabel = if ($RoomId -eq '2') { 'A302' } else { "room $RoomId" }
+$demoDate = if ([string]::IsNullOrWhiteSpace($Date)) { (Get-Date).AddDays(1).ToString('yyyy-MM-dd') } else { $Date }
+$demoStart = if ([string]::IsNullOrWhiteSpace($StartTime)) { '10:00' } else { $StartTime }
+$demoEnd = if ([string]::IsNullOrWhiteSpace($EndTime)) { '11:00' } else { $EndTime }
+Write-Host "Demo target: $roomLabel, $demoDate $demoStart-$demoEnd, $Count concurrent requests" -ForegroundColor Cyan
+
 $loginUrl = "$apiRoot/api/auth/login"
 $loginBody = @{
     username = $Username

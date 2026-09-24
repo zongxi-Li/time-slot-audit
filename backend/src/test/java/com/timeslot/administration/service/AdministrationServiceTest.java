@@ -54,7 +54,7 @@ class AdministrationServiceTest {
     void setUp() {
         service = new AdministrationService(mapper, currentUserProvider, lifecycleProvider, notificationPort,
                 bookingWindowService, Clock.systemDefaultZone());
-        when(bookingWindowService.get()).thenReturn(new BookingWindowResponse(480, 1920));
+        when(bookingWindowService.get()).thenReturn(new BookingWindowResponse(360, 1800));
         pending = reservation("PENDING");
         when(currentUserProvider.getRequired()).thenReturn(new AuthenticatedUser(1L, "admin", "ADMIN"));
         when(lifecycleProvider.getIfAvailable()).thenReturn(lifecycle);
@@ -145,7 +145,7 @@ class AdministrationServiceTest {
 
         var dashboard = service.dashboard(start, end, 5);
 
-        // 20 天 × 每日开放 24h（窗口 480..1920 即 1440 分钟）= 480h 开放时长：A301 使用率 2.92%、日均 0.70h
+        // 20 天 × 每日开放 24h（窗口 360..1800 即 1440 分钟）= 480h 开放时长：A301 使用率 2.92%、日均 0.70h
         assertEquals(20L, dashboard.statDays());
         assertEquals(2, dashboard.roomUtilizations().size());
         assertEquals(new java.math.BigDecimal("2.92"), dashboard.roomUtilizations().get(0).utilizationRate());

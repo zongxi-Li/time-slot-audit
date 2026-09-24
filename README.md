@@ -203,13 +203,13 @@ cd ..\backend
 mvn test
 ~~~
 
-并发验证需要有效 JWT；如果后端运行在 8081，显式传入对应地址：
+并发验证脚本默认连接 `http://localhost:8081`，默认测试 A302（会议室 ID 2）。双击项目根目录的 `run-concurrency-demo.cmd` 可在后端未启动时自动启动开发环境，然后登录并演示 10 个并发请求：
 
 ~~~powershell
-python scripts/concurrency-test.py --base-url http://localhost:8081/api --token <JWT> --room-id 1
+python scripts/concurrency-test.py --token <JWT> --room-id 2
 ~~~
 
-脚本默认向同一会议室发送 100 个重叠预约请求，并再次查询日历检查有效预约是否重叠；它不会删除数据库结构。
+脚本默认向同一会议室发送 100 个重叠预约请求，并再次查询日历检查有效预约是否重叠；并发演示成功创建的预约不会自动删除。
 
 ## 文档导航
 

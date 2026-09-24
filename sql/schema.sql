@@ -395,5 +395,5 @@ CREATE TABLE booking_window_config (
     CONSTRAINT chk_booking_window_range CHECK (start_minute >= 0 AND start_minute < end_minute AND end_minute <= 2880)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '全局可预约时段配置';
 
--- 默认 08:00 - 次日 08:00（全天 24 小时可预约）
-INSERT INTO booking_window_config (id, start_minute, end_minute) VALUES (1, 480, 1920);
+-- 默认 06:00 - 次日 06:00（全天 24 小时可预约）
+INSERT INTO booking_window_config (id, start_minute, end_minute) VALUES (1, 360, 1800);

@@ -262,6 +262,7 @@ function onPanPointerUp() {
         >
           {{ hourLabel(h) }}
         </div>
+        <div class="time-end-label">{{ hourLabel(bookingWindow.endHour) }}</div>
       </div>
 
       <!-- 会议室列 -->
@@ -404,6 +405,14 @@ function onPanPointerUp() {
   /* 数字右对齐到轴线上方更好看，这里左上对齐即可 */
   justify-content: flex-end;
   box-sizing: border-box;
+}
+
+.time-end-label {
+  position: absolute;
+  right: 8px;
+  bottom: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .grid-room-col {

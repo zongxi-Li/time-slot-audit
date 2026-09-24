@@ -16,7 +16,7 @@ public interface BookingWindowMapper {
     /** 初始化唯一的预约时间窗口配置行；已有设置时保持不变。 */
     @Insert("""
             INSERT IGNORE INTO booking_window_config (id, start_minute, end_minute)
-            VALUES (1, 480, 1920)
+            VALUES (1, 360, 1800)
             """)
     int ensureConfigRow();
 
